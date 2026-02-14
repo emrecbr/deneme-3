@@ -299,12 +299,12 @@
   </style>
 </head>
 <body>
-  <main class="scene" id="scene">
+  <div class="scene" id="scene">
     <h1 class="title" id="title">Önce kediyi izle, sonra üstüne tıkla ✨</h1>
     <div class="ground" id="ground"></div>
     <div class="cat" id="cat" role="button" tabindex="0" aria-label="Kediye tıkla">🐈</div>
 
-    <section class="flowers" aria-hidden="true">
+    <div class="flowers" aria-hidden="true">
       <div class="flower one">
         <div class="stem"></div>
         <div class="bloom">
@@ -325,8 +325,8 @@
           <div class="center"></div>
         </div>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
   <script>
     const ground = document.getElementById("ground");
