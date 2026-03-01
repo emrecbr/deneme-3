@@ -1,0 +1,68 @@
+[
+  {
+    "city": {
+      "name": "İstanbul",
+      "plateCode": "34",
+      "districts": [
+        {
+          "name": "Kadıköy",
+          "neighborhoods": [
+            {
+              "name": "Fenerbahçe",
+              "streets": [
+                {
+                  "name": "Bağdat Caddesi",
+                  "type": "Cadde"
+                },
+                {
+                  "name": "Dr. Esat Işık Sokak",
+                  "type": "Sokak"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Beşiktaş",
+          "neighborhoods": [
+            {
+              "name": "Levent",
+              "streets": [
+                {
+                  "name": "Büyükdere Caddesi",
+                  "type": "Cadde"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "city": {
+      "name": "Ankara",
+      "plateCode": "06",
+      "districts": [
+        {
+          "name": "Çankaya",
+          "neighborhoods": [
+            {
+              "name": "Kızılay",
+              "streets": [
+                {
+                  "name": "Atatürk Bulvarı",
+                  "type": "Cadde"
+                },
+                {
+                  "name": "Meşrutiyet Sokak",
+                  "type": "Sokak"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

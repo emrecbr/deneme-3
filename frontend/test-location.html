@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Location Test</title>
+</head>
+<body>
+  <h2>Konum Testi</h2>
+  <button onclick="getLocation()">Konumu Al</button>
+
+  <p id="result"></p>
+
+  <script>
+    function getLocation() {
+      if (!navigator.geolocation) {
+        document.getElementById("result").innerText = "Geolocation desteklenmiyor";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          document.getElementById("result").innerText =
+            "Lat: " + position.coords.latitude +
+            " | Lng: " + position.coords.longitude;
+        },
+        (error) => {
+          document.getElementById("result").innerText =
+            "Hata: " + error.message;
+        }
+      );
+    }
+  </script>
+</body>
+</html>

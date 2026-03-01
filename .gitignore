@@ -1,0 +1,10 @@
+.env
+.env.*
+node_modules
+dist
+build
+.DS_Store
+dev-cert
+*.log
+coverage
+.vite

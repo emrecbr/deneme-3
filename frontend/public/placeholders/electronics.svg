@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <circle cx="140" cy="80" r="140" fill="#60a5fa" opacity="0.18"/>
+  <circle cx="700" cy="430" r="180" fill="#93c5fd" opacity="0.15"/>
+  <text x="50%" y="52%" fill="#e2e8f0" font-size="48" text-anchor="middle" font-family="Inter, Arial, sans-serif">Elektronik Talebi</text>
+</svg>
