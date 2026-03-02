@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -21,8 +21,9 @@ const normalizePhone = (value) => toE164TR(normalizePhoneDigits(value));
 function RegisterOtp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const apiBase =
-    (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
+    .trim()
+    .replace(/\/$/, '');
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState('email');
   const [email, setEmail] = useState('');
@@ -104,19 +105,19 @@ function RegisterOtp() {
           ? { method, email: email.trim() }
           : { method, phone: normalizePhone(phone) };
 
-      await post('/api/auth/register/otp/send', payload);
+      await api.post('/auth/register/otp/send', payload);
       setStep(2);
       setResendSeconds(60);
       setSuccess('Kod gönderildi.');
     } catch (err) {
-      if (err?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
+      if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
         setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
-      } else if (err?.data?.code === 'TWILIO_GEO_BLOCKED') {
+      } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
         setError('Bu ülkeye SMS gönderimi kapalı.');
-      } else if (err?.data?.code === 'TWILIO_INVALID_PHONE') {
+      } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
         setError('Numara formatı hatalı (5XXXXXXXXX).');
       } else {
-        setError(err?.message || 'Kod gönderilemedi.');
+        setError(err?.response?.data?.message || err?.message || 'Kod gönderilemedi.');
       }
     } finally {
       setLoadingSend(false);
@@ -144,14 +145,15 @@ function RegisterOtp() {
           ? { method, email: email.trim(), code: code.trim(), name: name.trim(), password }
           : { method, phone: normalizePhone(phone), code: code.trim(), name: name.trim(), password };
 
-      const data = await post('/api/auth/register/otp/verify', payload);
+      const res = await api.post('/auth/register/otp/verify', payload);
+      const data = res?.data;
       if (data?.token) {
         localStorage.setItem('token', data.token);
       }
       setSuccess('Kayıt tamamlandı.');
       navigate('/app');
     } catch (err) {
-      setError(err?.message || 'Doğrulama başarısız.');
+      setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {
       setLoadingVerify(false);
     }
@@ -165,14 +167,7 @@ function RegisterOtp() {
   };
 
   const buildAuthUrl = (provider) => {
-    const base = apiBase.replace(/\/$/, '');
-    if (!base) {
-      return `/api/auth/${provider}`;
-    }
-    if (base.endsWith('/api')) {
-      return `${base}/auth/${provider}`;
-    }
-    return `${base}/api/auth/${provider}`;
+    return `${apiBase}/auth/${provider}`;
   };
 
   const handleProviderLogin = (provider) => {

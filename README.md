@@ -50,8 +50,8 @@ npm run dev
 
 ### Frontend (Vite)
 - `frontend/.env` dosyasında API adresini ayarla:
-  - Local: `VITE_API_BASE_URL=http://localhost:3001`
-  - Prod: `VITE_API_BASE_URL=https://api.talepet.net.tr`
+  - Local: `VITE_API_URL=http://localhost:3001/api`
+  - Prod: `VITE_API_URL=https://api.talepet.net.tr/api`
 - Not: Client tarafı `/api` yolunu otomatik ekler.
 
 ### Backend (Express)
@@ -61,6 +61,18 @@ npm run dev
   - `https://talepet.net.tr`
 - Health endpoint:
   - `GET /health` → `200 OK`
+
+### MongoDB (Atlas) Notları
+- **Database Access** bölümünde bir kullanıcı oluşturduğundan emin ol (username/password).
+- Şifre içinde özel karakter varsa URL-encode et (örn: `@` -> `%40`, `:` -> `%3A`, `/` -> `%2F`).
+- Örnek URI:
+  `mongodb+srv://user:encodedPass@cluster0.xxxxxx.mongodb.net/talepet?retryWrites=true&w=majority`
+
+### Render (Backend)
+- **Root Directory:** repo kökü
+- **Build Command:** `npm install`
+- **Start Command:** `npm start`
+- Not: Start komutu `node src/server.js` çalıştırır (package.json).
 
 ## OTP Endpoints
 

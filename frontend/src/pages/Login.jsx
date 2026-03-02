@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
-  const apiBase =
-    (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
+    .trim()
+    .replace(/\/$/, '');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState('login');
   const [activeTab, setActiveTab] = useState('email');
@@ -50,8 +51,8 @@ function Login() {
           activeTab === 'email'
             ? { method: 'email', email: em }
             : { method: 'sms', phone: e164 };
-        const res = await post('/api/auth/precheck', payload);
-        const found = res?.exists ?? null;
+        const res = await api.post('/auth/precheck', payload);
+        const found = res?.data?.exists ?? null;
         setExists(found);
         if (found === true) {
           setShowSignupPrompt(false);
@@ -141,7 +142,8 @@ function Login() {
           setError('Şifre zorunlu');
           return;
         }
-        data = await post('/api/auth/login', { phone: e164, password });
+        const res = await api.post('/auth/login', { phone: e164, password });
+        data = res?.data;
       } else {
         const em = normalizeEmail(email);
         if (!isValidEmail(em)) {
@@ -156,7 +158,8 @@ function Login() {
           setError('Şifre zorunlu');
           return;
         }
-        data = await post('/api/auth/login', { email: em, password });
+        const res = await api.post('/auth/login', { email: em, password });
+        data = res?.data;
       }
 
       if (data?.token) {
@@ -170,8 +173,8 @@ function Login() {
 
       setError(data?.message || 'Giriş başarısız');
     } catch (otpError) {
-      const status = otpError?.status || otpError?.response?.status;
-      if (!otpError?.response && !otpError?.status) {
+      const status = otpError?.response?.status;
+      if (!otpError?.response) {
         setError('Bağlantı yok');
       } else if (status === 401) {
         setError('Şifre hatalı');
@@ -180,7 +183,7 @@ function Login() {
       } else if (status >= 500) {
         setError('Sunucu hatası, tekrar dene');
       } else {
-        setError(otpError?.data?.message || otpError?.message || 'Giriş başarısız');
+        setError(otpError?.response?.data?.message || otpError?.message || 'Giriş başarısız');
       }
     } finally {
       setLoading(false);
@@ -198,14 +201,7 @@ function Login() {
   };
 
   const buildAuthUrl = (provider) => {
-    const base = apiBase.replace(/\/$/, '');
-    if (!base) {
-      return `/api/auth/${provider}`;
-    }
-    if (base.endsWith('/api')) {
-      return `${base}/auth/${provider}`;
-    }
-    return `${base}/api/auth/${provider}`;
+    return `${apiBase}/auth/${provider}`;
   };
 
   const handleProviderLogin = (provider) => {

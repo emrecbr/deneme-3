@@ -6,7 +6,7 @@ const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase(
 
 export const getSocket = ({ userId, city } = {}) => {
   if (!socketInstance) {
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+    const apiBase = (import.meta.env.VITE_API_URL || '').trim();
     const socketBase = apiBase
       ? apiBase.replace(/\/api\/?$/, '')
       : window.location.origin;

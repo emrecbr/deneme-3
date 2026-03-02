@@ -344,7 +344,8 @@ function RFQList() {
         const items = response.data?.items || [];
         setRfqs(items);
         cacheRFQs({ items, lastPage: nextPage, hasMore: response.data?.hasMore ?? false });
-        setHasMore(response.data?.hasMore ?? false);
+        const nextHasMore = response.data?.hasMore ?? items.length >= PAGE_LIMIT;
+        setHasMore(Boolean(nextHasMore));
         setPage(nextPage);
         setError('');
       } catch (fetchError) {
@@ -360,6 +361,7 @@ function RFQList() {
           setError('Canli veri alinamadi. Son onbellek gosteriliyor.');
         } else {
           setError(fetchError.response?.data?.message || 'Talepler yuklenemedi.');
+          setHasMore(false);
         }
       } finally {
         setLoading(false);
@@ -1064,12 +1066,12 @@ function RFQList() {
   }, [closeCreateSheet, createSheetDragTranslate, isCreateSheetDragging]);
 
   const loadMore = useCallback(() => {
-    if (loading || loadingMore || !hasMore) {
+    if (loading || loadingMore || !hasMore || error) {
       return;
     }
 
     fetchRFQs({ nextPage: page + 1, replace: false });
-  }, [fetchRFQs, hasMore, loading, loadingMore, page]);
+  }, [error, fetchRFQs, hasMore, loading, loadingMore, page]);
 
   useEffect(() => {
     if (!loadMoreRef.current) {

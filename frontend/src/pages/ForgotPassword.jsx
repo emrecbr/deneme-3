@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 
 const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
 const normalizeTrMobileTo10Digits = (v) => {
@@ -39,10 +39,10 @@ function ForgotPassword() {
       }
       try {
         setLoading(true);
-        await post('/api/auth/password/forgot', { method: 'email', email: em });
+        await api.post('/auth/password/forgot', { method: 'email', email: em });
         setInfo('Eğer hesap varsa talimatlar gönderildi.');
       } catch (requestError) {
-        setError(requestError?.message || 'Talimatlar gönderilemedi.');
+        setError(requestError?.response?.data?.message || requestError?.message || 'Talimatlar gönderilemedi.');
       } finally {
         setLoading(false);
       }
@@ -56,17 +56,17 @@ function ForgotPassword() {
     }
     try {
       setLoading(true);
-      await post('/api/auth/password/forgot', { method: 'sms', phone: e164 });
+      await api.post('/auth/password/forgot', { method: 'sms', phone: e164 });
       setInfo('Eğer hesap varsa talimatlar gönderildi.');
     } catch (requestError) {
-      if (requestError?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
+      if (requestError?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
         setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
-      } else if (requestError?.data?.code === 'TWILIO_GEO_BLOCKED') {
+      } else if (requestError?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
         setError('Bu ülkeye SMS gönderimi kapalı.');
-      } else if (requestError?.data?.code === 'TWILIO_INVALID_PHONE') {
+      } else if (requestError?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
         setError('Numara formatı hatalı (5XXXXXXXXX).');
       } else {
-        setError(requestError?.message || 'Talimatlar gönderilemedi.');
+        setError(requestError?.response?.data?.message || requestError?.message || 'Talimatlar gönderilemedi.');
       }
     } finally {
       setLoading(false);

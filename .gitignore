@@ -8,3 +8,4 @@ dev-cert
 *.log
 coverage
 .vite
+uploads

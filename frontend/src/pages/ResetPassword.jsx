@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 
 const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
 const normalizeTrMobileTo10Digits = (v) => {
@@ -53,15 +53,16 @@ function ResetPassword() {
       setVerifying(true);
       try {
         const em = normalizeEmail(emailFromQuery);
-        const data = await post('/api/auth/password/verify', {
+        const res = await api.post('/auth/password/verify', {
           method: 'email',
           email: em,
           token: tokenFromQuery
         });
+        const data = res?.data;
         setResetSessionToken(data?.resetSessionToken || '');
         setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
       } catch (requestError) {
-        setError(requestError?.message || 'Doğrulama başarısız.');
+        setError(requestError?.response?.data?.message || requestError?.message || 'Doğrulama başarısız.');
       } finally {
         setVerifying(false);
       }
@@ -84,15 +85,16 @@ function ResetPassword() {
     }
     try {
       setVerifying(true);
-      const data = await post('/api/auth/password/verify', {
+      const res = await api.post('/auth/password/verify', {
         method: 'sms',
         phone: e164,
         code: code.trim()
       });
+      const data = res?.data;
       setResetSessionToken(data?.resetSessionToken || '');
       setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
     } catch (requestError) {
-      setError(requestError?.message || 'Doğrulama başarısız.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Doğrulama başarısız.');
     } finally {
       setVerifying(false);
     }
@@ -120,14 +122,14 @@ function ResetPassword() {
     }
     try {
       setSaving(true);
-      await post('/api/auth/password/reset', {
+      await api.post('/auth/password/reset', {
         resetSessionToken,
         newPassword
       });
       setInfo('Şifre güncellendi.');
       setTimeout(() => navigate('/login'), 1200);
     } catch (requestError) {
-      setError(requestError?.message || 'Şifre güncellenemedi.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Şifre güncellenemedi.');
     } finally {
       setSaving(false);
     }

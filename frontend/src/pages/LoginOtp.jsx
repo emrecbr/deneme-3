@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
 const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
@@ -68,19 +68,19 @@ function LoginOtp() {
       }
       setLoadingSend(true);
       try {
-        await post('/api/auth/sms/send', { phone: e164 });
+        await api.post('/auth/sms/send', { phone: e164 });
         setStep(2);
         setResendSeconds(60);
         setInfo('Kod gönderildi.');
       } catch (err) {
-        if (err?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
+        if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
           setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
-        } else if (err?.data?.code === 'TWILIO_GEO_BLOCKED') {
+        } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
           setError('Bu ülkeye SMS gönderimi kapalı.');
-        } else if (err?.data?.code === 'TWILIO_INVALID_PHONE') {
+        } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
           setError('Numara formatı hatalı (5XXXXXXXXX).');
         } else {
-          setError(err?.message || 'Bağlantı hatası');
+          setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
         }
       } finally {
         setLoadingSend(false);
@@ -95,7 +95,7 @@ function LoginOtp() {
     }
     setLoadingSend(true);
     try {
-      await post('/api/auth/otp/send', { channel: 'email', email: em });
+      await api.post('/auth/otp/send', { channel: 'email', email: em });
       setStep(2);
       setResendSeconds(60);
       setInfo('Kod gönderildi.');
@@ -122,18 +122,20 @@ function LoginOtp() {
           setError('Telefon 10 haneli olmalı ve 5 ile başlamalı.');
           return;
         }
-        data = await post('/api/auth/sms/verify', { phone: e164, code: code.trim() });
+        const res = await api.post('/auth/sms/verify', { phone: e164, code: code.trim() });
+        data = res?.data;
       } else {
         const em = normalizeEmail(email);
         if (!isValidEmail(em)) {
           setError('Geçerli bir e-posta gir.');
           return;
         }
-        data = await post('/api/auth/otp/verify', {
+        const res = await api.post('/auth/otp/verify', {
           channel: 'email',
           email: em,
           code: code.trim()
         });
+        data = res?.data;
       }
 
       if (data?.token) {
@@ -149,7 +151,7 @@ function LoginOtp() {
       }
       setInfo(data?.message || 'Doğrulandı.');
     } catch (err) {
-      setError(err?.message || 'Bağlantı hatası');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingVerify(false);
     }
@@ -173,12 +175,13 @@ function LoginOtp() {
     setLoadingSignup(true);
     try {
       const endpoint =
-        method === 'sms' ? '/api/auth/sms/complete-signup' : '/api/auth/email/complete-signup';
-      const data = await post(endpoint, {
+        method === 'sms' ? '/auth/sms/complete-signup' : '/auth/email/complete-signup';
+      const res = await api.post(endpoint, {
         signupToken,
         name: signupName.trim(),
         password: signupPassword
       });
+      const data = res?.data;
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
@@ -188,7 +191,7 @@ function LoginOtp() {
       setInfo(data?.message || 'Kayıt tamamlandı.');
       setModalOpen(false);
     } catch (err) {
-      setError(err?.message || 'Bağlantı hatası');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSignup(false);
     }

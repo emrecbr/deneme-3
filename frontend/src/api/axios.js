@@ -6,18 +6,24 @@ export const setUnauthorizedHandler = (handler) => {
   unauthorizedHandler = typeof handler === 'function' ? handler : null;
 };
 
-const RAW_API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-export const API_BASE_URL = RAW_API_BASE
-  ? RAW_API_BASE.endsWith('/api')
-    ? RAW_API_BASE
-    : `${RAW_API_BASE}/api`
-  : '/api';
+const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
+const DEV_FALLBACK = 'http://localhost:3001/api';
+const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : '');
+
+if (import.meta.env.DEV) {
+  console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
+} else if (!ENV_API_BASE) {
+  console.warn('VITE_API_URL missing in prod build; API calls are disabled.');
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL
 });
 
 api.interceptors.request.use((config) => {
+  if (!API_BASE_URL && !import.meta.env.DEV) {
+    return Promise.reject(new Error('VITE_API_URL missing in prod build.'));
+  }
   const token = localStorage.getItem('token');
 
   config.headers = config.headers || {};

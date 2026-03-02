@@ -58,7 +58,7 @@ export default defineConfig(async () => {
       }
     },
     build: {
-      chunkSizeWarningLimit: 700
+      chunkSizeWarningLimit: 1500
     }
   };
 });

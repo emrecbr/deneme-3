@@ -227,19 +227,23 @@ const startServer = async () => {
     });
   });
 
+  try {
+    await connectDB();
+    console.log('Connected DB:', mongoose.connection.name);
+  } catch (_err) {
+    return;
+  }
+
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
-    connectDB().then(() => {
-      console.log('Connected DB:', mongoose.connection.name);
-      Promise.all([City.countDocuments(), RFQ.countDocuments()])
-        .then(([cityCount, rfqCount]) => {
-          console.log('Total cities count:', cityCount);
-          console.log('Total rfq count:', rfqCount);
-        })
-        .catch((error) => {
-          console.error('Startup count log failed:', error?.message || error);
-        });
-    });
+    Promise.all([City.countDocuments(), RFQ.countDocuments()])
+      .then(([cityCount, rfqCount]) => {
+        console.log('Total cities count:', cityCount);
+        console.log('Total rfq count:', rfqCount);
+      })
+      .catch((error) => {
+        console.error('Startup count log failed:', error?.message || error);
+      });
 
     if (!premiumSweepTimer) {
       premiumSweepTimer = setInterval(async () => {

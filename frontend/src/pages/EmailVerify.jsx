@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
 const normalizeEmail = (v) =>
@@ -56,12 +56,12 @@ function EmailVerify() {
     }
     setLoadingSend(true);
     try {
-      await post('/api/auth/otp/send', { channel: 'email', email: em });
+      await api.post('/auth/otp/send', { channel: 'email', email: em });
       setStep(2);
       setResendSeconds(60);
       setInfo('Kod gönderildi.');
     } catch (err) {
-      setError(err?.message || 'Bağlantı hatası');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSend(false);
     }
@@ -80,11 +80,12 @@ function EmailVerify() {
     }
     setLoadingVerify(true);
     try {
-      const data = await post('/api/auth/otp/verify', {
+      const res = await api.post('/auth/otp/verify', {
         channel: 'email',
         email: em,
         code: code.trim()
       });
+      const data = res?.data;
 
       if (data?.token) {
         localStorage.setItem('token', data.token);
@@ -101,7 +102,7 @@ function EmailVerify() {
 
       setInfo(data?.message || 'Doğrulandı.');
     } catch (err) {
-      setError(err?.message || 'Bağlantı hatası');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingVerify(false);
     }
@@ -123,11 +124,12 @@ function EmailVerify() {
     }
     setLoadingSignup(true);
     try {
-      const data = await post('/api/auth/email/complete-signup', {
+      const res = await api.post('/auth/email/complete-signup', {
         signupToken,
         name: signupName.trim(),
         password: signupPassword
       });
+      const data = res?.data;
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
@@ -137,7 +139,7 @@ function EmailVerify() {
       setInfo(data?.message || 'Kayıt tamamlandı.');
       setModalOpen(false);
     } catch (err) {
-      setError(err?.message || 'Bağlantı hatası');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSignup(false);
     }

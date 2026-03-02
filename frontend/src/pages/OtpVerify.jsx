@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { post } from '../api/client';
+import api from '../api/axios';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -71,12 +71,12 @@ function OtpVerify({ onVerified }) {
           ? { channel, email: email.trim() }
           : { channel, phone: normalizePhone(phone) };
 
-      await post('/api/auth/otp/send', payload);
+      await api.post('/auth/otp/send', payload);
       setStep(2);
       setResendSeconds(60);
       setSuccess('Kod gönderildi.');
     } catch (err) {
-      setError(err?.message || 'Kod gönderilemedi.');
+      setError(err?.response?.data?.message || err?.message || 'Kod gönderilemedi.');
     } finally {
       setLoadingSend(false);
     }
@@ -95,7 +95,7 @@ function OtpVerify({ onVerified }) {
           ? { channel, email: email.trim(), code: code.trim() }
           : { channel, phone: normalizePhone(phone), code: code.trim() };
 
-      await post('/api/auth/otp/verify', payload);
+      await api.post('/auth/otp/verify', payload);
       setSuccess('Doğrulama başarılı.');
       if (typeof onVerified === 'function') {
         onVerified();
@@ -103,7 +103,7 @@ function OtpVerify({ onVerified }) {
         navigate('/app');
       }
     } catch (err) {
-      setError(err?.message || 'Doğrulama başarısız.');
+      setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {
       setLoadingVerify(false);
     }

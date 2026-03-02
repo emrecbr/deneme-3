@@ -4,8 +4,9 @@ import api from '../api/axios';
 
 function Register() {
   const navigate = useNavigate();
-  const apiBase =
-    (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
+  const apiBase = (import.meta.env.VITE_API_URL || 'https://api.talepet.net.tr/api')
+    .trim()
+    .replace(/\/$/, '');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,14 +62,7 @@ function Register() {
   };
 
   const buildAuthUrl = (provider) => {
-    const base = apiBase.replace(/\/$/, '');
-    if (!base) {
-      return `/api/auth/${provider}`;
-    }
-    if (base.endsWith('/api')) {
-      return `${base}/auth/${provider}`;
-    }
-    return `${base}/api/auth/${provider}`;
+    return `${apiBase}/auth/${provider}`;
   };
 
   const handleProviderLogin = (provider) => {
