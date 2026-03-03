@@ -3,6 +3,10 @@
     {
       "source": "/api/:match*",
       "destination": "https://deneme-3-1le0.onrender.com/api/:match*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
     }
   ]
 }

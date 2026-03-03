@@ -53,6 +53,7 @@ npm run dev
   - Local: `VITE_API_URL=http://localhost:3001/api`
   - Prod: `VITE_API_URL=https://api.talepet.net.tr/api`
 - Not: Client tarafı `/api` yolunu otomatik ekler.
+- Vercel’de **Root Directory**: `frontend`
 
 ### Backend (Express)
 - CORS allowlist:
