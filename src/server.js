@@ -43,6 +43,19 @@ const ALLOWED_ORIGINS = [
 if (process.env.CLIENT_ORIGIN) {
   ALLOWED_ORIGINS.push(process.env.CLIENT_ORIGIN);
 }
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true
+};
 const ROUTE_MOUNTS = [
   ['/api', mainRouter],
   ['/api/auth', authRoutes],
@@ -87,21 +100,8 @@ const logMountedRoutes = () => {
   });
 };
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        return callback(null, true);
-      }
-      if (ALLOWED_ORIGINS.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true
-  })
-);
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use('/api/billing/webhook/iyzico', express.raw({ type: '*/*' }));
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith('/api/billing/webhook/iyzico')) {
@@ -146,7 +146,10 @@ const startServer = async () => {
   const server = http.createServer(app);
   const io = new Server(server, {
     cors: {
-      origin: ALLOWED_ORIGINS,
+      origin: (origin, callback) => {
+        if (isAllowedOrigin(origin)) return callback(null, true);
+        return callback(new Error(`Socket CORS blocked: ${origin}`));
+      },
       credentials: true
     }
   });
