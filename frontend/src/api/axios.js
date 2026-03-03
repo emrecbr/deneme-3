@@ -8,7 +8,7 @@ export const setUnauthorizedHandler = (handler) => {
 
 const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 const DEV_FALLBACK = 'http://localhost:3001/api';
-const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : '');
+export const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : '');
 
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
