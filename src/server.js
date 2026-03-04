@@ -230,11 +230,27 @@ const startServer = async () => {
     });
   });
 
+  const connectWithRetry = async (attempts = 5, delayMs = 3000) => {
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        await connectDB();
+        console.log('Connected DB:', mongoose.connection.name);
+        return;
+      } catch (error) {
+        console.error(`MongoDB bağlantı denemesi ${attempt}/${attempts} başarısız:`, error?.message || error);
+        if (attempt === attempts) {
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  };
+
   try {
-    await connectDB();
-    console.log('Connected DB:', mongoose.connection.name);
+    await connectWithRetry();
   } catch (_err) {
-    return;
+    console.error('MongoDB bağlantısı kurulamadı. Sunucu başlatılmadı.');
+    process.exit(1);
   }
 
   server.listen(PORT, () => {
