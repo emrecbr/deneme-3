@@ -53,6 +53,8 @@ npm run dev
   - Local: `VITE_API_URL=http://localhost:3001/api`
   - Prod: `VITE_API_URL=https://api.talepet.net.tr/api`
 - Not: Client tarafı `/api` yolunu otomatik ekler.
+- Socket.io için (opsiyonel):
+  - `VITE_SOCKET_URL=https://deneme-3-1le0.onrender.com`
 - Vercel’de **Root Directory**: `frontend`
 
 ### Backend (Express)

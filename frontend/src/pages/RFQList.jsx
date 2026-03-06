@@ -132,7 +132,7 @@ function RFQList() {
   const [isCreateSheetMounted, setIsCreateSheetMounted] = useState(false);
   const [createSheetState, setCreateSheetState] = useState('closed');
   const [isCreateSheetDragging, setIsCreateSheetDragging] = useState(false);
-  const [createSheetDragTranslate, setCreateSheetDragTranslate] = useState(45);
+  const [createSheetDragTranslate, setCreateSheetDragTranslate] = useState(35);
   const [categoryLabel, setCategoryLabel] = useState('');
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
   const [flatSubcategories, setFlatSubcategories] = useState([]);
@@ -962,7 +962,7 @@ function RFQList() {
     window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     window.requestAnimationFrame(() => {
       setCreateSheetState('open-half');
-      setCreateSheetDragTranslate(45);
+      setCreateSheetDragTranslate(35);
     });
   }, []);
 
@@ -997,16 +997,24 @@ function RFQList() {
       return 0;
     }
     if (createSheetState === 'open-half') {
-      return 45;
+      return 35;
     }
     return 100;
   }, [createSheetState]);
 
   const handleCreateSheetDragStart = useCallback(
     (event) => {
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
       const clientY = event.clientY ?? event.touches?.[0]?.clientY;
       if (typeof clientY !== 'number') {
         return;
+      }
+      if (event.currentTarget?.setPointerCapture && event.pointerId !== undefined) {
+        event.currentTarget.setPointerCapture(event.pointerId);
       }
       createSheetDragStartYRef.current = clientY;
       createSheetDragStartTranslateRef.current = getCreateSheetBaseTranslate();
@@ -1022,6 +1030,9 @@ function RFQList() {
     }
 
     const onMove = (event) => {
+      if (event.cancelable) {
+        event.preventDefault();
+      }
       const clientY = event.clientY ?? event.touches?.[0]?.clientY;
       if (typeof clientY !== 'number') {
         return;
@@ -1037,31 +1048,29 @@ function RFQList() {
       const current = createSheetDragTranslate;
       setIsCreateSheetDragging(false);
 
-      if (current >= 72) {
+      if (current >= 80) {
         closeCreateSheet();
         return;
       }
 
-      if (current <= 22) {
+      if (current <= 20) {
         setCreateSheetState('open-full');
         setCreateSheetDragTranslate(0);
         return;
       }
 
       setCreateSheetState('open-half');
-      setCreateSheetDragTranslate(45);
+      setCreateSheetDragTranslate(35);
     };
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onEnd);
-    window.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('touchend', onEnd);
+    document.body.classList.add('sheet-dragging');
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onEnd);
 
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onEnd);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onEnd);
+      document.body.classList.remove('sheet-dragging');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
     };
   }, [closeCreateSheet, createSheetDragTranslate, isCreateSheetDragging]);
 
@@ -2573,13 +2582,16 @@ function RFQList() {
         <div className={`create-sheet-overlay ${createSheetState !== 'closed' ? 'open' : ''}`} onClick={closeCreateSheet}>
           <div
             className={`create-sheet-content create-sheet-${createSheetState} ${isCreateSheetDragging ? 'dragging' : ''}`}
-            style={isCreateSheetDragging ? { transform: `translateX(-50%) translateY(${createSheetDragTranslate}%)` } : undefined}
+            style={
+              isCreateSheetDragging
+                ? { transform: `translate3d(-50%, ${createSheetDragTranslate}%, 0)` }
+                : undefined
+            }
             onClick={(event) => event.stopPropagation()}
           >
             <div
               className="rb-sheet-handle"
-              onMouseDown={handleCreateSheetDragStart}
-              onTouchStart={handleCreateSheetDragStart}
+              onPointerDown={handleCreateSheetDragStart}
             />
             <button type="button" className="create-sheet-close" onClick={closeCreateSheet}>
               Kapat

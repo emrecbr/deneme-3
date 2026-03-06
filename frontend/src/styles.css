@@ -4056,12 +4056,48 @@ body.sheet-open .bottom-nav {
 }
 
 .rb-sheet-handle {
-  width: 52px;
+  position: relative;
+  width: 64px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.12);
   margin: 10px auto 12px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   touch-action: none;
+  cursor: grab;
+}
+
+.rb-sheet-handle:active {
+  cursor: grabbing;
+}
+
+.rb-sheet-handle::before {
+  content: '';
+  position: absolute;
+  left: -22px;
+  right: -22px;
+  top: -18px;
+  bottom: -18px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.rb-sheet-handle::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.create-sheet-content.light .rb-sheet-handle {
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .rb-sheet-body {
@@ -4578,29 +4614,43 @@ body.dark-mode .category-selector-modal {
   bottom: 0;
   width: min(100%, 480px);
   height: 85vh;
-  transform: translateX(-50%) translateY(100%);
+  transform: translate3d(-50%, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   background: #0f172a;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 10px 12px 24px;
+  will-change: transform;
+  overscroll-behavior: contain;
 }
 
 .create-sheet-content.create-sheet-open-full {
-  transform: translateX(-50%) translateY(0);
+  transform: translate3d(-50%, 0, 0);
 }
 
 .create-sheet-content.create-sheet-open-half {
-  transform: translateX(-50%) translateY(45%);
+  transform: translate3d(-50%, 35%, 0);
 }
 
 .create-sheet-content.create-sheet-closed {
-  transform: translateX(-50%) translateY(100%);
+  transform: translate3d(-50%, 100%, 0);
 }
 
 .create-sheet-content.dragging {
   transition: none;
+}
+
+.create-sheet-content .page {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+body.sheet-dragging {
+  user-select: none;
 }
 
 body.dark-mode .rb-sheet-handle {

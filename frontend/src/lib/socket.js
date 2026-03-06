@@ -7,9 +7,16 @@ const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase(
 export const getSocket = ({ userId, city } = {}) => {
   if (!socketInstance) {
     const apiBase = (import.meta.env.VITE_API_URL || '').trim();
-    const socketBase = apiBase
-      ? apiBase.replace(/\/api\/?$/, '')
-      : window.location.origin;
+    const socketBaseEnv = (import.meta.env.VITE_SOCKET_URL || '').trim();
+    const socketBase =
+      socketBaseEnv ||
+      (apiBase ? apiBase.replace(/\/api\/?$/, '') : '');
+    if (!socketBase) {
+      console.warn('VITE_SOCKET_URL missing; socket connection disabled.');
+    }
+    if (!socketBase) {
+      return null;
+    }
     socketInstance = io(socketBase, {
       autoConnect: false,
       transports: ['websocket'],
@@ -17,6 +24,9 @@ export const getSocket = ({ userId, city } = {}) => {
     });
   }
 
+  if (!socketInstance) {
+    return null;
+  }
   const query = {};
   if (userId) {
     query.userId = String(userId);
