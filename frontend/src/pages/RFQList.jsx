@@ -775,6 +775,9 @@ function RFQList() {
       userId: currentUserId,
       city: activeCity
     });
+    if (!socket) {
+      return;
+    }
     if (activeCity) {
       socket.emit('join_city', activeCity);
     }
@@ -2087,6 +2090,11 @@ function RFQList() {
               ) : null}
             </div>
             <div className="rfq-sub">Kategori: {getCategoryName(rfq.category) || '-'}</div>
+            {rfq.productDetails?.brand || rfq.productDetails?.model ? (
+              <div className="rfq-sub">
+                {rfq.productDetails?.brand || ''} {rfq.productDetails?.model || ''}
+              </div>
+            ) : null}
             {rfq.car?.brandName || rfq.car?.modelName ? (
               <div className="rfq-sub">
                 {rfq.car?.brandName || ''} {rfq.car?.modelName || ''}

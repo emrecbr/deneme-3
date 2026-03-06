@@ -46,7 +46,8 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       city,
       district,
       neighborhood,
-      street
+      street,
+      productDetails
     } = req.body;
 
     if (!cleanText(title) || !cleanText(description)) {
@@ -236,6 +237,15 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       }
     }
 
+    let productDetailsPayload = {};
+    if (productDetails) {
+      try {
+        productDetailsPayload = typeof productDetails === 'string' ? JSON.parse(productDetails) : productDetails;
+      } catch (_error) {
+        productDetailsPayload = {};
+      }
+    }
+
     const rfq = await RFQ.create({
       title: cleanText(title),
       description: cleanText(description),
@@ -275,6 +285,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
             variantName: carPayload.variantName || undefined
           }
         : undefined,
+      productDetails: productDetailsPayload || {},
       buyer: req.user.id,
       images: imagePaths
     });
@@ -717,7 +728,8 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       quantity,
       targetPrice,
       deadline,
-      isAuction
+      isAuction,
+      productDetails
     } = req.body || {};
 
     if (title != null) {
@@ -792,6 +804,18 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
         ...(rfq.locationData || {}),
         street
       };
+    }
+
+    if (typeof productDetails !== 'undefined') {
+      let parsedDetails = productDetails;
+      if (typeof productDetails === 'string') {
+        try {
+          parsedDetails = JSON.parse(productDetails);
+        } catch (_error) {
+          parsedDetails = {};
+        }
+      }
+      rfq.productDetails = parsedDetails || {};
     }
 
     await rfq.save();

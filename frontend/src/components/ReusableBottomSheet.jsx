@@ -162,11 +162,7 @@ function ReusableBottomSheet({
           onMouseDown={beginDrag}
           onTouchStart={beginDrag}
         />
-        <div
-          className={`rb-sheet-header ${className}`}
-          onMouseDown={beginDrag}
-          onTouchStart={beginDrag}
-        >
+        <div className={`rb-sheet-header ${className}`}>
           <strong>{title}</strong>
           {headerRight}
         </div>

@@ -78,6 +78,9 @@ function Layout({ children, showBottomNav = true }) {
       return;
     }
     const socket = getSocket({ userId: user.id || user._id, city: user.city });
+    if (!socket) {
+      return;
+    }
     const onNotification = () => {
       setUnreadCount((prev) => prev + 1);
       fetchNotifications();

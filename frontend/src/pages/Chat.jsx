@@ -67,6 +67,9 @@ function Chat() {
       return;
     }
     const socket = getSocket({ userId: currentUserId, city: currentUser?.city });
+    if (!socket) {
+      return;
+    }
     socket.emit('join_chat', chatId);
 
     const onMessage = (payload) => {

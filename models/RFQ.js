@@ -150,6 +150,10 @@ const rfqSchema = new mongoose.Schema(
         type: String,
         trim: true
       }
+    },
+    productDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
     }
   },
   {

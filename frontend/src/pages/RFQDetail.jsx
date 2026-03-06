@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/axios';
 import { getSocket } from '../lib/socket';
+import { getProductSchema } from '../lib/rfqProductSchemas';
 import { triggerHaptic } from '../utils/haptic';
 import RFQCreate from './RFQCreate';
 import OfferSheet from '../components/OfferSheet';
@@ -132,6 +133,9 @@ function RFQDetail() {
       userId: currentUser?.id || currentUser?._id,
       city: currentUser?.city
     });
+    if (!socket) {
+      return;
+    }
     socket.emit('join_rfq', id);
 
     const onNewBid = (payload) => {
@@ -205,6 +209,54 @@ function RFQDetail() {
 
     return categoryValue.name || categoryValue.slug || '-';
   };
+
+  const formatDetailValue = (value) => {
+    if (value == null) {
+      return '';
+    }
+    if (typeof value === 'boolean') {
+      return value ? 'Evet' : 'Hayır';
+    }
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).join(', ');
+    }
+    if (typeof value === 'object') {
+      return value?.label || value?.name || JSON.stringify(value);
+    }
+    return String(value);
+  };
+
+  const productDetails = useMemo(() => {
+    if (!rfq?.productDetails || typeof rfq.productDetails !== 'object') {
+      return {};
+    }
+    return rfq.productDetails;
+  }, [rfq?.productDetails]);
+
+  const productDetailEntries = useMemo(() => {
+    if (!productDetails || !Object.keys(productDetails).length) {
+      return [];
+    }
+    const schema = getProductSchema(getCategoryName(rfq?.category));
+    const labels = new Map();
+    if (schema?.fields?.length) {
+      schema.fields.forEach((field) => {
+        labels.set(field.key, field.label);
+      });
+    }
+    return Object.entries(productDetails)
+      .filter(([key, value]) => {
+        if (key === 'brand' || key === 'model') {
+          return false;
+        }
+        return String(value ?? '').trim();
+      })
+      .map(([key, value]) => ({
+        key,
+        label: labels.get(key) || key,
+        value
+      }));
+  }, [productDetails, rfq?.category]);
 
   const getOfferStatusLabel = (status) => {
     switch (status) {
@@ -537,6 +589,9 @@ function RFQDetail() {
       userId: currentUserId,
       city: currentUser?.city
     });
+    if (!socket) {
+      return;
+    }
     socket.emit('join_chat', activeChatId);
 
     const onMessage = (payload) => {
@@ -752,9 +807,24 @@ function RFQDetail() {
             ) : null}
             <p className="detail-description">{rfq.description}</p>
             <div className="rfq-sub">Kategori: {getCategoryName(rfq.category)}</div>
+            {productDetails?.brand || productDetails?.model ? (
+              <div className="rfq-sub">
+                Marka/Model: {productDetails?.brand || ''} {productDetails?.model || ''}
+              </div>
+            ) : null}
             {rfq.car?.brandName || rfq.car?.modelName ? (
               <div className="rfq-sub">
                 {rfq.car?.brandName || ''} {rfq.car?.modelName || ''}
+              </div>
+            ) : null}
+            {productDetailEntries.length ? (
+              <div className="rfq-sub">
+                <strong>Ürün Bilgileri</strong>
+                {productDetailEntries.map((entry) => (
+                  <div key={entry.key}>
+                    {entry.label}: {formatDetailValue(entry.value)}
+                  </div>
+                ))}
               </div>
             ) : null}
             <div className="rfq-sub">Miktar: {rfq.quantity}</div>
