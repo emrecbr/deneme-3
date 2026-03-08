@@ -21,6 +21,17 @@ const parseResponseText = (text) => {
   }
 };
 
+const maskSensitive = (text, values) => {
+  if (!text) return text;
+  let masked = String(text);
+  values.forEach((val) => {
+    if (!val) return;
+    const safe = String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    masked = masked.replace(new RegExp(safe, 'g'), '***');
+  });
+  return masked;
+};
+
 const isSuccessStatus = (parsed) => {
   if (!parsed) return false;
   const statusValue =
@@ -54,9 +65,10 @@ const postIleti = async ({ url, payload, timeoutMs }) => {
       body: JSON.stringify(payload),
       signal: controller.signal
     });
+    const contentType = response.headers.get('content-type') || '';
     const text = await response.text();
     const parsed = parseResponseText(text);
-    return { response, parsed, text };
+    return { response, parsed, text, contentType };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -146,12 +158,14 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
     for (const fmt of formats) {
       const url = buildUrl(baseUrl, endpoint);
       try {
-        const { response, parsed, text } = await postIleti({
+        const { response, parsed, text, contentType } = await postIleti({
           url,
           payload: fmt.payload,
           timeoutMs
         });
 
+        const bodyPreview = maskSensitive(String(text || ''), [apiKey, apiHash, sender, phone]).slice(0, 1200);
+        const parsedPreview = parsed?.json && Object.keys(parsed.json).length ? parsed.json : undefined;
         const successJson = response.ok && isSuccessStatus(parsed.json);
         const successText = response.ok && !parsed.json && hasSuccessText(text);
 
@@ -167,9 +181,11 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
           console.error('SMS_SEND_FAIL', {
             provider: 'iletimerkezi',
             httpStatus: response.status,
+            contentType,
             endpointTried: endpoint,
             formatTried: fmt.name,
-            bodyPreview: String(text || '').slice(0, 400)
+            bodyPreview,
+            parsedPreview
           });
           continue;
         }
@@ -177,9 +193,11 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
         console.error('SMS_SEND_FAIL', {
           provider: 'iletimerkezi',
           httpStatus: response.status,
+          contentType,
           endpointTried: endpoint,
           formatTried: fmt.name,
-          bodyPreview: String(text || '').slice(0, 400)
+          bodyPreview,
+          parsedPreview
         });
         lastError = new Error('SMS gönderilemedi.');
         lastError.code = 'SMS_SEND_FAILED';
@@ -205,7 +223,7 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
           httpStatus: error?.statusCode,
           endpointTried: endpoint,
           formatTried: fmt.name,
-          bodyPreview: String(error?.message || '').slice(0, 400)
+          bodyPreview: String(error?.message || '').slice(0, 1200)
         });
         lastError = new Error('SMS gönderilemedi.');
         lastError.code = error?.code || 'SMS_SEND_FAILED';
