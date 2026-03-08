@@ -8,6 +8,60 @@ const maskPhone = (phone) => {
   return `+${digits.slice(0, 3)}***${digits.slice(-4)}`;
 };
 
+const buildUrl = (base, path) => {
+  if (!base) return path;
+  return base.endsWith('/') ? `${base.slice(0, -1)}${path}` : `${base}${path}`;
+};
+
+const parseResponseText = (text) => {
+  try {
+    return { json: JSON.parse(text), text };
+  } catch (_err) {
+    return { json: null, text };
+  }
+};
+
+const isSuccessStatus = (parsed) => {
+  if (!parsed) return false;
+  const statusValue =
+    parsed?.status ??
+    parsed?.code ??
+    parsed?.response?.status ??
+    parsed?.response?.code ??
+    parsed?.response?.status?.code ??
+    parsed?.response?.status?.status;
+  if (statusValue != null) {
+    return String(statusValue) === '200' || String(statusValue).toLowerCase() === 'ok';
+  }
+  return false;
+};
+
+const hasSuccessText = (text) => {
+  const lower = String(text || '').toLowerCase();
+  if (!lower) return false;
+  return lower.includes('ok') || lower.includes('success') || lower.includes('200');
+};
+
+const postIleti = async ({ url, payload, timeoutMs }) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    const text = await response.text();
+    const parsed = parseResponseText(text);
+    return { response, parsed, text };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export const sendOtpSms = async ({ phone, code }) => {
   const provider = getEnv('SMS_PROVIDER', 'iletimerkezi');
   const normalizedPhone = normalizeTrPhoneE164(phone);
@@ -41,8 +95,7 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
   const apiKey = getEnv('ILETIMERKEZI_API_KEY');
   const apiHash = getEnv('ILETIMERKEZI_API_HASH');
   const sender = getEnv('ILETIMERKEZI_SENDER');
-  const baseUrlRaw = getEnv('ILETIMERKEZI_BASE_URL', 'https://api.iletimerkezi.com');
-  const baseUrl = baseUrlRaw.endsWith('/v1/send-sms') ? baseUrlRaw : `${baseUrlRaw}/v1/send-sms`;
+  const baseUrl = getEnv('ILETIMERKEZI_BASE_URL', 'https://api.iletimerkezi.com');
 
   if (!apiKey || !apiHash || !sender) {
     const error = new Error('İleti Merkezi credentials eksik.');
@@ -53,12 +106,10 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
   }
 
   const message = `Doğrulama kodun: ${code}`;
-  const controller = new AbortController();
   const timeoutMs = Number(getEnv('SMS_SEND_TIMEOUT_MS', '15000')) || 15000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const iys = Number(getEnv('ILETIMERKEZI_IYS', '0')) || 0;
 
-  const payload = {
+  const formatA = {
     key: apiKey,
     hash: apiHash,
     sender,
@@ -67,73 +118,106 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
     iys
   };
 
-  try {
-    const response = await fetch(baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      console.error('SMS_SEND_FAIL', {
-        provider: 'iletimerkezi',
-        status: response.status,
-        data
-      });
-      const error = new Error('SMS gönderilemedi.');
-      error.code = 'SMS_SEND_FAILED';
-      error.statusCode = response.status || 500;
-      error.provider = 'iletimerkezi';
-      throw error;
+  const formatB = {
+    request: {
+      authentication: { key: apiKey, hash: apiHash },
+      order: {
+        sender,
+        sendDateTime: '',
+        message: {
+          text: message,
+          receipents: {
+            number: [phone]
+          }
+        }
+      }
     }
+  };
 
-    const statusCode = data?.status || data?.response?.status || data?.response?.status?.code;
-    if (statusCode && String(statusCode) !== '200') {
-      console.error('SMS_SEND_FAIL', {
-        provider: 'iletimerkezi',
-        status: response.status,
-        data
-      });
-      const error = new Error('SMS gönderilemedi.');
-      error.code = 'SMS_SEND_FAILED';
-      error.statusCode = 502;
-      error.provider = 'iletimerkezi';
-      throw error;
-    }
+  const endpoints = ['/v1/send-sms', '/v1/sms/send'];
+  const formats = [
+    { name: 'formatA', payload: formatA },
+    { name: 'formatB', payload: formatB }
+  ];
 
-    return {
-      provider: 'iletimerkezi',
-      status: 'sent',
-      to: maskPhone(phone)
-    };
-  } catch (error) {
-    if (error?.name === 'AbortError') {
-      console.error('SMS_SEND_FAIL', {
-        provider: 'iletimerkezi',
-        status: 408,
-        message: 'timeout'
-      });
-      const err = new Error('SMS gönderilemedi.');
-      err.code = 'SMS_SEND_TIMEOUT';
-      err.statusCode = 500;
-      err.provider = 'iletimerkezi';
-      throw err;
+  let lastError;
+
+  for (const endpoint of endpoints) {
+    for (const fmt of formats) {
+      const url = buildUrl(baseUrl, endpoint);
+      try {
+        const { response, parsed, text } = await postIleti({
+          url,
+          payload: fmt.payload,
+          timeoutMs
+        });
+
+        const successJson = response.ok && isSuccessStatus(parsed.json);
+        const successText = response.ok && !parsed.json && hasSuccessText(text);
+
+        if (successJson || successText) {
+          return {
+            provider: 'iletimerkezi',
+            status: 'sent',
+            to: maskPhone(phone)
+          };
+        }
+
+        if (response.status === 404 || response.status === 405) {
+          console.error('SMS_SEND_FAIL', {
+            provider: 'iletimerkezi',
+            httpStatus: response.status,
+            endpointTried: endpoint,
+            formatTried: fmt.name,
+            bodyPreview: String(text || '').slice(0, 400)
+          });
+          continue;
+        }
+
+        console.error('SMS_SEND_FAIL', {
+          provider: 'iletimerkezi',
+          httpStatus: response.status,
+          endpointTried: endpoint,
+          formatTried: fmt.name,
+          bodyPreview: String(text || '').slice(0, 400)
+        });
+        lastError = new Error('SMS gönderilemedi.');
+        lastError.code = 'SMS_SEND_FAILED';
+        lastError.statusCode = 502;
+        lastError.provider = 'iletimerkezi';
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          console.error('SMS_SEND_FAIL', {
+            provider: 'iletimerkezi',
+            httpStatus: 408,
+            endpointTried: endpoint,
+            formatTried: fmt.name,
+            bodyPreview: 'timeout'
+          });
+          lastError = new Error('SMS gönderilemedi.');
+          lastError.code = 'SMS_SEND_TIMEOUT';
+          lastError.statusCode = 502;
+          lastError.provider = 'iletimerkezi';
+          continue;
+        }
+        console.error('SMS_SEND_FAIL', {
+          provider: 'iletimerkezi',
+          httpStatus: error?.statusCode,
+          endpointTried: endpoint,
+          formatTried: fmt.name,
+          bodyPreview: String(error?.message || '').slice(0, 400)
+        });
+        lastError = new Error('SMS gönderilemedi.');
+        lastError.code = error?.code || 'SMS_SEND_FAILED';
+        lastError.statusCode = 502;
+        lastError.provider = 'iletimerkezi';
+      }
     }
-    console.error('SMS_SEND_FAIL', {
-      provider: 'iletimerkezi',
-      status: error?.statusCode,
-      message: error?.message
-    });
-    const err = new Error('SMS gönderilemedi.');
-    err.code = error?.code || 'SMS_SEND_FAILED';
-    err.statusCode = error?.statusCode || 500;
-    err.provider = 'iletimerkezi';
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError || Object.assign(new Error('SMS gönderilemedi.'), {
+    code: 'SMS_SEND_FAILED',
+    statusCode: 502,
+    provider: 'iletimerkezi'
+  });
 };

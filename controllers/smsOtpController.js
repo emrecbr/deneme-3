@@ -94,6 +94,9 @@ export const sendSmsOtpController = async (req, res) => {
       message: error?.message,
       provider: error?.provider
     });
+    if (error?.code === 'INVALID_PHONE') {
+      return res.status(400).json({ ok: false, message: 'Telefon geçersiz.' });
+    }
     return res.status(502).json({ ok: false, message: 'Kod gönderilemedi' });
   }
 };
