@@ -1,44 +1,19 @@
-# Telepet Backend - OTP (Twilio Verify)
+# Telepet Backend - OTP
 
 ## Environment
 
 Set these in `.env`:
 
 ```
-TWILIO_ACCOUNT_SID=
-TWILIO_VERIFY_SERVICE_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_API_KEY_SID=
-TWILIO_API_KEY_SECRET=
+SMS_PROVIDER=iletimerkezi
+ILETIMERKEZI_API_KEY=
+ILETIMERKEZI_SENDER=
+ILETIMERKEZI_BASE_URL=https://api.iletimerkezi.com
 ```
 
 ### Credential options
 
-- **Dev/Test (simple):** `TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_VERIFY_SERVICE_SID`
-- **Prod (recommended):** `TWILIO_ACCOUNT_SID + TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET + TWILIO_VERIFY_SERVICE_SID`
-
-## Where to find Twilio values (Console)
-
-- **Account SID:** Twilio Console → Account Dashboard (starts with `AC...`)
-- **Auth Token:** Twilio Console → Account Dashboard → Reveal Token
-- **API Key SID / Secret:** Twilio Console → Account → API keys & tokens (SID starts with `SK...`)
-- **Verify Service SID:** Twilio Console → Verify → Services (SID starts with `VA...`)
-- **Email OTP (SendGrid):** Twilio Console → Verify → Services → Email → set up SendGrid integration
-
-## Twilio Verify Email (SendGrid) Setup
-
-Twilio Verify Email requires SendGrid integration.  
-In Twilio Console: Verify Service → Email → configure SendGrid integration.
-
-## Create Twilio Verify Service (optional)
-
-If `TWILIO_VERIFY_SERVICE_SID` is empty, create one:
-
-```
-node scripts/twilioCreateVerifyService.js
-```
-
-Copy the printed `TWILIO_VERIFY_SERVICE_SID` into `.env`.
+- **Prod:** `ILETIMERKEZI_API_KEY + ILETIMERKEZI_SENDER`
 
 ## Run
 
@@ -78,6 +53,50 @@ npm run dev
 - Not: Start komutu `node src/server.js` çalıştırır (package.json).
 
 ## OTP Endpoints
+
+### OTP Send (Email/SMS) - Local
+
+```
+curl -i --max-time 20 -X POST "http://localhost:3001/api/auth/otp/send" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"sms","phone":"+905XXXXXXXXX"}'
+```
+
+```
+curl -i --max-time 20 -X POST "http://localhost:3001/api/auth/otp/send" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"email","email":"talepet0@gmail.com"}'
+```
+
+### SMS Send (Legacy Endpoint) - Local
+
+```
+curl -i -X POST "http://localhost:3001/api/auth/sms/send" \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"+905XXXXXXXXX"}'
+```
+
+### OTP Send (Email/SMS) - Prod (Render)
+
+```
+curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/send" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"sms","phone":"+905XXXXXXXXX"}'
+```
+
+```
+curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/send" \
+  -H "Content-Type: application/json" \
+  -d '{"channel":"email","email":"talepet0@gmail.com"}'
+```
+
+### SMS Send (Legacy Endpoint) - Prod (Render)
+
+```
+curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/sms/send" \
+  -H "Content-Type: application/json" \
+  -d '{"phone":"+905XXXXXXXXX"}'
+```
 
 ### Start OTP
 

@@ -5,7 +5,6 @@ import Otp from '../models/Otp.js';
 import { sendOtpEmail } from '../src/services/email.js';
 import { sendOtpSms } from '../src/services/sms.js';
 import User from '../models/User.js';
-import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
 
 const SIGNUP_TOKEN_EXPIRES_IN = '5m';
 const getSignupSecret = () =>
@@ -13,7 +12,12 @@ const getSignupSecret = () =>
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
-const normalizePhone = (value) => normalizeTrPhoneE164(value);
+const normalizePhone = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  // Keep backward compatibility: don't force E.164 here; just trim.
+  return raw;
+};
 
 const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
 const getOtpTtlSeconds = () => {
@@ -28,16 +32,43 @@ const getOtpMaxAttempts = () => {
 
 const resolveTarget = (channel, body) => {
   if (channel === 'email') {
-    return normalizeEmail(body?.email);
+    const raw = body?.target || body?.to || body?.email;
+    return normalizeEmail(raw);
   }
   if (channel === 'sms') {
-    return normalizePhone(body?.phone);
+    const raw = body?.target || body?.phone || body?.to || body?.recipient;
+    return normalizePhone(raw);
   }
   return '';
 };
 
+const maskTarget = (channel, target) => {
+  if (!target) return '';
+  if (channel === 'email') {
+    const [name, domain] = String(target).split('@');
+    if (!domain) return '***';
+    const prefix = name?.[0] || '';
+    return `${prefix}***@${domain}`;
+  }
+  const digits = String(target).replace(/\D/g, '');
+  if (digits.length < 4) return '***';
+  return `+${digits.slice(0, 3)}***${digits.slice(-4)}`;
+};
+
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const err = new Error('OTP_SEND_TIMEOUT');
+      err.code = 'OTP_SEND_TIMEOUT';
+      err.statusCode = 500;
+      setTimeout(() => reject(err), ms);
+    })
+  ]);
+
 export const sendOtp = async (req, res) => {
   try {
+    const reqId = req.headers['x-request-id'] || `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     const channel = String(req.body?.channel || '').trim();
     if (!['email', 'sms'].includes(channel)) {
       return res.status(400).json({ ok: false, message: 'Kanal geçersiz.' });
@@ -47,6 +78,12 @@ export const sendOtp = async (req, res) => {
     if (!target) {
       return res.status(400).json({ ok: false, message: 'Hedef zorunlu.' });
     }
+
+    console.log('OTP_SEND_START', {
+      reqId,
+      channel,
+      target: maskTarget(channel, target)
+    });
 
     const last = await Otp.findOne({ channel, target }).sort({ lastSentAt: -1 });
     const cooldownSeconds = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
@@ -70,14 +107,43 @@ export const sendOtp = async (req, res) => {
     });
 
     if (channel === 'email') {
-      await sendOtpEmail({ to: target, code });
+      setImmediate(() => {
+        sendOtpEmail({ to: target, code })
+          .then(() => {
+            console.log('OTP_SEND_OK', { reqId, channel });
+          })
+          .catch((err) => {
+            console.error('OTP_SEND_FAIL', {
+              reqId,
+              channel,
+              errName: err?.name,
+              errCode: err?.code,
+              errMsg: err?.message,
+              provider: err?.provider
+            });
+          });
+      });
     } else {
-      await sendOtpSms({ phone: target, code });
+      const timeoutMs = Number(process.env.SEND_OTP_TIMEOUT_MS || 8000);
+      await withTimeout(sendOtpSms({ phone: target, code }), timeoutMs);
+      console.log('OTP_SEND_OK', { reqId, channel });
     }
 
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
-    console.error('OTP_SEND_FAIL', error);
+    const reqId = req.headers['x-request-id'] || 'unknown';
+    if (error?.code === 'OTP_SEND_TIMEOUT') {
+      console.warn('OTP_SEND_TIMEOUT', { reqId, channel: req.body?.channel });
+      return res.status(500).json({ ok: false, message: 'Kod gönderilemedi' });
+    }
+    console.error('OTP_SEND_FAIL', {
+      reqId,
+      channel: req.body?.channel,
+      errName: error?.name,
+      errCode: error?.code,
+      errMsg: error?.message,
+      provider: error?.provider
+    });
     if (String(error?.code || '').startsWith('EMAIL')) {
       console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
       return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });

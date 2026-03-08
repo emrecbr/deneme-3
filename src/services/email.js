@@ -2,6 +2,22 @@ import nodemailer from 'nodemailer';
 
 const getEnv = (key, fallback = '') => (process.env[key] || fallback).trim();
 
+let verifiedOnce = false;
+
+const logEmailFail = (error) => {
+  const payload = {
+    code: error?.code,
+    responseCode: error?.responseCode,
+    command: error?.command,
+    message: error?.message,
+    name: error?.name,
+    hostname: error?.hostname,
+    syscall: error?.syscall,
+    errno: error?.errno
+  };
+  console.error('EMAIL_SEND_FAIL', payload);
+};
+
 const resolveSmtpConfig = () => {
   const sendgridKey = getEnv('SENDGRID_API_KEY');
   if (sendgridKey) {
@@ -34,12 +50,43 @@ export const makeMailer = () => {
     throw error;
   }
 
-  return nodemailer.createTransport({
+  const transport = nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
-    auth: config.auth || undefined
+    auth: config.auth || undefined,
+    connectionTimeout: Number(getEnv('SMTP_CONNECTION_TIMEOUT_MS', '8000')),
+    greetingTimeout: Number(getEnv('SMTP_GREETING_TIMEOUT_MS', '8000')),
+    socketTimeout: Number(getEnv('SMTP_SOCKET_TIMEOUT_MS', '8000')),
+    pool: true,
+    maxConnections: 2,
+    maxMessages: 50,
+    tls: {
+      rejectUnauthorized: getEnv('SMTP_TLS_REJECT_UNAUTHORIZED', 'true') !== 'false'
+    }
   });
+
+  if (process.env.NODE_ENV === 'production' && !verifiedOnce) {
+    verifiedOnce = true;
+    transport.verify()
+      .then(() => {
+        console.log('EMAIL_SMTP_OK');
+      })
+      .catch((error) => {
+        console.error('EMAIL_SMTP_VERIFY_FAIL', {
+          code: error?.code,
+          responseCode: error?.responseCode,
+          command: error?.command,
+          message: error?.message,
+          name: error?.name,
+          hostname: error?.hostname,
+          syscall: error?.syscall,
+          errno: error?.errno
+        });
+      });
+  }
+
+  return transport;
 };
 
 export const sendOtpEmail = async ({ to, code }) => {
@@ -71,6 +118,7 @@ export const sendOtpEmail = async ({ to, code }) => {
       html
     });
   } catch (error) {
+    logEmailFail(error);
     const err = new Error('Email gönderilemedi.');
     err.code = error?.code || 'EMAIL_SEND_FAIL';
     err.statusCode = error?.statusCode || 502;
@@ -108,6 +156,7 @@ export const sendPasswordResetEmail = async ({ to, resetLink }) => {
       html
     });
   } catch (error) {
+    logEmailFail(error);
     const err = new Error('Email gönderilemedi.');
     err.code = error?.code || 'EMAIL_SEND_FAIL';
     err.statusCode = error?.statusCode || 502;

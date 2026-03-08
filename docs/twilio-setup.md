@@ -1,4 +1,6 @@
-# Twilio SMS OTP Kurulum Checklist
+# Legacy: Twilio SMS OTP Kurulum Checklist (artık kullanılmıyor)
+
+> Not: Bu proje artık SMS için İletiMerkezi kullanıyor. Twilio entegrasyonu kaldırıldı; bu doküman sadece referans amaçlı tutulur.
 
 Bu doküman Twilio trial kısıtını kaldırıp gerçek kullanıcıların SMS OTP alabilmesi için gerekli adımları içerir.
 

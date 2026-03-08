@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getTwilioClient } from '../src/config/twilioClient.js';
+import { sendOtp, verifyOtp } from '../controllers/otpController.js';
 
 const router = Router();
 
@@ -53,16 +53,12 @@ router.post('/start', async (req, res) => {
       return res.status(429).json({ success: false, message: 'Çok fazla istek. Lütfen bekleyin.' });
     }
 
-    const { client, serviceSid } = getTwilioClient();
-    const verification = await client.verify.v2.services(serviceSid).verifications.create({
-      to: phoneE164,
-      channel: 'sms'
-    });
-
-    return res.status(200).json({
-      status: verification?.status || 'pending',
-      message: 'OTP gönderildi'
-    });
+    req.body = {
+      ...req.body,
+      channel: 'sms',
+      phone: phoneE164
+    };
+    return sendOtp(req, res);
   } catch (error) {
     const status = error.statusCode || error.status || 500;
     return res.status(status).json({
@@ -90,20 +86,13 @@ router.post('/check', async (req, res) => {
       return res.status(429).json({ success: false, message: 'Çok fazla deneme. Lütfen bekleyin.' });
     }
 
-    const { client, serviceSid } = getTwilioClient();
-    const check = await client.verify.v2.services(serviceSid).verificationChecks.create({
-      to: phoneE164,
+    req.body = {
+      ...req.body,
+      channel: 'sms',
+      phone: phoneE164,
       code
-    });
-
-    if (check?.status === 'approved') {
-      return res.status(200).json({ verified: true });
-    }
-
-    return res.status(401).json({
-      verified: false,
-      message: 'Kod hatalı veya süresi dolmuş'
-    });
+    };
+    return verifyOtp(req, res);
   } catch (error) {
     const status = error.statusCode || error.status || 500;
     return res.status(status).json({

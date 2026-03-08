@@ -41,13 +41,10 @@ const maskEnv = (value) => {
 };
 const logEnvPresence = () => {
   const keys = [
-    'TWILIO_ACCOUNT_SID',
-    'TWILIO_AUTH_TOKEN',
-    'TWILIO_VERIFY_SERVICE_SID',
-    'TWILIO_MESSAGING_SERVICE_SID',
-    'TWILIO_FROM',
-    'TWILIO_CHANNEL',
     'SMS_PROVIDER',
+    'ILETIMERKEZI_API_KEY',
+    'ILETIMERKEZI_SENDER',
+    'ILETIMERKEZI_BASE_URL',
     'BREVO_SMTP_HOST',
     'BREVO_SMTP_PORT',
     'BREVO_SMTP_USER',

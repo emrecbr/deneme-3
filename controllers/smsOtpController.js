@@ -1,13 +1,26 @@
-import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import dayjs from 'dayjs';
 import jwt from 'jsonwebtoken';
+import Otp from '../models/Otp.js';
 import User from '../models/User.js';
-import { sendSmsOtp, checkSmsOtp } from '../src/services/twilioVerify.js';
+import { sendOtpSms } from '../src/services/sms.js';
 import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
 
 const TOKEN_EXPIRES_IN = '7d';
 const SIGNUP_TOKEN_EXPIRES_IN = '5m';
 
 const normalizePhone = (value) => normalizeTrPhoneE164(value);
+const resolvePhone = (body) => normalizePhone(body?.phone || body?.to || body?.target);
+const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const getOtpTtlSeconds = () => {
+  const minutes = Number(process.env.OTP_TTL_MINUTES || 0);
+  if (Number.isFinite(minutes) && minutes > 0) return minutes * 60;
+  return Number(process.env.OTP_TTL_SECONDS || 120);
+};
+const getOtpMaxAttempts = () => {
+  const val = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+  return Number.isFinite(val) ? val : 5;
+};
 
 const signToken = (user) => {
   if (!process.env.JWT_SECRET) {
@@ -46,48 +59,41 @@ const buildUserPayload = (user) => ({
 
 export const sendSmsOtpController = async (req, res) => {
   try {
-    const phone = normalizePhone(req.body?.phone);
+    const phone = resolvePhone(req.body);
     if (!phone) {
       return res.status(400).json({ ok: false, message: 'Telefon geçersiz.' });
     }
-    await sendSmsOtp(phone);
+
+    const last = await Otp.findOne({ channel: 'sms', target: phone }).sort({ lastSentAt: -1 });
+    const cooldownSeconds = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
+    if (last?.lastSentAt && dayjs().diff(dayjs(last.lastSentAt), 'second') < cooldownSeconds) {
+      return res.status(429).json({ ok: false, message: 'Lütfen 60 sn bekleyin.' });
+    }
+
+    const code = generateCode();
+    const codeHash = await bcrypt.hash(code, 10);
+    const ttlSeconds = getOtpTtlSeconds();
+    const expiresAt = dayjs().add(ttlSeconds, 'second').toDate();
+    const now = new Date();
+
+    await Otp.deleteMany({ channel: 'sms', target: phone });
+    await Otp.create({
+      channel: 'sms',
+      target: phone,
+      codeHash,
+      expiresAt,
+      lastSentAt: now
+    });
+
+    await sendOtpSms({ phone, code });
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
     console.error('SMS_OTP_SEND_FAIL', {
       status: error?.status || error?.statusCode,
       code: error?.code,
       message: error?.message,
-      moreInfo: error?.moreInfo
+      provider: error?.provider
     });
-    const message = String(error?.message || '');
-    const lowerMessage = message.toLowerCase();
-    const isTrialUnverified =
-      (error?.status === 400 || error?.status === 403 || error?.statusCode === 400 || error?.statusCode === 403) &&
-      (lowerMessage.includes('trial') || lowerMessage.includes('verified') || lowerMessage.includes('unverified'));
-    if (isTrialUnverified) {
-      return res.status(403).json({
-        ok: false,
-        code: 'TWILIO_TRIAL_UNVERIFIED',
-        message: 'Twilio trial: sadece doğrulanmış numaralara SMS gönderilebilir.',
-        detail: error?.message
-      });
-    }
-    if (error?.code === 21408 || lowerMessage.includes('permission') || lowerMessage.includes('geo')) {
-      return res.status(403).json({
-        ok: false,
-        code: 'TWILIO_GEO_BLOCKED',
-        message: 'Bu ülkeye SMS gönderimi kapalı.',
-        detail: error?.message
-      });
-    }
-    if (error?.code === 21211 || lowerMessage.includes('invalid')) {
-      return res.status(400).json({
-        ok: false,
-        code: 'TWILIO_INVALID_PHONE',
-        message: 'Numara formatı hatalı (5XXXXXXXXX).',
-        detail: error?.message
-      });
-    }
     const status = error?.statusCode || error?.status || 500;
     return res.status(status).json({ ok: false, message: 'Kod gönderilemedi' });
   }
@@ -95,17 +101,41 @@ export const sendSmsOtpController = async (req, res) => {
 
 export const verifySmsOtpController = async (req, res) => {
   try {
-    const phone = normalizePhone(req.body?.phone);
+    const phone = resolvePhone(req.body);
     const code = String(req.body?.code || '').trim();
 
-    if (!phone || !/^\d{6}$/.test(code)) {
+    if (!phone || !code) {
       return res.status(400).json({ ok: false, message: 'Bilgiler eksik.' });
     }
-
-    const check = await checkSmsOtp(phone, code);
-    if (check?.status !== 'approved') {
-      return res.status(400).json({ ok: false, message: 'Kod hatalı' });
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ ok: false, message: 'Kod 6 haneli olmalı.' });
     }
+
+    const record = await Otp.findOne({ channel: 'sms', target: phone }).sort({ createdAt: -1 });
+    if (!record) {
+      return res.status(400).json({ ok: false, message: 'Kod bulunamadı.' });
+    }
+    if (record.usedAt) {
+      return res.status(400).json({ ok: false, message: 'Kod zaten kullanıldı.' });
+    }
+    if (dayjs().isAfter(dayjs(record.expiresAt))) {
+      await Otp.deleteMany({ channel: 'sms', target: phone });
+      return res.status(400).json({ ok: false, message: 'Kodun süresi doldu.' });
+    }
+    if (record.attempts >= getOtpMaxAttempts()) {
+      await Otp.deleteMany({ channel: 'sms', target: phone });
+      return res.status(429).json({ ok: false, message: 'Çok fazla deneme.' });
+    }
+
+    const matches = await bcrypt.compare(code, record.codeHash);
+    if (!matches) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({ ok: false, message: 'Kod hatalı.' });
+    }
+
+    record.usedAt = new Date();
+    await record.save();
 
     let user = await User.findOne({ phoneE164: phone });
     if (!user) {
