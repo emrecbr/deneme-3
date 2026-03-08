@@ -1,21 +1,6 @@
-const getEnv = (key, fallback = '') => (process.env[key] || fallback).trim();
+import { normalizeTrPhoneE164 } from '../utils/phone.js';
 
-const normalizePhone = (value) => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (raw.startsWith('+')) return raw;
-  const digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('05') && digits.length === 11) {
-    return `+90${digits.slice(1)}`;
-  }
-  if (digits.startsWith('5') && digits.length === 10) {
-    return `+90${digits}`;
-  }
-  if (digits.startsWith('90') && digits.length === 12) {
-    return `+${digits}`;
-  }
-  return raw;
-};
+const getEnv = (key, fallback = '') => (process.env[key] || fallback).trim();
 
 const maskPhone = (phone) => {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -25,7 +10,14 @@ const maskPhone = (phone) => {
 
 export const sendOtpSms = async ({ phone, code }) => {
   const provider = getEnv('SMS_PROVIDER', 'iletimerkezi');
-  const normalizedPhone = normalizePhone(phone);
+  const normalizedPhone = normalizeTrPhoneE164(phone);
+  if (!normalizedPhone) {
+    const error = new Error('Telefon geçersiz.');
+    error.code = 'INVALID_PHONE';
+    error.statusCode = 400;
+    error.provider = provider;
+    throw error;
+  }
 
   if (provider === 'mock') {
     if (process.env.NODE_ENV !== 'production') {
@@ -47,13 +39,12 @@ export const sendOtpSms = async ({ phone, code }) => {
 
 const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
   const apiKey = getEnv('ILETIMERKEZI_API_KEY');
-  const username = getEnv('ILETIMERKEZI_USERNAME');
-  const password = getEnv('ILETIMERKEZI_PASSWORD');
+  const apiHash = getEnv('ILETIMERKEZI_API_HASH');
   const sender = getEnv('ILETIMERKEZI_SENDER');
   const baseUrlRaw = getEnv('ILETIMERKEZI_BASE_URL', 'https://api.iletimerkezi.com');
   const baseUrl = baseUrlRaw.endsWith('/v1/send-sms') ? baseUrlRaw : `${baseUrlRaw}/v1/send-sms`;
 
-  if ((!apiKey && (!username || !password)) || !sender) {
+  if (!apiKey || !apiHash || !sender) {
     const error = new Error('İleti Merkezi credentials eksik.');
     error.code = 'CONFIG_MISSING_ILETIMERKEZI';
     error.statusCode = 501;
@@ -65,33 +56,22 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
   const controller = new AbortController();
   const timeoutMs = Number(getEnv('SMS_SEND_TIMEOUT_MS', '15000')) || 15000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  const authentication = apiKey
-    ? { apiKey }
-    : { username, password };
+  const iys = Number(getEnv('ILETIMERKEZI_IYS', '0')) || 0;
 
   const payload = {
-    request: {
-      authentication,
-      order: {
-        sender,
-        sendDateTime: '',
-        message: {
-          text: message,
-          receipents: {
-            number: [phone]
-          }
-        }
-      }
-    }
+    key: apiKey,
+    hash: apiHash,
+    sender,
+    message,
+    receivers: [phone],
+    iys
   };
 
   try {
     const response = await fetch(baseUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload),
       signal: controller.signal
@@ -111,7 +91,7 @@ const sendSmsViaIletiMerkezi = async ({ phone, code }) => {
       throw error;
     }
 
-    const statusCode = data?.response?.status?.code || data?.response?.status?.status;
+    const statusCode = data?.status || data?.response?.status || data?.response?.status?.code;
     if (statusCode && String(statusCode) !== '200') {
       console.error('SMS_SEND_FAIL', {
         provider: 'iletimerkezi',

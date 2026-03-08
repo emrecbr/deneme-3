@@ -94,8 +94,7 @@ export const sendSmsOtpController = async (req, res) => {
       message: error?.message,
       provider: error?.provider
     });
-    const status = error?.statusCode || error?.status || 500;
-    return res.status(status).json({ ok: false, message: 'Kod gönderilemedi' });
+    return res.status(502).json({ ok: false, message: 'Kod gönderilemedi' });
   }
 };
 
