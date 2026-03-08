@@ -33,6 +33,36 @@ import iyzico from './providers/iyzico/index.js';
 dotenv.config();
 
 const app = express();
+const maskEnv = (value) => {
+  if (!value) return 'missing';
+  const str = String(value);
+  if (str.length <= 4) return `set (${str.length} chars)`;
+  return `set (****${str.slice(-4)})`;
+};
+const logEnvPresence = () => {
+  const keys = [
+    'TWILIO_ACCOUNT_SID',
+    'TWILIO_AUTH_TOKEN',
+    'TWILIO_VERIFY_SERVICE_SID',
+    'TWILIO_MESSAGING_SERVICE_SID',
+    'TWILIO_FROM',
+    'TWILIO_CHANNEL',
+    'SMS_PROVIDER',
+    'BREVO_SMTP_HOST',
+    'BREVO_SMTP_PORT',
+    'BREVO_SMTP_USER',
+    'BREVO_SMTP_PASS',
+    'SENDGRID_API_KEY',
+    'MAIL_FROM',
+    'EMAIL_FROM',
+    'APP_BASE_URL'
+  ];
+  console.log('ENV CHECK (masked):');
+  keys.forEach((key) => {
+    console.log(`- ${key}: ${maskEnv(process.env[key])}`);
+  });
+};
+logEnvPresence();
 const PORT = Number(process.env.PORT) || 3001;
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',

@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 
-const SNAP_POSITIONS = {
-  full: 0,
-  mid: 45,
-  collapsed: 88
-};
-
 function ReusableBottomSheet({
   open,
   onClose,
@@ -20,26 +14,74 @@ function ReusableBottomSheet({
   const [mounted, setMounted] = useState(false);
   const [snap, setSnap] = useState(initialSnap);
   const [dragging, setDragging] = useState(false);
-  const [translate, setTranslate] = useState(SNAP_POSITIONS.collapsed);
-  const translateRef = useRef(SNAP_POSITIONS.collapsed);
+  const [snapping, setSnapping] = useState(false);
+  const translateRef = useRef(0);
+  const snapPointsRef = useRef({ full: 0, half: 0, closed: 0 });
   const draggingRef = useRef(false);
   const startYRef = useRef(0);
-  const startTranslateRef = useRef(SNAP_POSITIONS.mid);
+  const startTranslateRef = useRef(0);
   const sheetRef = useRef(null);
+  const handleRef = useRef(null);
   const previousFocusRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const rafRef = useRef(null);
+  const snapTimerRef = useRef(null);
+
+  const computeSnapPoints = () => {
+    const vh = window.innerHeight || 0;
+    const sheetHeight = sheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
+    const halfVisible = Math.min(Math.max(vh * 0.7, 520), 720);
+    const full = 16;
+    const half = Math.max(sheetHeight - halfVisible, full);
+    const closed = Math.max(sheetHeight - 96, half);
+    snapPointsRef.current = { full, half, closed };
+    return snapPointsRef.current;
+  };
+
+  const applyTranslate = (value) => {
+    translateRef.current = value;
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = `translate3d(-50%, ${value}px, 0)`;
+    }
+  };
+
+  const scheduleTranslate = (value) => {
+    translateRef.current = value;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+    }
+    rafRef.current = requestAnimationFrame(() => {
+      if (sheetRef.current) {
+        sheetRef.current.style.transform = `translate3d(-50%, ${translateRef.current}px, 0)`;
+      }
+    });
+  };
+
+  const snapTo = (nextSnap, { animate = true } = {}) => {
+    const points = snapPointsRef.current;
+    const target = points[nextSnap] ?? points.half;
+    setSnap(nextSnap);
+    setSnapping(Boolean(animate));
+    setDragging(false);
+    applyTranslate(target);
+    if (snapTimerRef.current) {
+      window.clearTimeout(snapTimerRef.current);
+    }
+    if (animate) {
+      snapTimerRef.current = window.setTimeout(() => {
+        setSnapping(false);
+      }, 240);
+    } else {
+      setSnapping(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
       setMounted(true);
-      setSnap(initialSnap);
-      const next = SNAP_POSITIONS[initialSnap] ?? SNAP_POSITIONS.mid;
-      translateRef.current = next;
-      setTranslate(next);
     } else if (mounted) {
-      setSnap('collapsed');
-      translateRef.current = SNAP_POSITIONS.collapsed;
-      setTranslate(SNAP_POSITIONS.collapsed);
+      computeSnapPoints();
+      snapTo('closed');
       closeTimerRef.current = window.setTimeout(() => {
         setMounted(false);
       }, 360);
@@ -82,58 +124,123 @@ function ReusableBottomSheet({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose, open]);
 
-  const beginDrag = (event) => {
-    const point = 'touches' in event ? event.touches[0] : event;
-    startYRef.current = point.clientY;
-    startTranslateRef.current = translate;
-    draggingRef.current = true;
-    setDragging(true);
-    window.addEventListener('touchmove', onDragMove, { passive: false });
-    window.addEventListener('touchend', onDragEnd);
-  };
+  useEffect(() => {
+    if (!mounted) {
+      return;
+    }
+    const points = computeSnapPoints();
+    const nextSnap = points[initialSnap] != null ? initialSnap : 'half';
+    snapTo(nextSnap, { animate: false });
+  }, [mounted, initialSnap]);
 
-  const onDragMove = (event) => {
+  useEffect(() => {
+    if (!mounted) {
+      return undefined;
+    }
+    const onResize = () => {
+      computeSnapPoints();
+      snapTo(snap, { animate: false });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [mounted, snap]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+      if (snapTimerRef.current) {
+        window.clearTimeout(snapTimerRef.current);
+      }
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, []);
+
+  const onPointerMove = (event) => {
     if (!draggingRef.current) {
       return;
     }
-    if (event.cancelable) {
-      event.preventDefault();
+    if (import.meta.env?.DEV) {
+      console.log('[sheet] move', { y: event.clientY });
     }
-    const point = 'touches' in event ? event.touches[0] : event;
-    const deltaY = point.clientY - startYRef.current;
-    const next = Math.min(100, Math.max(0, startTranslateRef.current + (deltaY / window.innerHeight) * 100));
-    translateRef.current = next;
-    setTranslate(next);
+    const currentY = event.clientY;
+    const deltaY = currentY - startYRef.current;
+    const points = snapPointsRef.current;
+    const minY = points.full;
+    const maxY = points.closed;
+    let next = startTranslateRef.current + deltaY;
+    next = Math.min(maxY, Math.max(minY, next));
+    scheduleTranslate(next);
   };
 
-  const onDragEnd = () => {
+  const onPointerUp = (event) => {
     if (!draggingRef.current) {
       return;
     }
-    window.removeEventListener('touchmove', onDragMove);
-    window.removeEventListener('touchend', onDragEnd);
+    if (import.meta.env?.DEV) {
+      console.log('[sheet] up');
+    }
     draggingRef.current = false;
     setDragging(false);
-    const candidates = [SNAP_POSITIONS.full, SNAP_POSITIONS.mid, SNAP_POSITIONS.collapsed];
-    let nearest = candidates[0];
+    document.body.classList.remove('rb-dragging');
+    if (handleRef.current && event?.pointerId != null) {
+      handleRef.current.releasePointerCapture?.(event.pointerId);
+    }
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+    }
+    const points = snapPointsRef.current;
     const currentTranslate = translateRef.current;
-    let minDistance = Math.abs(currentTranslate - candidates[0]);
-    candidates.forEach((value) => {
-      const dist = Math.abs(currentTranslate - value);
+    const candidates = [
+      { key: 'full', value: points.full },
+      { key: 'half', value: points.half },
+      { key: 'closed', value: points.closed }
+    ];
+    let nearest = candidates[0];
+    let minDistance = Math.abs(currentTranslate - candidates[0].value);
+    candidates.forEach((candidate) => {
+      const dist = Math.abs(currentTranslate - candidate.value);
       if (dist < minDistance) {
         minDistance = dist;
-        nearest = value;
+        nearest = candidate;
       }
     });
-    if (currentTranslate > 95) {
+    if (nearest.key === 'closed') {
+      snapTo('closed');
       onClose?.();
       return;
     }
-    const nextSnap =
-      nearest === SNAP_POSITIONS.full ? 'full' : nearest === SNAP_POSITIONS.mid ? 'mid' : 'collapsed';
-    setSnap(nextSnap);
-    translateRef.current = nearest;
-    setTranslate(nearest);
+    snapTo(nearest.key);
+  };
+
+  const onHandlePointerDown = (event) => {
+    if (!handleRef.current) {
+      return;
+    }
+    if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (import.meta.env?.DEV) {
+      console.log('[sheet] handle down', { y: event.clientY, pointerId: event.pointerId });
+    }
+    handleRef.current.setPointerCapture?.(event.pointerId);
+    draggingRef.current = true;
+    setDragging(true);
+    setSnapping(false);
+    document.body.classList.add('rb-dragging');
+    startYRef.current = event.clientY;
+    startTranslateRef.current = translateRef.current;
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'none';
+    }
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { passive: true });
+    window.addEventListener('pointercancel', onPointerUp, { passive: true });
   };
 
   if (!mounted) {
@@ -144,24 +251,25 @@ function ReusableBottomSheet({
     <div
       className={`sheet-overlay premium-filter-sheet-overlay ${overlayClassName}`}
       onClick={onClose}
-      onMouseMove={onDragMove}
-      onMouseUp={onDragEnd}
-      onMouseLeave={onDragEnd}
     >
       <div
         ref={sheetRef}
-        className={`sheet-content premium-filter-sheet rb-sheet ${contentClassName} ${dragging ? 'dragging' : ''}`}
-        style={{ transform: `translateX(-50%) translateY(${translate}%)` }}
+        className={`sheet-content premium-filter-sheet rb-sheet ${contentClassName} ${dragging ? 'rb-sheet--dragging' : ''} ${snapping ? 'rb-sheet--snapping' : ''}`}
+        style={{ transform: `translate3d(-50%, ${translateRef.current}px, 0)` }}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
         onClick={(event) => event.stopPropagation()}
       >
         <div
-          className="rb-sheet-handle"
-          onMouseDown={beginDrag}
-          onTouchStart={beginDrag}
-        />
+          ref={handleRef}
+          className={`rb-sheet-handle-wrap ${dragging ? 'is-dragging' : ''}`}
+          onPointerDown={onHandlePointerDown}
+          role="button"
+          aria-label="Sheet sürükleme çentiği"
+        >
+          <div className="rb-sheet-handle" />
+        </div>
         <div className={`rb-sheet-header ${className}`}>
           <strong>{title}</strong>
           {headerRight}

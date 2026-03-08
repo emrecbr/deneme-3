@@ -19,6 +19,7 @@ import { getSocket, normalizeSocketCity } from '../lib/socket';
 import { triggerHaptic } from '../utils/haptic';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
+import { haversineKm } from '../utils/geo';
 import { FavoriteIcon } from '../components/ui/AppIcons';
 
 const PAGE_LIMIT = 10;
@@ -100,8 +101,13 @@ function RFQList() {
   const resultsToastTimerRef = useRef(null);
   const resultsToastHideTimerRef = useRef(null);
   const createSheetCloseTimerRef = useRef(null);
+  const locationAutoApplyRef = useRef(false);
   const createSheetDragStartYRef = useRef(0);
-  const createSheetDragStartTranslateRef = useRef(45);
+  const createSheetDragStartTranslateRef = useRef(0);
+  const createSheetDragTranslateRef = useRef(0);
+  const createSheetRafRef = useRef(0);
+  const createSheetRef = useRef(null);
+  const createSheetSnapRef = useRef({ full: 0, half: 0, closed: 0 });
   const searchInputRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -132,7 +138,7 @@ function RFQList() {
   const [isCreateSheetMounted, setIsCreateSheetMounted] = useState(false);
   const [createSheetState, setCreateSheetState] = useState('closed');
   const [isCreateSheetDragging, setIsCreateSheetDragging] = useState(false);
-  const [createSheetDragTranslate, setCreateSheetDragTranslate] = useState(35);
+  const [createSheetRenderTranslate, setCreateSheetRenderTranslate] = useState(0);
   const [categoryLabel, setCategoryLabel] = useState('');
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
   const [flatSubcategories, setFlatSubcategories] = useState([]);
@@ -180,6 +186,8 @@ function RFQList() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationWarning, setLocationWarning] = useState('');
   const [locationSelection, setLocationSelection] = useState(null);
+  const [useCurrentLocationLoading, setUseCurrentLocationLoading] = useState(false);
+  const [cityCenterCoords, setCityCenterCoords] = useState(null);
   const [showResultsToast, setShowResultsToast] = useState(false);
   const [resultsToastVisible, setResultsToastVisible] = useState(false);
   const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || 0);
@@ -489,7 +497,7 @@ function RFQList() {
       const query = new URLSearchParams({
         lng: String(coords.lng),
         lat: String(coords.lat),
-        radius: String(filters.radius)
+        radiusKm: String(filters.radius)
       });
       if (filters.category) {
         query.set('category', String(filters.category));
@@ -949,12 +957,286 @@ function RFQList() {
     fetchRFQs({ nextPage: 1, replace: true, isRefresh: true });
   }, [draftFilters, fetchRFQs, filters, resultsToastTimerRef, resultsToastHideTimerRef]);
 
+  useEffect(() => {
+    if (!locationAutoApplyRef.current) {
+      return;
+    }
+    if (!draftFilters?.city && !draftFilters?.cityId) {
+      return;
+    }
+    locationAutoApplyRef.current = false;
+    handleApplyFilters();
+  }, [draftFilters, handleApplyFilters]);
+
   const updateDraftFilter = useCallback((key, value) => {
     setDraftFilters((prev) => ({
       ...(prev || filters),
       [key]: value
     }));
   }, [filters]);
+
+  const handleUseCurrentLocation = useCallback(async () => {
+    if (useCurrentLocationLoading) {
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setLocationWarning('Konum servisi desteklenmiyor.');
+      setToast('Konum alinamadi. Lutfen manuel secin.');
+      return;
+    }
+
+    setUseCurrentLocationLoading(true);
+    setLocationWarning('');
+
+    const getPosition = () => new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000
+      });
+    });
+
+    try {
+      const position = await getPosition();
+      const lat = position?.coords?.latitude;
+      const lng = position?.coords?.longitude;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        throw new Error('Konum bilgisi alinamadi.');
+      }
+
+      const coords = { lat, lng };
+      setUserCoords(coords);
+      setUserPosition(coords);
+
+      const reverseTry = async () => {
+        try {
+          const response = await api.get('/location/reverse', { params: { lat, lng } });
+          const payload = response.data || {};
+          if (payload?.success === false) {
+            console.warn('LOCATION_REVERSE_FAIL', {
+              status: response?.status,
+              data: payload,
+              message: payload?.message,
+              url: `${response?.config?.baseURL || ''}${response?.config?.url || ''}`,
+              params: response?.config?.params
+            });
+            return null;
+          }
+          const cityPayload = payload.city || {};
+          const districtPayload = payload.district || {};
+          const cityName = typeof cityPayload === 'string' ? cityPayload : cityPayload.name;
+          const districtName = typeof districtPayload === 'string' ? districtPayload : districtPayload.name;
+
+          let resolvedCity = null;
+          if (cityName) {
+            if (cityPayload?._id || cityPayload?.id) {
+              resolvedCity = { _id: cityPayload._id || cityPayload.id, name: cityName };
+            } else {
+              const cityRes = await api.get('/location/search', { params: { q: cityName } });
+              const cityItems = Array.isArray(cityRes.data?.data)
+                ? cityRes.data.data
+                : Array.isArray(cityRes.data?.items)
+                  ? cityRes.data.items
+                  : Array.isArray(cityRes.data)
+                    ? cityRes.data
+                    : [];
+              const match = cityItems.find((item) => item?.name?.toLowerCase() === cityName.toLowerCase());
+              const fallback = match || cityItems[0];
+              if (fallback?._id && fallback?.name) {
+                resolvedCity = { _id: fallback._id, name: fallback.name };
+              }
+            }
+          }
+
+          let resolvedDistrict = null;
+          if (resolvedCity?._id && districtName) {
+            if (districtPayload?._id || districtPayload?.id) {
+              resolvedDistrict = {
+                _id: districtPayload._id || districtPayload.id,
+                name: districtName,
+                cityId: districtPayload.cityId || resolvedCity._id
+              };
+            } else {
+              const districtRes = await api.get('/location/districts', {
+                params: {
+                  cityId: resolvedCity._id,
+                  q: districtName,
+                  page: 1,
+                  limit: 200
+                }
+              });
+              const districtItems = (districtRes.data?.data || []).filter((item) => item?._id && item?.name);
+              const match = districtItems.find((item) => item.name.toLowerCase() === districtName.toLowerCase());
+              const fallback = match || districtItems[0];
+              if (fallback?._id && fallback?.name) {
+                resolvedDistrict = { _id: fallback._id, name: fallback.name, cityId: resolvedCity._id };
+              }
+            }
+          }
+
+          if (!resolvedCity?.name) {
+            return null;
+          }
+
+          let center = null;
+          const centerCoords = payload?.center?.coordinates;
+          if (Array.isArray(centerCoords) && centerCoords.length === 2) {
+            center = { lat: Number(centerCoords[1]), lng: Number(centerCoords[0]) };
+          }
+          return {
+            city: resolvedCity,
+            district: resolvedDistrict || null,
+            radiusKm: Number(payload.radiusKm) || null,
+            center
+          };
+        } catch (_error) {
+          const err = _error;
+          console.warn('LOCATION_REVERSE_FAIL', {
+            status: err?.response?.status,
+            data: err?.response?.data,
+            message: err?.message,
+            url: `${err?.config?.baseURL || ''}${err?.config?.url || ''}`,
+            params: err?.config?.params
+          });
+          return null;
+        }
+      };
+
+      const fallbackNearestCity = async () => {
+        try {
+          let page = 1;
+          let allItems = [];
+          let hasMore = true;
+
+          while (hasMore && page <= 10) {
+            const response = await api.get('/location/cities', {
+              params: { page, limit: 200, includeCoords: true }
+            });
+            const items = response.data?.items || response.data?.data || [];
+            allItems = allItems.concat(items);
+            hasMore = Boolean(response.data?.hasMore);
+            page += 1;
+          }
+
+          let nearest = null;
+          let nearestDistance = Number.POSITIVE_INFINITY;
+          allItems.forEach((city) => {
+            const coords = city?.center?.coordinates || city?.location?.coordinates || null;
+            const latVal = Array.isArray(coords) ? Number(coords[1]) : Number(city?.lat);
+            const lngVal = Array.isArray(coords) ? Number(coords[0]) : Number(city?.lng);
+            if (!Number.isFinite(latVal) || !Number.isFinite(lngVal)) {
+              return;
+            }
+            const distance = haversineKm({ lat, lng }, { lat: latVal, lng: lngVal });
+            if (distance < nearestDistance) {
+              nearestDistance = distance;
+              nearest = { _id: city._id || city.id || null, name: city.name, center: { lat: latVal, lng: lngVal } };
+            }
+          });
+
+          if (!nearest?.name) {
+            return null;
+          }
+          return { city: nearest, district: null, center: nearest.center };
+        } catch (_error) {
+          return null;
+        }
+      };
+
+      const reverseResult = await reverseTry();
+      const selection = reverseResult || await fallbackNearestCity();
+
+      if (!selection?.city?.name) {
+        console.warn('LOCATION_REVERSE_FAIL');
+        setLocationWarning('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
+        setToast('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
+        return;
+      }
+
+      console.log('LOCATION_REVERSE_OK', selection.city.name);
+
+      const resolvedCity = selection.city;
+      const resolvedDistrict = selection.district;
+      const resolvedCenter = selection.center || null;
+
+      setSelectedCity(resolvedCity);
+      if (resolvedDistrict) {
+        setSelectedDistrict(resolvedDistrict);
+      } else {
+        setSelectedDistrict(null);
+      }
+      setLocationSelection({
+        city: resolvedCity,
+        district: resolvedDistrict || null
+      });
+      setCityCenterCoords(resolvedCenter || coords);
+
+      const nextRadiusKm = Number(selection.radiusKm) || Number(filters.radius) || 30;
+
+      const nextDraft = {
+        ...(draftFilters || filters),
+        city: resolvedCity.name,
+        cityId: resolvedCity._id,
+        district: resolvedDistrict?.name || null,
+        districtId: resolvedDistrict?._id || null,
+        radius: nextRadiusKm
+      };
+      setDraftFilters(nextDraft);
+      locationAutoApplyRef.current = true;
+      setLocationWarning('Konumdan sehir secildi.');
+      setToast('Konumdan sehir secildi.');
+      window.setTimeout(() => setToast(null), 1800);
+    } catch (error) {
+      const status = error?.response?.status;
+      const message = status === 404
+        ? 'Konumdan sehir bulunamadi. Lutfen manuel secin.'
+        : error?.response?.data?.message || error?.message || 'Konum alinamadi. Lutfen izin verin.';
+      setLocationWarning(message);
+      setToast(message);
+      window.setTimeout(() => setToast(null), 2000);
+    } finally {
+      setUseCurrentLocationLoading(false);
+    }
+  }, [
+    draftFilters,
+    filters,
+    setSelectedCity,
+    setSelectedDistrict,
+    setToast,
+    setCityCenterCoords,
+    setUserCoords,
+    setUserPosition,
+    useCurrentLocationLoading
+  ]);
+
+  function getCreateSheetSnapPoints() {
+    const vh = window.innerHeight || 0;
+    const sheetHeight =
+      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
+    const halfVisible = Math.min(Math.max(vh * 0.75, 560), 760);
+    const full = 0;
+    const half = Math.max(sheetHeight - halfVisible, 0);
+    const closed = Math.max(sheetHeight - 80, half);
+    createSheetSnapRef.current = { full, half, closed };
+    return createSheetSnapRef.current;
+  }
+
+  const applyCreateSheetTranslate = useCallback((value) => {
+    createSheetDragTranslateRef.current = value;
+    if (createSheetRef.current) {
+      createSheetRef.current.style.transform = `translate3d(-50%, ${value}px, 0)`;
+    }
+  }, []);
+
+  function setCreateSheetTranslate(value, { syncState = false } = {}) {
+    createSheetDragTranslateRef.current = value;
+    if (syncState) {
+      setCreateSheetRenderTranslate(value);
+    }
+    applyCreateSheetTranslate(value);
+  }
 
   const openCreateSheet = useCallback(() => {
     if (createSheetCloseTimerRef.current) {
@@ -965,7 +1247,8 @@ function RFQList() {
     window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     window.requestAnimationFrame(() => {
       setCreateSheetState('open-half');
-      setCreateSheetDragTranslate(35);
+      const snap = getCreateSheetSnapPoints();
+      setCreateSheetTranslate(snap.half, { syncState: true });
     });
   }, []);
 
@@ -980,12 +1263,13 @@ function RFQList() {
   const closeCreateSheet = useCallback(() => {
     setCreateSheetState('closed');
     setIsCreateSheetDragging(false);
-    setCreateSheetDragTranslate(100);
+    const snap = getCreateSheetSnapPoints();
+    setCreateSheetTranslate(snap.closed, { syncState: true });
     window.dispatchEvent(new CustomEvent('bottomnav:show'));
     createSheetCloseTimerRef.current = window.setTimeout(() => {
       setIsCreateSheetMounted(false);
     }, 350);
-  }, []);
+  }, [getCreateSheetSnapPoints]);
 
   useEffect(() => {
     if (isCreateSheetMounted) {
@@ -995,15 +1279,72 @@ function RFQList() {
     }
   }, [isCreateSheetMounted]);
 
-  const getCreateSheetBaseTranslate = useCallback(() => {
-    if (createSheetState === 'open-full') {
-      return 0;
-    }
-    if (createSheetState === 'open-half') {
-      return 35;
-    }
-    return 100;
-  }, [createSheetState]);
+  const handleCreateSheetDragMove = useCallback(
+    (event) => {
+      if (!isCreateSheetDragging) {
+        return;
+      }
+      if (import.meta.env?.DEV) {
+        console.log('[sheet] move', { y: event.clientY });
+      }
+      const clientY = event.clientY;
+      if (typeof clientY !== 'number') {
+        return;
+      }
+      const deltaY = clientY - createSheetDragStartYRef.current;
+      const snap = getCreateSheetSnapPoints();
+      const minY = snap.full;
+      const maxY = snap.closed;
+      const next = Math.min(maxY, Math.max(minY, createSheetDragStartTranslateRef.current + deltaY));
+      if (createSheetRafRef.current) {
+        cancelAnimationFrame(createSheetRafRef.current);
+      }
+      createSheetRafRef.current = requestAnimationFrame(() => {
+        applyCreateSheetTranslate(next);
+      });
+    },
+    [applyCreateSheetTranslate, getCreateSheetSnapPoints, isCreateSheetDragging]
+  );
+
+  const handleCreateSheetDragEnd = useCallback(
+    () => {
+      if (!isCreateSheetDragging) {
+        return;
+      }
+      if (import.meta.env?.DEV) {
+        console.log('[sheet] up');
+      }
+      setIsCreateSheetDragging(false);
+      const snap = getCreateSheetSnapPoints();
+      const current = createSheetDragTranslateRef.current;
+      const candidates = [
+        { key: 'open-full', value: snap.full },
+        { key: 'open-half', value: snap.half },
+        { key: 'closed', value: snap.closed }
+      ];
+      let nearest = candidates[0];
+      let minDistance = Math.abs(current - candidates[0].value);
+      candidates.forEach((candidate) => {
+        const dist = Math.abs(current - candidate.value);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearest = candidate;
+        }
+      });
+      if (createSheetRef.current) {
+        createSheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+      }
+      window.removeEventListener('pointermove', handleCreateSheetDragMove);
+      window.removeEventListener('pointerup', handleCreateSheetDragEnd);
+      if (nearest.key === 'closed') {
+        closeCreateSheet();
+        return;
+      }
+      setCreateSheetState(nearest.key);
+      setCreateSheetTranslate(nearest.value, { syncState: true });
+    },
+    [closeCreateSheet, getCreateSheetSnapPoints, handleCreateSheetDragMove, isCreateSheetDragging, setCreateSheetTranslate]
+  );
 
   const handleCreateSheetDragStart = useCallback(
     (event) => {
@@ -1012,70 +1353,35 @@ function RFQList() {
       }
       event.preventDefault();
       event.stopPropagation();
-      const clientY = event.clientY ?? event.touches?.[0]?.clientY;
-      if (typeof clientY !== 'number') {
-        return;
+      if (import.meta.env?.DEV) {
+        console.log('[sheet] down');
       }
       if (event.currentTarget?.setPointerCapture && event.pointerId !== undefined) {
         event.currentTarget.setPointerCapture(event.pointerId);
       }
-      createSheetDragStartYRef.current = clientY;
-      createSheetDragStartTranslateRef.current = getCreateSheetBaseTranslate();
-      setIsCreateSheetDragging(true);
-      setCreateSheetDragTranslate(createSheetDragStartTranslateRef.current);
-    },
-    [getCreateSheetBaseTranslate]
-  );
-
-  useEffect(() => {
-    if (!isCreateSheetDragging) {
-      return undefined;
-    }
-
-    const onMove = (event) => {
-      if (event.cancelable) {
-        event.preventDefault();
-      }
-      const clientY = event.clientY ?? event.touches?.[0]?.clientY;
+      const clientY = event.clientY;
       if (typeof clientY !== 'number') {
         return;
       }
-      const deltaY = clientY - createSheetDragStartYRef.current;
-      const viewportHeight = Math.max(window.innerHeight * 0.85, 1);
-      const deltaPercent = (deltaY / viewportHeight) * 100;
-      const next = Math.max(0, Math.min(100, createSheetDragStartTranslateRef.current + deltaPercent));
-      setCreateSheetDragTranslate(next);
-    };
-
-    const onEnd = () => {
-      const current = createSheetDragTranslate;
-      setIsCreateSheetDragging(false);
-
-      if (current >= 80) {
-        closeCreateSheet();
-        return;
+      createSheetDragStartYRef.current = clientY;
+      createSheetDragStartTranslateRef.current = createSheetDragTranslateRef.current;
+      setIsCreateSheetDragging(true);
+      if (createSheetRef.current) {
+        createSheetRef.current.style.transition = 'none';
       }
+      window.addEventListener('pointermove', handleCreateSheetDragMove, { passive: true });
+      window.addEventListener('pointerup', handleCreateSheetDragEnd, { passive: true });
+    },
+    [handleCreateSheetDragEnd, handleCreateSheetDragMove]
+  );
 
-      if (current <= 20) {
-        setCreateSheetState('open-full');
-        setCreateSheetDragTranslate(0);
-        return;
-      }
-
-      setCreateSheetState('open-half');
-      setCreateSheetDragTranslate(35);
-    };
-
-    document.body.classList.add('sheet-dragging');
-    window.addEventListener('pointermove', onMove, { passive: false });
-    window.addEventListener('pointerup', onEnd);
-
-    return () => {
+  useEffect(() => {
+    if (isCreateSheetDragging) {
+      document.body.classList.add('sheet-dragging');
+    } else {
       document.body.classList.remove('sheet-dragging');
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onEnd);
-    };
-  }, [closeCreateSheet, createSheetDragTranslate, isCreateSheetDragging]);
+    }
+  }, [isCreateSheetDragging]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore || !hasMore || error) {
@@ -1319,6 +1625,8 @@ function RFQList() {
     delete imageTouchStartXRef.current[rfqId];
   }, []);
 
+  const radiusCenter = useMemo(() => cityCenterCoords || userCoords || null, [cityCenterCoords, userCoords]);
+
   const enrichedRFQs = useMemo(() => {
     return rfqs.map((rfq) => {
       const isPremium = isPremiumRFQ(rfq);
@@ -1326,10 +1634,11 @@ function RFQList() {
       const distanceKm =
         typeof rfq?.distance === 'number'
           ? rfq.distance / 1000
-          : userCoords && rfqCoords
-            ? distanceInKm(userCoords.lat, userCoords.lng, Number(rfqCoords.lat), Number(rfqCoords.lng))
+          : radiusCenter && rfqCoords
+            ? distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(rfqCoords.lat), Number(rfqCoords.lng))
             : null;
-      const isNearby = typeof distanceKm === 'number' ? distanceKm <= 30 : false;
+      const radiusLimit = Number(filters.radius) || 30;
+      const isNearby = typeof distanceKm === 'number' ? distanceKm <= radiusLimit : false;
 
       return {
         ...rfq,
@@ -1338,7 +1647,7 @@ function RFQList() {
         isNearby
       };
     });
-  }, [distanceInKm, getRFQCoords, isPremiumRFQ, rfqs, userCoords]);
+  }, [distanceInKm, filters.radius, getRFQCoords, isPremiumRFQ, radiusCenter, rfqs]);
 
   const filteredEnrichedRFQs = useMemo(() => {
     return enrichedRFQs.filter((item) => {
@@ -1347,9 +1656,14 @@ function RFQList() {
         ? String(getDistrictName(item)).toLowerCase() === String(filters.district).toLowerCase()
         : true;
       const categoryMatch = filters.category ? getCategoryKey(item) === String(filters.category) : true;
-      return cityMatch && districtMatch && categoryMatch;
+      const radiusMatch = radiusCenter
+        ? typeof item.distanceKm === 'number'
+          ? item.distanceKm <= (Number(filters.radius) || 30)
+          : true
+        : true;
+      return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [enrichedRFQs, filters.category, filters.city, filters.district, getCategoryKey, getCityName, getDistrictName]);
+  }, [enrichedRFQs, filters.category, filters.city, filters.district, filters.radius, getCategoryKey, getCityName, getDistrictName, radiusCenter]);
 
   const filteredNearbyRFQs = useMemo(() => {
     return nearbyRFQs.filter((item) => {
@@ -1358,9 +1672,29 @@ function RFQList() {
         ? String(getDistrictName(item)).toLowerCase() === String(filters.district).toLowerCase()
         : true;
       const categoryMatch = filters.category ? getCategoryKey(item) === String(filters.category) : true;
-      return cityMatch && districtMatch && categoryMatch;
+      const radiusMatch = radiusCenter
+        ? (() => {
+            const coords = getRFQCoords(item);
+            if (!coords) return true;
+            const dist = distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(coords.lat), Number(coords.lng));
+            return Number.isFinite(dist) ? dist <= (Number(filters.radius) || 30) : true;
+          })()
+        : true;
+      return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [filters.category, filters.city, filters.district, getCategoryKey, getCityName, getDistrictName, nearbyRFQs]);
+  }, [
+    distanceInKm,
+    filters.category,
+    filters.city,
+    filters.district,
+    filters.radius,
+    getCategoryKey,
+    getCityName,
+    getDistrictName,
+    getRFQCoords,
+    nearbyRFQs,
+    radiusCenter
+  ]);
 
   const applySort = useCallback(
     (items = []) => {
@@ -2553,16 +2887,43 @@ function RFQList() {
         title="Şehir Seç"
         initialSnap="mid"
         headerRight={(
-          <button
-            type="button"
-            className="apply-btn sheet-apply-header"
-            onClick={handleApplyFilters}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            disabled={!canApplyFilters}
-          >
-            Uygula
-          </button>
+          <div className="sheet-header-actions">
+            <button
+              type="button"
+              className={`sheet-location-btn ${useCurrentLocationLoading ? 'is-loading' : ''}`}
+              aria-label="Mevcut konumu kullan"
+              onClick={handleUseCurrentLocation}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              disabled={useCurrentLocationLoading}
+              aria-busy={useCurrentLocationLoading}
+            >
+              {useCurrentLocationLoading ? (
+                <span className="spinner sheet-location-spinner" aria-hidden="true" />
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M12 2.5c-3.86 0-7 3.14-7 7 0 5.04 6.2 11.9 6.47 12.19.28.31.77.31 1.05 0C12.8 21.4 19 14.54 19 9.5c0-3.86-3.14-7-7-7Zm0 10.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4Z"/>
+                  <path d="M6 20.3c1.9 1.2 3.9 1.7 6 1.7s4.1-.5 6-1.7c.5-.3.2-1.1-.4-1.1H6.4c-.6 0-.9.8-.4 1.1Z"/>
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="apply-btn sheet-apply-header"
+              onClick={handleApplyFilters}
+              onMouseDown={(event) => event.stopPropagation()}
+              onTouchStart={(event) => event.stopPropagation()}
+              disabled={!canApplyFilters}
+            >
+              Uygula
+            </button>
+          </div>
         )}
       >
         <FilterBar
@@ -2590,17 +2951,18 @@ function RFQList() {
         <div className={`create-sheet-overlay ${createSheetState !== 'closed' ? 'open' : ''}`} onClick={closeCreateSheet}>
           <div
             className={`create-sheet-content create-sheet-${createSheetState} ${isCreateSheetDragging ? 'dragging' : ''}`}
-            style={
-              isCreateSheetDragging
-                ? { transform: `translate3d(-50%, ${createSheetDragTranslate}%, 0)` }
-                : undefined
-            }
+            style={{ transform: `translate3d(-50%, ${createSheetRenderTranslate}px, 0)` }}
+            ref={createSheetRef}
             onClick={(event) => event.stopPropagation()}
           >
             <div
-              className="rb-sheet-handle"
+              className="rb-sheet-handle-wrap"
               onPointerDown={handleCreateSheetDragStart}
-            />
+              role="button"
+              aria-label="Sheet sürükleme"
+            >
+              <div className="rb-sheet-handle" />
+            </div>
             <button type="button" className="create-sheet-close" onClick={closeCreateSheet}>
               Kapat
             </button>

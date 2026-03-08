@@ -31,6 +31,7 @@ const categoryIcons = {
   Elektronik: Cpu,
   'Ev & Yaşam': Home,
   Motosiklet: Bike,
+  'Araç Markaları': Car,
   'Giyim & Aksesuar': Shirt,
   'Kişisel Bakım & Kozmetik': Sparkles,
   'Anne & Bebek & Oyuncak': Baby,
@@ -58,6 +59,34 @@ function CategorySelector({
   const [roots, setRoots] = useState([]);
   const [path, setPath] = useState([]);
   const [direction, setDirection] = useState('forward');
+  const vehicleBrands = [
+    'Volkswagen',
+    'Renault',
+    'Fiat',
+    'Ford',
+    'BMW',
+    'Mercedes',
+    'Toyota',
+    'Honda',
+    'Hyundai',
+    'Kia',
+    'Audi',
+    'Opel',
+    'Peugeot',
+    'Citroën',
+    'Nissan',
+    'Skoda',
+    'Seat',
+    'Volvo',
+    'Mazda',
+    'Mitsubishi',
+    'Suzuki',
+    'Dacia',
+    'Jeep',
+    'Land Rover',
+    'Porsche',
+    'Tesla'
+  ];
 
   useEffect(() => {
     if (mode === 'modal' && !open) {
@@ -84,6 +113,17 @@ function CategorySelector({
           } else {
             rootItems.push(map[String(cat._id)]);
           }
+        });
+
+        const brandChildren = vehicleBrands.map((name) => ({
+          _id: `brand:${name}`,
+          name,
+          children: []
+        }));
+        rootItems.unshift({
+          _id: 'vehicle-brands',
+          name: 'Araç Markaları',
+          children: brandChildren
         });
 
         setRoots(rootItems);

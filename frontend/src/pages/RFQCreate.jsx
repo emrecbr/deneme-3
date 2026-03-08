@@ -5,8 +5,6 @@ import CategorySelector from '../components/CategorySelector';
 import MapPicker from '../components/MapPicker';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
-import { getProductSchema, isGeneralCategory } from '../lib/rfqProductSchemas';
-import { getBrandOptions, getModelOptions } from '../lib/brandsModels';
 
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) {
   const navigate = useNavigate();
@@ -66,15 +64,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [carBrandSheetOpen, setCarBrandSheetOpen] = useState(false);
   const [carModelSheetOpen, setCarModelSheetOpen] = useState(false);
   const [carVariantSheetOpen, setCarVariantSheetOpen] = useState(false);
-  const [productDetails, setProductDetails] = useState({});
   const isEdit = mode === 'edit';
   const premiumActive = Boolean(
     user?.isPremium && (!user?.premiumUntil || new Date(user.premiumUntil) > new Date())
   );
   const hasUnsavedChanges = useMemo(() => {
-    const detailKeys = Object.keys(productDetails || {}).filter((key) =>
-      String(productDetails?.[key] || '').trim()
-    );
     return Boolean(
       form.title ||
       form.description ||
@@ -87,23 +81,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       form.deadline ||
       form.isAuction ||
       images.length ||
-      priceText ||
-      detailKeys.length
+      priceText
     );
-  }, [form, images.length, priceText, productDetails]);
+  }, [form, images.length, priceText]);
   const isCarCategory = useMemo(() => {
     return /araba|otomobil/i.test(String(selectedCategoryLabel || ''));
   }, [selectedCategoryLabel]);
-  const productSchema = useMemo(() => getProductSchema(selectedCategoryLabel), [selectedCategoryLabel]);
-  const requiresBrandModel = Boolean(productSchema?.requireBrandModel && !isGeneralCategory(selectedCategoryLabel));
-  const brandOptions = useMemo(
-    () => (productSchema ? getBrandOptions(productSchema.key) : []),
-    [productSchema]
-  );
-  const modelOptions = useMemo(
-    () => getModelOptions(productSchema?.key, productDetails?.brand),
-    [productSchema?.key, productDetails?.brand]
-  );
 
   useEffect(() => {
     if (!isEdit || !initialData) {
@@ -162,9 +145,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       if (initialData.car.year) {
         setCarYear(String(initialData.car.year));
       }
-    }
-    if (initialData?.productDetails) {
-      setProductDetails({ ...(initialData.productDetails || {}) });
     }
   }, [initialData, isEdit]);
 
@@ -457,13 +437,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     }, 2500);
   };
 
-  const updateProductDetail = (key, value) => {
-    setProductDetails((prev) => ({
-      ...(prev || {}),
-      [key]: value
-    }));
-  };
-
   const getStepError = (currentStep) => {
     if (currentStep === 1) {
       if (form.title.trim().length < 3) {
@@ -471,22 +444,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       }
       if (!form.categoryId) {
         return 'Kategori seç';
-      }
-      if (productSchema) {
-        if (requiresBrandModel) {
-          if (!productDetails?.brand) {
-            return 'Marka seç';
-          }
-          if (!productDetails?.model) {
-            return 'Model seç';
-          }
-        }
-        const requiredField = productSchema.fields?.find(
-          (field) => field.required && !String(productDetails?.[field.key] || '').trim()
-        );
-        if (requiredField) {
-          return `${requiredField.label} zorunlu`;
-        }
       }
       if (form.description.trim().length < 10) {
         return 'Açıklama en az 10 karakter olmalı';
@@ -587,11 +544,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
             variantName: carVariant?.name || undefined
           };
         }
-        if (productSchema) {
-          payload.productDetails = {
-            ...(productDetails || {})
-          };
-        }
         const response = await api.patch(`/rfq/${initialData._id}`, payload);
         if (onSuccess) {
           onSuccess(response.data?.data || null);
@@ -642,9 +594,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         })
       );
     }
-    if (productSchema) {
-      formData.append('productDetails', JSON.stringify(productDetails || {}));
-    }
 
         for (let index = 0; index < images.length; index += 1) {
           formData.append('images', images[index]);
@@ -682,7 +631,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setCarModel(null);
         setCarVariant(null);
         setCarYear('');
-        setProductDetails({});
         setCityQuery('');
         setDistrictQuery('');
         setNeighborhoodQuery('');
@@ -753,7 +701,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setCarModel(null);
     setCarVariant(null);
     setCarYear('');
-    setProductDetails({});
     setIsCategoryModalOpen(false);
   };
 
@@ -767,7 +714,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setCarModel(null);
     setCarVariant(null);
     setCarYear('');
-    setProductDetails({});
     setIsCategoryModalOpen(false);
   };
 
@@ -829,69 +775,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   <button type="button" className="mini-clear-btn" onClick={handleClearCategory} aria-label="Secimi kaldir">
                     ×
                   </button>
-                </div>
-              ) : null}
-
-              {productSchema ? (
-                <div className="form-group">
-                  <label>Ürün Bilgisi</label>
-                  {requiresBrandModel ? (
-                    <div className="wizard-actions wizard-actions-split">
-                      <select
-                        className="secondary-btn"
-                        value={productDetails?.brand || ''}
-                        onChange={(event) => {
-                          updateProductDetail('brand', event.target.value);
-                          updateProductDetail('model', '');
-                        }}
-                      >
-                        <option value="">Marka seç</option>
-                        {brandOptions.map((brand) => (
-                          <option key={brand.name} value={brand.name}>{brand.name}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="secondary-btn"
-                        value={productDetails?.model || ''}
-                        onChange={(event) => updateProductDetail('model', event.target.value)}
-                        disabled={!productDetails?.brand}
-                      >
-                        <option value="">Model seç</option>
-                        {modelOptions.map((model) => (
-                          <option key={model} value={model}>{model}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : null}
-
-                  {productSchema.fields?.map((field) => (
-                    <div className="form-group" key={field.key}>
-                      <label>{field.label}{field.required ? ' *' : ''}</label>
-                      {field.type === 'select' ? (
-                        <select
-                          value={productDetails?.[field.key] || ''}
-                          onChange={(event) => updateProductDetail(field.key, event.target.value)}
-                        >
-                          <option value="">Seç</option>
-                          {field.options?.map((option) => (
-                            <option key={option} value={option}>{option}</option>
-                          ))}
-                        </select>
-                      ) : field.type === 'textarea' ? (
-                        <textarea
-                          value={productDetails?.[field.key] || ''}
-                          onChange={(event) => updateProductDetail(field.key, event.target.value)}
-                          rows={3}
-                        />
-                      ) : (
-                        <input
-                          type={field.type || 'text'}
-                          value={productDetails?.[field.key] || ''}
-                          onChange={(event) => updateProductDetail(field.key, event.target.value)}
-                        />
-                      )}
-                    </div>
-                  ))}
                 </div>
               ) : null}
 

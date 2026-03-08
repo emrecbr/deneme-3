@@ -86,18 +86,19 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       });
     }
 
-    if (!categoryId || !mongoose.isValidObjectId(categoryId)) {
+    let category = null;
+    if (categoryId && mongoose.isValidObjectId(categoryId)) {
+      category = await Category.findById(categoryId).select('_id');
+      if (!category) {
+        return res.status(404).json({
+          success: false,
+          message: 'Kategori bulunamadi.'
+        });
+      }
+    } else if (!cleanText(categoryId)) {
       return res.status(400).json({
         success: false,
         message: 'Gecerli kategori secimi zorunludur.'
-      });
-    }
-
-    const category = await Category.findById(categoryId).select('_id');
-    if (!category) {
-      return res.status(404).json({
-        success: false,
-        message: 'Kategori bulunamadi.'
       });
     }
 
@@ -246,10 +247,11 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       }
     }
 
+
     const rfq = await RFQ.create({
       title: cleanText(title),
       description: cleanText(description),
-      category: category._id,
+      category: category ? category._id : cleanText(categoryId),
       quantity: parsedQuantity,
       targetPrice: targetPrice ? Number(targetPrice) : undefined,
       deadline: parsedDeadline,
@@ -390,7 +392,7 @@ rfqRoutes.patch('/backfill-location', authMiddleware, async (req, res, next) => 
 
 rfqRoutes.get('/nearby', async (req, res) => {
   try {
-    const { lat, lng, radius, category, city } = req.query;
+    const { lat, lng, radius, radiusKm, category, city } = req.query;
     const latNum = Number.parseFloat(lat);
     const lngNum = Number.parseFloat(lng);
 
@@ -409,6 +411,11 @@ rfqRoutes.get('/nearby', async (req, res) => {
       nearQuery['locationData.city'] = { $regex: `^${String(city).trim()}$`, $options: 'i' };
     }
 
+    const parsedRadiusKm = Number.parseFloat(radiusKm);
+    const maxDistance = Number.isFinite(parsedRadiusKm)
+      ? parsedRadiusKm * 1000
+      : Number(radius) || 30000;
+
     const rfqs = await RFQ.aggregate([
       {
         $geoNear: {
@@ -417,7 +424,7 @@ rfqRoutes.get('/nearby', async (req, res) => {
             coordinates: [lngNum, latNum]
           },
           distanceField: 'distance',
-          maxDistance: Number(radius) || 30000,
+          maxDistance,
           spherical: true,
           query: nearQuery
         }
@@ -751,21 +758,24 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       rfq.isAuction = toBoolean(isAuction);
     }
 
-    if (categoryId) {
-      if (!mongoose.isValidObjectId(categoryId)) {
+    if (typeof categoryId !== 'undefined') {
+      if (categoryId && mongoose.isValidObjectId(categoryId)) {
+        const category = await Category.findById(categoryId).select('_id');
+        if (!category) {
+          return res.status(404).json({
+            success: false,
+            message: 'Kategori bulunamadi.'
+          });
+        }
+        rfq.category = category._id;
+      } else if (cleanText(categoryId)) {
+        rfq.category = cleanText(categoryId);
+      } else {
         return res.status(400).json({
           success: false,
           message: 'Gecerli kategori secimi zorunludur.'
         });
       }
-      const category = await Category.findById(categoryId).select('_id');
-      if (!category) {
-        return res.status(404).json({
-          success: false,
-          message: 'Kategori bulunamadi.'
-        });
-      }
-      rfq.category = category._id;
     }
 
     if (cityId && mongoose.isValidObjectId(cityId)) {

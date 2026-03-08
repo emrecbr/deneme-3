@@ -64,20 +64,219 @@ locationRoutes.get('/search', async (req, res, next) => {
       hasMore
     });
   } catch (error) {
+    console.error('REVERSE_ERROR', error?.message || error);
+    return res.status(500).json({
+      success: false,
+      message: 'reverse fail'
+    });
+  }
+});
+
+const reverseCache = new Map();
+const reverseRateLimits = new Map();
+const REVERSE_CACHE_TTL_MS = 10 * 60 * 1000;
+const REVERSE_RATE_WINDOW_MS = 5 * 60 * 1000;
+const REVERSE_RATE_MAX = 30;
+const DEFAULT_CITY_AREA_KM2 = 5000;
+const KOCAELI_AREA_KM2 = 3581;
+
+const getCacheKey = (lat, lng) => `${lat.toFixed(4)}:${lng.toFixed(4)}`;
+const cleanupRateLimit = (entry, now) => {
+  if (!entry) return null;
+  if (now - entry.startedAt > REVERSE_RATE_WINDOW_MS) {
+    return null;
+  }
+  return entry;
+};
+
+locationRoutes.get('/reverse', async (req, res, next) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    console.log('REV_LOC', { lat, lng });
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({
+        success: false,
+        message: 'lat ve lng zorunludur.'
+      });
+    }
+
+    const cacheKey = getCacheKey(lat, lng);
+    const cached = reverseCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && now - cached.ts < REVERSE_CACHE_TTL_MS) {
+      return res.status(200).json({
+        success: true,
+        ...cached.data
+      });
+    }
+
+    const ip = String(req.headers['x-forwarded-for'] || req.ip || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)[0] || 'unknown';
+    const prevLimit = cleanupRateLimit(reverseRateLimits.get(ip), now);
+    const nextLimit = prevLimit
+      ? { startedAt: prevLimit.startedAt, count: prevLimit.count + 1 }
+      : { startedAt: now, count: 1 };
+    reverseRateLimits.set(ip, nextLimit);
+    if (nextLimit.count > REVERSE_RATE_MAX) {
+      return res.status(429).json({
+        success: false,
+        message: 'Cok fazla deneme. Lutfen biraz sonra tekrar deneyin.'
+      });
+    }
+
+    let nearestCity = null;
+    let resolvedDistrict = null;
+    let distanceKm = null;
+    let fallbackCenter = null;
+    try {
+      const cityWithCenter = await City.aggregate([
+        { $match: { center: { $exists: true } } },
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: [lng, lat] },
+            distanceField: 'distance',
+            spherical: true
+          }
+        },
+        { $limit: 1 },
+        { $project: { _id: 1, name: 1, slug: 1, distance: 1, center: 1 } }
+      ]);
+
+      if (Array.isArray(cityWithCenter) && cityWithCenter.length > 0) {
+        nearestCity = cityWithCenter[0];
+        distanceKm = Number(nearestCity.distance) / 1000;
+        fallbackCenter = nearestCity.center || null;
+        console.log('REV_CITY_COUNT', cityWithCenter.length);
+        console.log('REV_SAMPLE_CITY', {
+          name: nearestCity.name,
+          center: nearestCity.center,
+          distanceKm
+        });
+      }
+    } catch (_error) {
+      // fallback to Location collection
+    }
+
+    if (!nearestCity) {
+      const nearestLocation = await Location.aggregate([
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: [lng, lat] },
+            distanceField: 'distance',
+            spherical: true,
+            maxDistance: 200000
+          }
+        },
+        { $limit: 1 },
+        { $project: { city: 1, district: 1, coordinates: '$coordinates', distance: 1 } }
+      ]);
+
+      const record = nearestLocation?.[0];
+      if (record?.city) {
+        const cityRegex = new RegExp(`^${escapeRegex(record.city)}$`, 'i');
+        const cityDoc = await City.findOne({ name: cityRegex }).select('_id name slug center areaKm2').lean();
+        if (cityDoc?._id) {
+          nearestCity = { _id: cityDoc._id, name: cityDoc.name, slug: cityDoc.slug };
+          fallbackCenter = cityDoc.center || null;
+        } else {
+          nearestCity = { name: record.city };
+        }
+
+        if (record?.district && cityDoc?._id) {
+          const districtRegex = new RegExp(`^${escapeRegex(record.district)}$`, 'i');
+          const districtDoc = await District.findOne({ city: cityDoc._id, name: districtRegex })
+            .select('_id name city')
+            .lean();
+          if (districtDoc?._id) {
+            resolvedDistrict = { _id: districtDoc._id, name: districtDoc.name, cityId: districtDoc.city };
+          }
+        }
+
+        distanceKm = Number(record.distance) / 1000;
+        if (!fallbackCenter && Array.isArray(record.coordinates) && record.coordinates.length === 2) {
+          fallbackCenter = { type: 'Point', coordinates: record.coordinates };
+        }
+      }
+    }
+
+    if (!nearestCity?.name) {
+      console.log('REV_NO_COORDS');
+      const payload = { city: null, district: null, message: 'not_found' };
+      reverseCache.set(cacheKey, { ts: now, data: payload });
+      return res.status(200).json({
+        success: false,
+        message: 'Sehir bilgisi bulunamadi.',
+        data: payload
+      });
+    }
+
+    console.log('REV_BEST', { city: nearestCity?.name, distanceKm });
+
+    if (Number.isFinite(distanceKm) && distanceKm > 250) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sehir bulunamadi'
+      });
+    }
+
+    let areaKm2 = DEFAULT_CITY_AREA_KM2;
+    let cityDoc = null;
+    if (nearestCity?._id) {
+      cityDoc = await City.findById(nearestCity._id).select('areaKm2 center').lean();
+      if (Number.isFinite(cityDoc?.areaKm2)) {
+        areaKm2 = cityDoc.areaKm2;
+      } else if (String(nearestCity.name || '').toLowerCase() === 'kocaeli') {
+        areaKm2 = KOCAELI_AREA_KM2;
+      }
+      if (!Number.isFinite(cityDoc?.areaKm2)) {
+        await City.updateOne(
+          { _id: nearestCity._id },
+          { $set: { areaKm2 } }
+        );
+      }
+    } else if (String(nearestCity.name || '').toLowerCase() === 'kocaeli') {
+      areaKm2 = KOCAELI_AREA_KM2;
+    }
+
+    const radiusKm = Math.sqrt(areaKm2 / Math.PI);
+    const diameterKm = radiusKm * 2;
+
+    const payload = {
+      city: nearestCity,
+      district: resolvedDistrict,
+      distanceKm: Number.isFinite(distanceKm) ? distanceKm : null,
+      radiusKm,
+      diameterKm,
+      center: cityDoc?.center || fallbackCenter || null
+    };
+
+    reverseCache.set(cacheKey, { ts: now, data: payload });
+
+    return res.status(200).json({
+      success: true,
+      ...payload
+    });
+  } catch (error) {
     return next(error);
   }
 });
+
 
 locationRoutes.get('/cities', async (req, res, next) => {
   try {
     const page = parsePage(req.query.page);
     const limit = parseLimit(req.query.limit, 200);
     const searchRegex = toSearchRegex(req.query.search || req.query.q);
+    const includeCoords = String(req.query.includeCoords || '').toLowerCase() === 'true';
     const modernMatch = searchRegex ? { name: searchRegex } : {};
 
     const [modernData, modernTotal] = await Promise.all([
       City.find(modernMatch)
-        .select('_id name slug')
+        .select(includeCoords ? '_id name slug center' : '_id name slug')
         .sort({ name: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -90,7 +289,8 @@ locationRoutes.get('/cities', async (req, res, next) => {
         _id: item._id,
         id: item._id,
         name: item.name,
-        slug: item.slug
+        slug: item.slug,
+        ...(includeCoords ? { center: item.center } : {})
       }));
       const lastPage = Math.max(Math.ceil(modernTotal / limit), 1);
       const hasMore = page < lastPage;

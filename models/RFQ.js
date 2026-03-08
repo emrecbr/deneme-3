@@ -13,8 +13,7 @@ const rfqSchema = new mongoose.Schema(
       trim: true
     },
     category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
+      type: mongoose.Schema.Types.Mixed,
       required: true
     },
     quantity: {
@@ -154,6 +153,13 @@ const rfqSchema = new mongoose.Schema(
     productDetails: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
+    },
+    vehicleDetails: {
+      brand: { type: String, trim: true },
+      year: { type: Number },
+      partCode: { type: String, trim: true },
+      engine: { type: String, trim: true },
+      oemNo: { type: String, trim: true }
     }
   },
   {

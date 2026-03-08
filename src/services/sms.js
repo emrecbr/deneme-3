@@ -71,6 +71,14 @@ const mapTwilioError = (error) => {
 };
 
 export const sendOtpSms = async ({ phone, code }) => {
+  const provider = getEnv('SMS_PROVIDER') || 'twilio';
+  if (provider === 'mock') {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('SMS_OTP_MOCK', phone, code);
+    }
+    return { sid: 'mock', status: 'mocked' };
+  }
+
   const client = getTwilioClient();
   const messagingServiceSid = getEnv('TWILIO_MESSAGING_SERVICE_SID');
   const from = getEnv('TWILIO_FROM');

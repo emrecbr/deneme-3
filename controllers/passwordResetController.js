@@ -97,6 +97,10 @@ export const forgotPassword = async (req, res) => {
     return res.json({ ok: true, message: 'Eğer hesap varsa talimatlar gönderildi.' });
   } catch (error) {
     console.error('PASSWORD_FORGOT_FAIL', error);
+    if (String(error?.code || '').startsWith('EMAIL')) {
+      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
+      return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
+    }
     if (error?.code === 'TWILIO_TRIAL_UNVERIFIED') {
       return res.status(403).json({
         ok: false,
@@ -121,7 +125,7 @@ export const forgotPassword = async (req, res) => {
         detail: error?.message
       });
     }
-    return res.status(500).json({ ok: false, message: 'Talimatlar gönderilemedi.' });
+    return res.status(502).json({ ok: false, message: 'Talimatlar gönderilemedi.' });
   }
 };
 

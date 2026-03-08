@@ -32,6 +32,15 @@ const normalizeEmail = (value) =>
 const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const isOtpExpired = (otpDoc) => !otpDoc || !otpDoc.expiresAt || otpDoc.expiresAt.getTime() < Date.now();
+const getOtpTtlSeconds = () => {
+  const minutes = Number(process.env.OTP_TTL_MINUTES || 0);
+  if (Number.isFinite(minutes) && minutes > 0) return minutes * 60;
+  return Number(process.env.OTP_TTL_SECONDS || 120);
+};
+const getOtpMaxAttempts = () => {
+  const val = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+  return Number.isFinite(val) ? val : 5;
+};
 
 const isOauthConfigured = (provider) => {
   if (provider === 'google') {
@@ -208,7 +217,7 @@ export const requestPhoneOtp = async (req, res) => {
 
     const code = generateOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
-    const ttlSeconds = Number(process.env.OTP_TTL_SECONDS || 120);
+    const ttlSeconds = getOtpTtlSeconds();
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
     await PhoneOtp.findOneAndUpdate(
@@ -260,7 +269,7 @@ export const requestPhoneOtp = async (req, res) => {
         detail: error?.message
       });
     }
-    return res.status(500).json({ success: false, message: 'OTP gonderilemedi.' });
+    return res.status(502).json({ success: false, message: 'OTP gonderilemedi.' });
   }
 };
 
@@ -275,6 +284,10 @@ export const verifyPhoneOtp = async (req, res) => {
     const otpDoc = await PhoneOtp.findOne({ phoneE164 });
     if (!otpDoc || isOtpExpired(otpDoc)) {
       return res.status(401).json({ success: false, message: 'Kod gecersiz veya suresi doldu.' });
+    }
+    if (otpDoc.attempts >= getOtpMaxAttempts()) {
+      await PhoneOtp.deleteOne({ phoneE164 });
+      return res.status(429).json({ success: false, message: 'Çok fazla deneme.' });
     }
 
     const match = await bcrypt.compare(code, otpDoc.codeHash);
@@ -355,7 +368,7 @@ export const sendRegisterOtp = async (req, res) => {
 
     const code = generateOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
-    const ttlSeconds = Number(process.env.OTP_TTL_SECONDS || 120);
+    const ttlSeconds = getOtpTtlSeconds();
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const now = new Date();
 
@@ -382,6 +395,10 @@ export const sendRegisterOtp = async (req, res) => {
       message: error?.message,
       moreInfo: error?.moreInfo
     });
+    if (String(error?.code || '').startsWith('EMAIL')) {
+      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
+      return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
+    }
     if (error?.code === 'TWILIO_TRIAL_UNVERIFIED') {
       return res.status(403).json({
         ok: false,
@@ -406,7 +423,7 @@ export const sendRegisterOtp = async (req, res) => {
         detail: error?.message
       });
     }
-    return res.status(500).json({ ok: false, message: 'Kod gönderilemedi' });
+    return res.status(502).json({ ok: false, message: 'Kod gönderilemedi' });
   }
 };
 
@@ -454,7 +471,7 @@ export const verifyRegisterOtp = async (req, res) => {
       await Otp.deleteMany({ channel: 'email', target: email });
       return res.status(400).json({ ok: false, message: 'Kodun süresi doldu.' });
     }
-    if (record.attempts >= 5) {
+    if (record.attempts >= getOtpMaxAttempts()) {
       await Otp.deleteMany({ channel: method, target });
       return res.status(429).json({ ok: false, message: 'Çok fazla deneme.' });
     }
@@ -505,7 +522,8 @@ export const sendLoginOtp = async (req, res) => {
 
     const code = generateOtpCode();
     const codeHash = await bcrypt.hash(code, 10);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const ttlSeconds = getOtpTtlSeconds();
+    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const now = new Date();
 
     await Otp.deleteMany({ channel: 'email', target: email });
@@ -522,7 +540,11 @@ export const sendLoginOtp = async (req, res) => {
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
     console.error('LOGIN_OTP_SEND_FAIL', error);
-    return res.status(500).json({ ok: false, message: 'Kod gönderilemedi' });
+    if (String(error?.code || '').startsWith('EMAIL')) {
+      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
+      return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
+    }
+    return res.status(502).json({ ok: false, message: 'Kod gönderilemedi' });
   }
 };
 
@@ -554,7 +576,7 @@ export const verifyLoginOtp = async (req, res) => {
       await Otp.deleteMany({ channel: 'email', target: email });
       return res.status(400).json({ ok: false, message: 'Kodun süresi doldu.' });
     }
-    if (record.attempts >= 5) {
+    if (record.attempts >= getOtpMaxAttempts()) {
       await Otp.deleteMany({ channel: 'email', target: email });
       return res.status(429).json({ ok: false, message: 'Çok fazla deneme.' });
     }

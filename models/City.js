@@ -11,6 +11,26 @@ const citySchema = new mongoose.Schema(
     slug: {
       type: String,
       trim: true
+    },
+    areaKm2: {
+      type: Number
+    },
+    radiusKm: {
+      type: Number
+    },
+    center: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined
+      }
+    },
+    boundaryUpdatedAt: {
+      type: Date
     }
   },
   {
@@ -19,6 +39,7 @@ const citySchema = new mongoose.Schema(
 );
 
 citySchema.index({ name: 'text' });
+citySchema.index({ center: '2dsphere' });
 
 const City = mongoose.model('City', citySchema);
 

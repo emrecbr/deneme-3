@@ -258,6 +258,7 @@ function RFQDetail() {
       }));
   }, [productDetails, rfq?.category]);
 
+
   const getOfferStatusLabel = (status) => {
     switch (status) {
       case 'sent':

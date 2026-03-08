@@ -16,6 +16,15 @@ const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const normalizePhone = (value) => normalizeTrPhoneE164(value);
 
 const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const getOtpTtlSeconds = () => {
+  const minutes = Number(process.env.OTP_TTL_MINUTES || 0);
+  if (Number.isFinite(minutes) && minutes > 0) return minutes * 60;
+  return Number(process.env.OTP_TTL_SECONDS || 120);
+};
+const getOtpMaxAttempts = () => {
+  const val = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+  return Number.isFinite(val) ? val : 5;
+};
 
 const resolveTarget = (channel, body) => {
   if (channel === 'email') {
@@ -47,7 +56,7 @@ export const sendOtp = async (req, res) => {
 
     const code = generateCode();
     const codeHash = await bcrypt.hash(code, 10);
-    const ttlSeconds = Number(process.env.OTP_TTL_SECONDS || 120);
+    const ttlSeconds = getOtpTtlSeconds();
     const expiresAt = dayjs().add(ttlSeconds, 'second').toDate();
     const now = new Date();
 
@@ -69,6 +78,10 @@ export const sendOtp = async (req, res) => {
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
     console.error('OTP_SEND_FAIL', error);
+    if (String(error?.code || '').startsWith('EMAIL')) {
+      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
+      return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
+    }
     if (error?.code === 'TWILIO_TRIAL_UNVERIFIED') {
       return res.status(403).json({
         ok: false,
@@ -93,7 +106,7 @@ export const sendOtp = async (req, res) => {
         detail: error?.message
       });
     }
-    return res.status(500).json({ ok: false, message: 'Kod gönderilemedi' });
+    return res.status(502).json({ ok: false, message: 'Kod gönderilemedi' });
   }
 };
 
@@ -125,7 +138,7 @@ export const verifyOtp = async (req, res) => {
       await Otp.deleteMany({ channel, target });
       return res.status(400).json({ ok: false, message: 'Kodun süresi doldu.' });
     }
-    if (record.attempts >= 5) {
+    if (record.attempts >= getOtpMaxAttempts()) {
       await Otp.deleteMany({ channel, target });
       return res.status(429).json({ ok: false, message: 'Çok fazla deneme.' });
     }
