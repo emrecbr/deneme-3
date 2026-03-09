@@ -89,16 +89,32 @@ const cleanupRateLimit = (entry, now) => {
   return entry;
 };
 
+// Local test:
+// curl -i "http://localhost:3001/api/location/reverse?lat=40.76273731847972&lng=29.933393168281924"
 locationRoutes.get('/reverse', async (req, res, next) => {
   try {
-    const lat = Number(req.query.lat);
-    const lng = Number(req.query.lng);
-    console.log('REV_LOC', { lat, lng });
+    const latRaw = req.query.lat ?? req.query.latitude;
+    const lngRaw = req.query.lng ?? req.query.lon ?? req.query.longitude;
+    const lat = Number.parseFloat(latRaw);
+    const lng = Number.parseFloat(lngRaw);
+    console.log('REV_LOC', {
+      lat,
+      lng,
+      query: {
+        lat: req.query.lat,
+        lng: req.query.lng,
+        latitude: req.query.latitude,
+        longitude: req.query.longitude,
+        lon: req.query.lon
+      }
+    });
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({
+        ok: false,
         success: false,
-        message: 'lat ve lng zorunludur.'
+        message: 'lat/lng required',
+        query: req.query
       });
     }
 

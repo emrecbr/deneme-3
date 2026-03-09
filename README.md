@@ -8,7 +8,7 @@ Set these in `.env`:
 SMS_PROVIDER=iletimerkezi
 ILETIMERKEZI_API_KEY=
 ILETIMERKEZI_API_HASH=
-ILETIMERKEZI_SENDER=
+ILETIMERKEZI_SENDER=APITEST
 ILETIMERKEZI_BASE_URL=https://api.iletimerkezi.com
 ILETIMERKEZI_IYS=0
 ```
@@ -16,12 +16,17 @@ ILETIMERKEZI_IYS=0
 ### Credential options
 
 - **Prod:** `ILETIMERKEZI_API_KEY + ILETIMERKEZI_API_HASH + ILETIMERKEZI_SENDER`
+- Not: **TALEPET** sender onay bekliyorsa test için **APITEST** kullan.
 
-## Run
+## Local backend çalıştırma
 
 ```
+cd /Users/c1/talepet/talepet
+npm install
 npm run dev
 ```
+
+Not: `/Users/c1/talepet/backend` bu proje için eski/yanlış klasör.
 
 ## Deploy Adımları
 
@@ -75,7 +80,7 @@ curl -i --max-time 20 -X POST "http://localhost:3001/api/auth/otp/send" \
 ```
 curl -i -X POST "http://localhost:3001/api/auth/sms/send" \
   -H "Content-Type: application/json" \
-  -d '{"phone":"+905XXXXXXXXX"}'
+  -d '{"phone":"05394590853"}'
 ```
 
 ### OTP Send (Email/SMS) - Prod (Render)
@@ -97,45 +102,7 @@ curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/s
 ```
 curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/sms/send" \
   -H "Content-Type: application/json" \
-  -d '{"phone":"+905XXXXXXXXX"}'
-```
-
-### Start OTP
-
-```
-curl -X POST http://localhost:3001/api/auth/otp/start \
-  -H "Content-Type: application/json" \
-  -d '{"phone":"+905551112233"}'
-```
-
-### Verify Start (SMS/Email)
-
-```
-curl -X POST http://localhost:3001/api/auth/verify/start \
-  -H "Content-Type: application/json" \
-  -d '{"channel":"sms","to":"+905551112233"}'
-```
-
-```
-curl -X POST http://localhost:3001/api/auth/verify/start \
-  -H "Content-Type: application/json" \
-  -d '{"channel":"email","to":"user@example.com"}'
-```
-
-### Check OTP
-
-```
-curl -X POST http://localhost:3001/api/auth/otp/check \
-  -H "Content-Type: application/json" \
-  -d '{"phone":"+905551112233","code":"123456"}'
-```
-
-### Verify Check
-
-```
-curl -X POST http://localhost:3001/api/auth/verify/check \
-  -H "Content-Type: application/json" \
-  -d '{"to":"+905551112233","code":"123456"}'
+  -d '{"phone":"05394590853"}'
 ```
 
 ## Şifre Sıfırlama

@@ -1033,6 +1033,23 @@ body.dark-mode .ux-modal-card {
   gap: 8px;
 }
 
+.modal-hint {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.modal-hint ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+body.dark-mode .modal-hint {
+  background: rgba(148, 163, 184, 0.16);
+}
+
 .onboarding-overlay {
   position: fixed;
   inset: 0;
@@ -4219,6 +4236,11 @@ body.sheet-open .bottom-nav {
   border-top-color: transparent;
   border-radius: 999px;
   animation: spin 0.9s linear infinite;
+}
+
+.sheet-location-loading {
+  font-size: 12px;
+  color: inherit;
 }
 
 body.dark-mode .sheet-location-btn {

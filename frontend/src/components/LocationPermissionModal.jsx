@@ -3,9 +3,7 @@ function LocationPermissionModal({
   denied = false,
   loading = false,
   warningMessage = '',
-  cityOptions = [],
-  selectedCity = '',
-  onSelectCity,
+  onManualSelect,
   onEnableLocation,
   onClose
 }) {
@@ -26,21 +24,20 @@ function LocationPermissionModal({
           <button type="button" className="primary-btn" onClick={onEnableLocation} disabled={loading}>
             {loading ? 'Konum aliniyor...' : 'Konumumu Aktif Et'}
           </button>
+          <button type="button" className="secondary-btn" onClick={onManualSelect}>
+            Manuel Sec
+          </button>
         </div>
 
         {warningMessage ? <div className="error">{warningMessage}</div> : null}
 
         {denied ? (
-          <div className="form-group">
-            <label htmlFor="manualCity">Manuel Sehir Secimi</label>
-            <select id="manualCity" value={selectedCity} onChange={(event) => onSelectCity(event.target.value)}>
-              <option value="">Sehir secin</option>
-              {cityOptions.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
+          <div className="modal-hint">
+            <p>Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyebilirsin.</p>
+            <ul>
+              <li>Chrome: kilit ikonu → Site settings → Location → Allow</li>
+              <li>iOS Safari: Ayarlar → Safari → Konum → Sor / Izin ver</li>
+            </ul>
           </div>
         ) : null}
 

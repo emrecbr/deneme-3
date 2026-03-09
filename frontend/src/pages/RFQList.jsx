@@ -19,7 +19,7 @@ import { getSocket, normalizeSocketCity } from '../lib/socket';
 import { triggerHaptic } from '../utils/haptic';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
-import { haversineKm } from '../utils/geo';
+import { haversineKm, reverseGeocode } from '../utils/geo';
 import { FavoriteIcon } from '../components/ui/AppIcons';
 
 const PAGE_LIMIT = 10;
@@ -594,6 +594,20 @@ function RFQList() {
       return false;
     }
 
+    if (navigator.permissions?.query) {
+      try {
+        const status = await navigator.permissions.query({ name: 'geolocation' });
+        if (status?.state === 'denied') {
+          setLocationDenied(true);
+          setLocationWarning('Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.');
+          setShowLocationModal(true);
+          return false;
+        }
+      } catch (_error) {
+        // ignore permission query errors
+      }
+    }
+
     setLocationLoading(true);
     setLocationWarning('');
     startLiveLocation();
@@ -983,17 +997,33 @@ function RFQList() {
     if (!navigator.geolocation) {
       setLocationWarning('Konum servisi desteklenmiyor.');
       setToast('Konum alinamadi. Lutfen manuel secin.');
+      openManualSelection();
       return;
     }
 
     setUseCurrentLocationLoading(true);
     setLocationWarning('');
 
+    if (navigator.permissions?.query) {
+      try {
+        const status = await navigator.permissions.query({ name: 'geolocation' });
+        if (status?.state === 'denied') {
+          setLocationDenied(true);
+          setLocationWarning('Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.');
+          setShowLocationModal(true);
+          setUseCurrentLocationLoading(false);
+          return;
+        }
+      } catch (_error) {
+        // ignore permission query errors
+      }
+    }
+
     const getPosition = () => new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 30000
+        timeout: 12000,
+        maximumAge: 60000
       });
     });
 
@@ -1010,19 +1040,38 @@ function RFQList() {
       setUserCoords(coords);
       setUserPosition(coords);
 
+      const latStr = Number(lat).toFixed(6);
+      const lngStr = Number(lng).toFixed(6);
+
       const reverseTry = async () => {
         try {
-          const response = await api.get('/location/reverse', { params: { lat, lng } });
-          const payload = response.data || {};
-          if (payload?.success === false) {
-            console.warn('LOCATION_REVERSE_FAIL', {
-              status: response?.status,
-              data: payload,
-              message: payload?.message,
-              url: `${response?.config?.baseURL || ''}${response?.config?.url || ''}`,
-              params: response?.config?.params
+          if (import.meta.env.DEV) {
+            console.debug('REVERSE_REQ', {
+              url: `${API_BASE_URL || ''}/location/reverse?lat=${latStr}&lng=${lngStr}`,
+              lat: latStr,
+              lng: lngStr
             });
-            return null;
+          }
+
+          const response = await reverseGeocode({ lat, lng });
+          const payload = response.data || {};
+          if (import.meta.env.DEV) {
+            console.debug('REVERSE_RES', {
+              success: payload?.success,
+              message: payload?.message
+            });
+          }
+          if (payload?.success === false) {
+            if (import.meta.env.DEV) {
+              console.warn('LOCATION_REVERSE_FAIL', {
+                status: response?.status,
+                data: payload,
+                message: payload?.message,
+                url: `${response?.config?.baseURL || ''}${response?.config?.url || ''}`,
+                params: response?.config?.params
+              });
+            }
+            return { status: 'not_found', message: payload?.message || 'not_found' };
           }
           const cityPayload = payload.city || {};
           const districtPayload = payload.district || {};
@@ -1086,21 +1135,26 @@ function RFQList() {
             center = { lat: Number(centerCoords[1]), lng: Number(centerCoords[0]) };
           }
           return {
-            city: resolvedCity,
-            district: resolvedDistrict || null,
-            radiusKm: Number(payload.radiusKm) || null,
-            center
+            status: 'ok',
+            selection: {
+              city: resolvedCity,
+              district: resolvedDistrict || null,
+              radiusKm: Number(payload.radiusKm) || null,
+              center
+            }
           };
         } catch (_error) {
           const err = _error;
-          console.warn('LOCATION_REVERSE_FAIL', {
-            status: err?.response?.status,
-            data: err?.response?.data,
-            message: err?.message,
-            url: `${err?.config?.baseURL || ''}${err?.config?.url || ''}`,
-            params: err?.config?.params
-          });
-          return null;
+          if (import.meta.env.DEV) {
+            console.warn('LOCATION_REVERSE_FAIL', {
+              status: err?.response?.status,
+              data: err?.response?.data,
+              message: err?.message,
+              url: `${err?.config?.baseURL || ''}${err?.config?.url || ''}`,
+              params: err?.config?.params
+            });
+          }
+          return { status: 'error', error: err };
         }
       };
 
@@ -1146,16 +1200,30 @@ function RFQList() {
       };
 
       const reverseResult = await reverseTry();
-      const selection = reverseResult || await fallbackNearestCity();
-
-      if (!selection?.city?.name) {
-        console.warn('LOCATION_REVERSE_FAIL');
-        setLocationWarning('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
-        setToast('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
+      if (reverseResult?.status === 'not_found') {
+        setLocationWarning('Konumdan sehir bulunamadi. Lutfen manuel secin.');
+        setToast('Konumdan sehir bulunamadi. Lutfen manuel secin.');
+        openManualSelection();
         return;
       }
 
-      console.log('LOCATION_REVERSE_OK', selection.city.name);
+      const selection = reverseResult?.status === 'ok'
+        ? reverseResult.selection
+        : await fallbackNearestCity();
+
+      if (!selection?.city?.name) {
+        if (import.meta.env.DEV) {
+          console.warn('LOCATION_REVERSE_FAIL');
+        }
+        setLocationWarning('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
+        setToast('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
+        openManualSelection();
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.debug('LOCATION_REVERSE_OK', selection.city.name);
+      }
 
       const resolvedCity = selection.city;
       const resolvedDistrict = selection.district;
@@ -1190,9 +1258,18 @@ function RFQList() {
       window.setTimeout(() => setToast(null), 1800);
     } catch (error) {
       const status = error?.response?.status;
-      const message = status === 404
-        ? 'Konumdan sehir bulunamadi. Lutfen manuel secin.'
-        : error?.response?.data?.message || error?.message || 'Konum alinamadi. Lutfen izin verin.';
+      let message = error?.response?.data?.message || error?.message || 'Konum alinamadi. Lutfen izin verin.';
+      if (error?.code === 1 || error?.name === 'PermissionDeniedError') {
+        message = 'Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.';
+        setLocationDenied(true);
+        setShowLocationModal(true);
+      } else if (error?.code === 2 || error?.code === 3) {
+        message = 'Konum alinamadi. Lutfen manuel secin.';
+        openManualSelection();
+      } else if (status === 404) {
+        message = 'Konumdan sehir bulunamadi. Lutfen manuel secin.';
+        openManualSelection();
+      }
       setLocationWarning(message);
       setToast(message);
       window.setTimeout(() => setToast(null), 2000);
@@ -1208,7 +1285,8 @@ function RFQList() {
     setCityCenterCoords,
     setUserCoords,
     setUserPosition,
-    useCurrentLocationLoading
+    useCurrentLocationLoading,
+    openManualSelection
   ]);
 
   function getCreateSheetSnapPoints() {
@@ -2025,6 +2103,11 @@ function RFQList() {
     }, 250);
   }, []);
 
+  const openManualSelection = useCallback(() => {
+    setShowLocationModal(false);
+    handleSelectCity();
+  }, [handleSelectCity]);
+
   const saveSearchHistory = useCallback((next) => {
     setSearchHistory(next);
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
@@ -2176,11 +2259,6 @@ function RFQList() {
     const durationMin = (distanceKm / 35) * 60;
     setRouteSummary({ distanceKm, durationMin });
   }, [routePoints]);
-
-  const cityOptions = useMemo(() => {
-    const namesFromData = [...rfqs, ...nearbyRFQs].map((item) => getCityName(item)).filter(Boolean);
-    return Array.from(new Set(namesFromData)).sort((a, b) => a.localeCompare(b, 'tr'));
-  }, [getCityName, nearbyRFQs, rfqs]);
 
   useEffect(() => {
     let isActive = true;
@@ -2913,6 +2991,9 @@ function RFQList() {
                 </svg>
               )}
             </button>
+            {useCurrentLocationLoading ? (
+              <span className="sheet-location-loading">Bulunuyor...</span>
+            ) : null}
             <button
               type="button"
               className="apply-btn sheet-apply-header"
@@ -2984,22 +3065,7 @@ function RFQList() {
         denied={locationDenied}
         loading={locationLoading}
         warningMessage={locationWarning}
-        cityOptions={cityOptions}
-        selectedCity={filters.city || ''}
-        onSelectCity={(city) => {
-          setSelectedCity(null);
-          setSelectedDistrict(null);
-          setFilters((prev) => ({
-            ...prev,
-            city: city || null,
-            cityId: null,
-            district: null,
-            districtId: null
-          }));
-          if (city) {
-            setShowLocationModal(false);
-          }
-        }}
+        onManualSelect={openManualSelection}
         onEnableLocation={resolveLocationPermission}
         onClose={() => setShowLocationModal(false)}
       />
