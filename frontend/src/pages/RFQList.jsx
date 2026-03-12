@@ -132,7 +132,6 @@ function RFQList() {
   const [hasMore, setHasMore] = useState(true);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [isSearchSheetOpen, setIsSearchSheetOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState(() => localStorage.getItem('rfq_sortKey') || 'date_desc');
   const [isCreateSheetMounted, setIsCreateSheetMounted] = useState(false);
@@ -191,6 +190,8 @@ function RFQList() {
   const [showResultsToast, setShowResultsToast] = useState(false);
   const [resultsToastVisible, setResultsToastVisible] = useState(false);
   const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || 0);
+  const [isSearchTriggerOpen, setIsSearchTriggerOpen] = useState(false);
+  const searchAreaRef = useRef(null);
 
   const currentUserId = useMemo(() => currentUser?.id || currentUser?._id || null, [currentUser]);
   const activeCity = useMemo(() => normalizeSocketCity(filters.city || currentUser?.city), [currentUser?.city, filters.city]);
@@ -449,27 +450,16 @@ function RFQList() {
   }, []);
 
   useEffect(() => {
-    if (isSearchSheetOpen) {
-      document.body.classList.add('sheet-open');
-    } else {
-      document.body.classList.remove('sheet-open');
-    }
-    return () => {
-      document.body.classList.remove('sheet-open');
-    };
-  }, [isSearchSheetOpen]);
-
-  useEffect(() => {
-    if (isSearchSheetOpen) {
-      window.requestAnimationFrame(() => {
-        window.setTimeout(() => {
-          searchInputRef.current?.focus();
-        }, 50);
-      });
-    } else {
+    if (!isSearchTriggerOpen) {
       searchInputRef.current?.blur();
+      return;
     }
-  }, [isSearchSheetOpen]);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    });
+  }, [isSearchTriggerOpen]);
 
   useEffect(() => {
     fetchRFQs({ nextPage: 1, replace: true });
@@ -989,6 +979,31 @@ function RFQList() {
     }));
   }, [filters]);
 
+  const handleIncreaseKm = useCallback(() => {
+    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
+    window.setTimeout(() => {
+      const input = document.getElementById('radiusRange');
+      if (input) {
+        input.focus();
+      }
+    }, 250);
+  }, []);
+
+  const handleSelectCity = useCallback(() => {
+    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
+    window.setTimeout(() => {
+      const input = document.querySelector('.city-search-input');
+      if (input) {
+        input.focus();
+      }
+    }, 250);
+  }, []);
+
+  const openManualSelection = useCallback(() => {
+    setShowLocationModal(false);
+    handleSelectCity();
+  }, [handleSelectCity]);
+
   const handleUseCurrentLocation = useCallback(async () => {
     if (useCurrentLocationLoading) {
       return;
@@ -1075,8 +1090,28 @@ function RFQList() {
           }
           const cityPayload = payload.city || {};
           const districtPayload = payload.district || {};
-          const cityName = typeof cityPayload === 'string' ? cityPayload : cityPayload.name;
-          const districtName = typeof districtPayload === 'string' ? districtPayload : districtPayload.name;
+          const resolveName = (value) => {
+            if (!value) return '';
+            if (typeof value === 'string') return value;
+            return value.name || value.label || value.title || '';
+          };
+          const cityNameCandidates = [
+            resolveName(cityPayload),
+            resolveName(payload.province),
+            resolveName(payload.state),
+            resolveName(payload.region),
+            resolveName(payload.adminArea),
+            resolveName(payload.administrativeArea),
+            resolveName(payload.county),
+            payload.cityName,
+            payload.provinceName,
+            payload.stateName,
+            payload.regionName,
+            payload.il,
+            payload.sehir
+          ].filter(Boolean);
+          const cityName = cityNameCandidates[0];
+          const districtName = resolveName(districtPayload) || resolveName(payload.districtName) || resolveName(payload.ilce);
 
           let resolvedCity = null;
           if (cityName) {
@@ -1200,17 +1235,19 @@ function RFQList() {
       };
 
       const reverseResult = await reverseTry();
-      if (reverseResult?.status === 'not_found') {
+      let selection = null;
+      if (reverseResult?.status === 'ok') {
+        selection = reverseResult.selection;
+      } else {
+        selection = await fallbackNearestCity();
+      }
+
+      if (!selection?.city?.name && reverseResult?.status === 'not_found') {
         setLocationWarning('Konumdan sehir bulunamadi. Lutfen manuel secin.');
         setToast('Konumdan sehir bulunamadi. Lutfen manuel secin.');
         openManualSelection();
         return;
       }
-
-      const selection = reverseResult?.status === 'ok'
-        ? reverseResult.selection
-        : await fallbackNearestCity();
-
       if (!selection?.city?.name) {
         if (import.meta.env.DEV) {
           console.warn('LOCATION_REVERSE_FAIL');
@@ -1253,7 +1290,6 @@ function RFQList() {
       };
       setDraftFilters(nextDraft);
       locationAutoApplyRef.current = true;
-      setLocationWarning('Konumdan sehir secildi.');
       setToast('Konumdan sehir secildi.');
       window.setTimeout(() => setToast(null), 1800);
     } catch (error) {
@@ -2083,31 +2119,6 @@ function RFQList() {
   const canApplyFilters = Boolean((draftFilters || filters).city || (draftFilters || filters).cityId);
   const hasMapCoords = mapBaseItems.length > 0;
 
-  const handleIncreaseKm = useCallback(() => {
-    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
-    window.setTimeout(() => {
-      const input = document.getElementById('radiusRange');
-      if (input) {
-        input.focus();
-      }
-    }, 250);
-  }, []);
-
-  const handleSelectCity = useCallback(() => {
-    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
-    window.setTimeout(() => {
-      const input = document.querySelector('.city-search-input');
-      if (input) {
-        input.focus();
-      }
-    }, 250);
-  }, []);
-
-  const openManualSelection = useCallback(() => {
-    setShowLocationModal(false);
-    handleSelectCity();
-  }, [handleSelectCity]);
-
   const saveSearchHistory = useCallback((next) => {
     setSearchHistory(next);
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
@@ -2135,9 +2146,28 @@ function RFQList() {
     return () => window.clearTimeout(timer);
   }, [filters.radius]);
 
+  useEffect(() => {
+    if (!isSearchTriggerOpen) {
+      return undefined;
+    }
+    const handleOutside = (event) => {
+      if (searchAreaRef.current && !searchAreaRef.current.contains(event.target)) {
+        if (!searchQuery) {
+          setIsSearchTriggerOpen(false);
+        }
+      }
+    };
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('touchstart', handleOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('touchstart', handleOutside);
+    };
+  }, [isSearchTriggerOpen, pushSearchHistory, searchQuery]);
+
   const closeSearchSheet = useCallback(() => {
     pushSearchHistory(searchQuery);
-    setIsSearchSheetOpen(false);
+    setIsSearchTriggerOpen(false);
   }, [pushSearchHistory, searchQuery]);
 
   const handleCreateRFQ = useCallback(() => {
@@ -2632,21 +2662,118 @@ function RFQList() {
         </div>
       </div>
 
-      <div
-        className="rfq-search-trigger"
-        role="button"
-        tabIndex={0}
-        onClick={() => setIsSearchSheetOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setIsSearchSheetOpen(true);
-          }
-        }}
-      >
-        <span className="rfq-search-icon" aria-hidden="true">🔍</span>
-        <span className="rfq-search-placeholder">Talepleri ara (başlık, kategori…)</span>
-        <span className="rfq-search-cta">Ara</span>
+      <div className="rfq-search-area" ref={searchAreaRef}>
+        <div
+          className={`rfq-search-trigger ${isSearchTriggerOpen ? 'is-open' : ''}`}
+          role={isSearchTriggerOpen ? 'search' : 'button'}
+          tabIndex={isSearchTriggerOpen ? -1 : 0}
+          aria-label="Talepleri ara"
+          aria-expanded={isSearchTriggerOpen}
+          onClick={(event) => {
+            if (!isSearchTriggerOpen) {
+              setIsSearchTriggerOpen(true);
+              return;
+            }
+            if (event.target?.closest?.('input')) {
+              return;
+            }
+            searchInputRef.current?.focus();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              setIsSearchTriggerOpen(false);
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              if (!isSearchTriggerOpen) {
+                setIsSearchTriggerOpen(true);
+                return;
+              }
+              searchInputRef.current?.focus();
+            }
+          }}
+        >
+          <span className="rfq-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
+              <line x1="16.2" y1="16.2" x2="20" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+          {isSearchTriggerOpen ? (
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  pushSearchHistory(searchQuery);
+                }
+              }}
+              placeholder="Başlık, kategori, açıklama..."
+              className="search-input rfq-inline-search-input"
+              ref={searchInputRef}
+              autoComplete="off"
+              inputMode="search"
+              enterKeyHint="search"
+            />
+          ) : null}
+          {isSearchTriggerOpen ? <span className="rfq-search-cta">Ara</span> : null}
+        </div>
+        {isSearchTriggerOpen ? (
+          <div className="rfq-search-panel">
+            <div className="search-hint">Yazdıkça liste filtrelenecek.</div>
+            <div className="search-category-meta">
+              <div className="search-meta-title">Ana Kategori</div>
+              <div className="search-parent-chip">{activeParentName || 'Kategori secilmedi'}</div>
+            </div>
+
+            {suggestionResults.length ? (
+              <div className="search-suggestions">
+                <div className="search-meta-title">Oneriler</div>
+                <div className="search-suggestion-list">
+                  {suggestionResults.map((item) => (
+                    <button
+                      key={`${item._id}`}
+                      type="button"
+                      className="suggest-row"
+                      onClick={() => handleSuggestSelect(item)}
+                    >
+                      <div className="suggest-title">{item.name}</div>
+                      <div className="suggest-meta">{item.parentName}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {searchHistory.length ? (
+              <div className="search-history">
+                <div className="search-history-head">
+                  <span>Geçmiş aramalar</span>
+                  <button
+                    type="button"
+                    className="search-history-clear"
+                    onClick={() => saveSearchHistory([])}
+                  >
+                    Temizle
+                  </button>
+                </div>
+                <div className="search-history-list">
+                  {searchHistory.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="search-history-item"
+                      onClick={() => setSearchQuery(item)}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {loading ? <RFQSkeletonGrid count={6} /> : null}
@@ -2875,89 +3002,6 @@ function RFQList() {
         </div>
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
-
-      <ReusableBottomSheet
-        open={isSearchSheetOpen}
-        onClose={closeSearchSheet}
-        title="Talepleri Ara"
-        headerRight={(
-          <button type="button" className="search-close" onClick={closeSearchSheet}>
-            Kapat
-          </button>
-        )}
-        contentClassName="premium-search-sheet"
-        initialSnap="mid"
-      >
-        <div className="search-input-wrap">
-          <span className="search-input-icon" aria-hidden="true">🔍</span>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                pushSearchHistory(searchQuery);
-              }
-            }}
-            placeholder="Başlık, kategori, açıklama..."
-            className="search-input"
-            ref={searchInputRef}
-            autoComplete="off"
-            inputMode="search"
-            enterKeyHint="search"
-          />
-        </div>
-        <div className="search-hint">Yazdıkça liste filtrelenecek.</div>
-
-        <div className="search-category-meta">
-          <div className="search-meta-title">Ana Kategori</div>
-          <div className="search-parent-chip">{activeParentName || 'Kategori secilmedi'}</div>
-        </div>
-
-        {suggestionResults.length ? (
-          <div className="search-suggestions">
-            <div className="search-meta-title">Oneriler</div>
-            <div className="search-suggestion-list">
-              {suggestionResults.map((item) => (
-                <button
-                  key={`${item._id}`}
-                  type="button"
-                  className="suggest-row"
-                  onClick={() => handleSuggestSelect(item)}
-                >
-                  <div className="suggest-title">{item.name}</div>
-                  <div className="suggest-meta">{item.parentName}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {searchHistory.length ? (
-          <div className="search-history">
-            <div className="search-history-head">
-              <span>Geçmiş aramalar</span>
-              <button
-                type="button"
-                className="search-history-clear"
-                onClick={() => saveSearchHistory([])}
-              >
-                Temizle
-              </button>
-            </div>
-            <div className="search-history-list">
-              {searchHistory.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className="search-history-item"
-                  onClick={() => setSearchQuery(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </ReusableBottomSheet>
 
       <ReusableBottomSheet
         open={isFilterSheetOpen}

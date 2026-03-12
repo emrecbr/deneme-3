@@ -270,8 +270,6 @@ function Layout({ children, showBottomNav = true }) {
             {selectedCity ? (
               <>
                 <span className="city">{selectedCity}</span>
-                <span>•</span>
-                <span className="km">{selectedKm} km</span>
               </>
             ) : (
               <span className="city">Sehir Sec</span>

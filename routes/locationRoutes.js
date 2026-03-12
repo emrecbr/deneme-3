@@ -79,6 +79,73 @@ const REVERSE_RATE_WINDOW_MS = 5 * 60 * 1000;
 const REVERSE_RATE_MAX = 30;
 const DEFAULT_CITY_AREA_KM2 = 5000;
 const KOCAELI_AREA_KM2 = 3581;
+const DEFAULT_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
+
+const getReverseUrl = () => process.env.REVERSE_GEOCODE_URL || DEFAULT_REVERSE_URL;
+const pickFirst = (...values) => values.find((value) => Boolean(value));
+
+const resolveCityFromAddress = (address = {}) => pickFirst(
+  address.city,
+  address.town,
+  address.province,
+  address.state,
+  address.county,
+  address.district,
+  address.municipality,
+  address.village,
+  address.hamlet,
+  address.city_district,
+  address.administrative,
+  address.state_district,
+  address.region,
+  address.administrative_area_level_1
+);
+
+const resolveDistrictFromAddress = (address = {}) => pickFirst(
+  address.city_district,
+  address.district,
+  address.county,
+  address.municipality,
+  address.suburb,
+  address.neighbourhood,
+  address.neighborhood
+);
+
+const reverseGeocodeExternal = async (lat, lng) => {
+  if (typeof globalThis.fetch !== 'function') {
+    return null;
+  }
+  const url = new URL(getReverseUrl());
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lon', String(lng));
+  url.searchParams.set('zoom', '10');
+  url.searchParams.set('addressdetails', '1');
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'User-Agent': process.env.REVERSE_GEOCODE_UA || 'talepet/1.0 (reverse geocode)'
+    }
+  });
+  if (!response.ok) {
+    return null;
+  }
+  const data = await response.json();
+  const address = data?.address || {};
+  const cityName = resolveCityFromAddress(address);
+  const districtName = resolveDistrictFromAddress(address);
+  if (!cityName) {
+    return null;
+  }
+  return {
+    cityName,
+    districtName,
+    center: {
+      type: 'Point',
+      coordinates: [Number(data?.lon) || lng, Number(data?.lat) || lat]
+    }
+  };
+};
 
 const getCacheKey = (lat, lng) => `${lat.toFixed(4)}:${lng.toFixed(4)}`;
 const cleanupRateLimit = (entry, now) => {
@@ -221,6 +288,35 @@ locationRoutes.get('/reverse', async (req, res, next) => {
 
     if (!nearestCity?.name) {
       console.log('REV_NO_COORDS');
+      try {
+        const external = await reverseGeocodeExternal(lat, lng);
+        if (external?.cityName) {
+          const cityRegex = new RegExp(`^${escapeRegex(external.cityName)}$`, 'i');
+          const cityDoc = await City.findOne({ name: cityRegex }).select('_id name slug center areaKm2').lean();
+          if (cityDoc?._id) {
+            nearestCity = { _id: cityDoc._id, name: cityDoc.name, slug: cityDoc.slug };
+            fallbackCenter = cityDoc.center || external.center || null;
+          } else {
+            nearestCity = { name: external.cityName };
+            fallbackCenter = external.center || null;
+          }
+
+          if (external.districtName && cityDoc?._id) {
+            const districtRegex = new RegExp(`^${escapeRegex(external.districtName)}$`, 'i');
+            const districtDoc = await District.findOne({ city: cityDoc._id, name: districtRegex })
+              .select('_id name city')
+              .lean();
+            if (districtDoc?._id) {
+              resolvedDistrict = { _id: districtDoc._id, name: districtDoc.name, cityId: districtDoc.city };
+            }
+          }
+        }
+      } catch (_error) {
+        // ignore external reverse failures
+      }
+    }
+
+    if (!nearestCity?.name) {
       const payload = { city: null, district: null, message: 'not_found' };
       reverseCache.set(cacheKey, { ts: now, data: payload });
       return res.status(200).json({
