@@ -5,7 +5,6 @@ import ReusableBottomSheet from './ReusableBottomSheet';
 import { FavoriteIcon, NotificationIcon } from './ui/AppIcons';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-import { getSocket } from '../lib/socket';
 
 function Layout({ children, showBottomNav = true }) {
   const navigate = useNavigate();
@@ -75,37 +74,52 @@ function Layout({ children, showBottomNav = true }) {
 
   useEffect(() => {
     if (!user) {
-      return;
+      return undefined;
     }
-    const socket = getSocket({ userId: user.id || user._id, city: user.city });
-    if (!socket) {
-      return;
-    }
-    const onNotification = () => {
-      setUnreadCount((prev) => prev + 1);
-      fetchNotifications();
-    };
-    const onNotificationRead = (payload) => {
-      if (typeof payload?.unreadCount === 'number') {
-        setUnreadCount(payload.unreadCount);
-      } else {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
+    let active = true;
+    let socket = null;
+
+    const setup = async () => {
+      const module = await import('../lib/socket');
+      if (!active) {
+        return;
       }
-      if (payload?.notificationId && payload.notificationId !== 'all') {
-        setNotifications((prev) =>
-          prev.map((item) =>
-            item._id === payload.notificationId ? { ...item, isRead: true, readAt: new Date().toISOString() } : item
-          )
-        );
-      } else if (payload?.notificationId === 'all') {
-        setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true, readAt: new Date().toISOString() })));
+      socket = module.getSocket({ userId: user.id || user._id, city: user.city });
+      if (!socket) {
+        return;
       }
+      const onNotification = () => {
+        setUnreadCount((prev) => prev + 1);
+        fetchNotifications();
+      };
+      const onNotificationRead = (payload) => {
+        if (typeof payload?.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        } else {
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+        }
+        if (payload?.notificationId && payload.notificationId !== 'all') {
+          setNotifications((prev) =>
+            prev.map((item) =>
+              item._id === payload.notificationId ? { ...item, isRead: true, readAt: new Date().toISOString() } : item
+            )
+          );
+        } else if (payload?.notificationId === 'all') {
+          setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true, readAt: new Date().toISOString() })));
+        }
+      };
+      socket.on('notification:new', onNotification);
+      socket.on('notification:read', onNotificationRead);
     };
-    socket.on('notification:new', onNotification);
-    socket.on('notification:read', onNotificationRead);
+
+    setup();
+
     return () => {
-      socket.off('notification:new', onNotification);
-      socket.off('notification:read', onNotificationRead);
+      active = false;
+      if (socket) {
+        socket.off('notification:new');
+        socket.off('notification:read');
+      }
     };
   }, [user]);
 

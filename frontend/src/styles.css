@@ -1920,6 +1920,19 @@ body.dark-mode .custom-cluster .cluster-bubble.premium-cluster {
   color: var(--muted);
 }
 
+.filter-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.8);
+  font-size: 12px;
+}
+
 .auth-card {
   margin-top: 10px;
 }
@@ -3953,6 +3966,51 @@ body.dark-mode .category-name {
 
 .rfq-search-panel .search-category-meta {
   margin-top: 10px;
+}
+
+.map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, rgba(2, 6, 23, 0.68), rgba(15, 23, 42, 0.62));
+}
+
+.map-loading-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.35);
+}
+
+.map-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(148, 163, 184, 0.25);
+  border-top-color: rgba(96, 165, 250, 0.9);
+  animation: map-spin 0.9s linear infinite;
+}
+
+.map-loading-title {
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.map-loading-sub {
+  color: rgba(226, 232, 240, 0.7);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+@keyframes map-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rfq-search-placeholder {

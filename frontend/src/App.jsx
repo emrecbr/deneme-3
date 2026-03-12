@@ -1,35 +1,36 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import Login from './pages/Login';
-import AuthCallback from './pages/AuthCallback';
-import OtpVerify from './pages/OtpVerify';
-import RegisterOtp from './pages/RegisterOtp';
-import SmsVerify from './pages/SmsVerify';
-import EmailVerify from './pages/EmailVerify';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import LoginOtp from './pages/LoginOtp';
-import RFQCreate from './pages/RFQCreate';
-import RFQList from './pages/RFQList';
-import RFQDetail from './pages/RFQDetail';
-import Chat from './pages/Chat';
-import Notifications from './pages/Notifications';
-import Profile from './pages/Profile';
-import ProfileRequests from './pages/ProfileRequests';
-import ProfileOffers from './pages/ProfileOffers';
-import ProfileAccount from './pages/ProfileAccount';
-import ProfileAddresses from './pages/ProfileAddresses';
-import Messages from './pages/Messages';
-import FavoritesPage from './pages/FavoritesPage';
-import Premium from './pages/Premium';
-import PremiumReturn from './pages/PremiumReturn';
-import Categories from './pages/Categories';
-import AdminCarImport from './pages/AdminCarImport';
 import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
-import OnboardingModal from './components/OnboardingModal';
 import api from './api/axios';
 import { useAuth } from './context/AuthContext';
+
+const Login = lazy(() => import('./pages/Login'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const OtpVerify = lazy(() => import('./pages/OtpVerify'));
+const RegisterOtp = lazy(() => import('./pages/RegisterOtp'));
+const SmsVerify = lazy(() => import('./pages/SmsVerify'));
+const EmailVerify = lazy(() => import('./pages/EmailVerify'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const LoginOtp = lazy(() => import('./pages/LoginOtp'));
+const RFQCreate = lazy(() => import('./pages/RFQCreate'));
+const RFQList = lazy(() => import('./pages/RFQList'));
+const RFQDetail = lazy(() => import('./pages/RFQDetail'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ProfileRequests = lazy(() => import('./pages/ProfileRequests'));
+const ProfileOffers = lazy(() => import('./pages/ProfileOffers'));
+const ProfileAccount = lazy(() => import('./pages/ProfileAccount'));
+const ProfileAddresses = lazy(() => import('./pages/ProfileAddresses'));
+const Messages = lazy(() => import('./pages/Messages'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const Premium = lazy(() => import('./pages/Premium'));
+const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
+const Categories = lazy(() => import('./pages/Categories'));
+const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
+const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 
 function App() {
   const { user, loading, checkAuth } = useAuth();
@@ -89,7 +90,6 @@ function App() {
 
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
     }
   }, []);
 
@@ -99,6 +99,7 @@ function App() {
 
   return (
     <>
+    <Suspense fallback={<div className="card">Yukleniyor...</div>}>
     <Routes>
       <Route
         path="/login"
@@ -376,20 +377,25 @@ function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    <OnboardingModal
-      open={showOnboarding}
-      onComplete={async (locationSelection) => {
-        try {
-          if (locationSelection?.city) {
-            await api.patch('/users/location-selection', locationSelection);
-          }
-          await api.patch('/users/onboarding-complete');
-          await checkAuth();
-        } finally {
-          setShowOnboarding(false);
-        }
-      }}
-    />
+    </Suspense>
+    {showOnboarding ? (
+      <Suspense fallback={null}>
+        <OnboardingModal
+          open={showOnboarding}
+          onComplete={async (locationSelection) => {
+            try {
+              if (locationSelection?.city) {
+                await api.patch('/users/location-selection', locationSelection);
+              }
+              await api.patch('/users/onboarding-complete');
+              await checkAuth();
+            } finally {
+              setShowOnboarding(false);
+            }
+          }}
+        />
+      </Suspense>
+    ) : null}
     </>
   );
 }

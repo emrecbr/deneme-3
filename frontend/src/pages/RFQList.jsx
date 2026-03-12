@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import L from 'leaflet';
-import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer, useMapEvents } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
 import api, { API_BASE_URL } from '../api/axios';
 import CategorySelector from '../components/CategorySelector';
 import EmptyStateCard from '../components/EmptyStateCard';
@@ -22,48 +19,12 @@ import { getDistanceKm } from '../utils/distance';
 import { haversineKm, reverseGeocode } from '../utils/geo';
 import { FavoriteIcon } from '../components/ui/AppIcons';
 
+const RFQListMap = lazy(() => import('../components/RFQListMap'));
+const prefetchRFQListMap = () => import('../components/RFQListMap');
+
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
 const SEARCH_HISTORY_KEY = 'rfq_search_history_v1';
-
-function MapZoomSync({ onZoomChange, onBoundsChange, onUserMove, suppressUpdates }) {
-  useMapEvents({
-    zoomend: (event) => {
-      if (suppressUpdates) {
-        return;
-      }
-      onZoomChange(event.target.getZoom());
-      if (onBoundsChange) {
-        const bounds = event.target.getBounds();
-        onBoundsChange({
-          south: bounds.getSouth(),
-          west: bounds.getWest(),
-          north: bounds.getNorth(),
-          east: bounds.getEast()
-        });
-      }
-    },
-    moveend: (event) => {
-      if (suppressUpdates) {
-        return;
-      }
-      if (onBoundsChange) {
-        const bounds = event.target.getBounds();
-        onBoundsChange({
-          south: bounds.getSouth(),
-          west: bounds.getWest(),
-          north: bounds.getNorth(),
-          east: bounds.getEast()
-        });
-      }
-      if (onUserMove) {
-        onUserMove();
-      }
-    }
-  });
-
-  return null;
-}
 
 function calculateDistance(fromLat, fromLng, toLat, toLng) {
   const earthRadius = 6371;
@@ -109,7 +70,6 @@ function RFQList() {
   const createSheetRef = useRef(null);
   const createSheetSnapRef = useRef({ full: 0, half: 0, closed: 0 });
   const searchInputRef = useRef(null);
-  const mapRef = useRef(null);
 
   const [rfqs, setRfqs] = useState([]);
   const [nearbyRFQs, setNearbyRFQs] = useState([]);
@@ -192,6 +152,9 @@ function RFQList() {
   const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || 0);
   const [isSearchTriggerOpen, setIsSearchTriggerOpen] = useState(false);
   const searchAreaRef = useRef(null);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const deferredFilters = useDeferredValue(filters);
+  const isFiltering = deferredFilters !== filters;
 
   const currentUserId = useMemo(() => currentUser?.id || currentUser?._id || null, [currentUser]);
   const activeCity = useMemo(() => normalizeSocketCity(filters.city || currentUser?.city), [currentUser?.city, filters.city]);
@@ -556,7 +519,6 @@ function RFQList() {
       });
       setNearbyRFQs(response.data?.data || response.data?.items || []);
     } catch (fallbackError) {
-      console.log('CITY FALLBACK ERROR:', fallbackError);
       cityFallbackAttemptedRef.current = { key: fallbackKey, failed: true };
       setToast('Sehir filtreleme gecici olarak calismiyor, tum ilanlar gosteriliyor.');
       window.setTimeout(() => setToast(null), 2000);
@@ -666,14 +628,8 @@ function RFQList() {
 
   useEffect(() => {
     if (viewMode === 'map') {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
+      prefetchRFQListMap();
     }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
   }, [viewMode]);
 
   useEffect(() => {
@@ -1060,32 +1016,9 @@ function RFQList() {
 
       const reverseTry = async () => {
         try {
-          if (import.meta.env.DEV) {
-            console.debug('REVERSE_REQ', {
-              url: `${API_BASE_URL || ''}/location/reverse?lat=${latStr}&lng=${lngStr}`,
-              lat: latStr,
-              lng: lngStr
-            });
-          }
-
           const response = await reverseGeocode({ lat, lng });
           const payload = response.data || {};
-          if (import.meta.env.DEV) {
-            console.debug('REVERSE_RES', {
-              success: payload?.success,
-              message: payload?.message
-            });
-          }
           if (payload?.success === false) {
-            if (import.meta.env.DEV) {
-              console.warn('LOCATION_REVERSE_FAIL', {
-                status: response?.status,
-                data: payload,
-                message: payload?.message,
-                url: `${response?.config?.baseURL || ''}${response?.config?.url || ''}`,
-                params: response?.config?.params
-              });
-            }
             return { status: 'not_found', message: payload?.message || 'not_found' };
           }
           const cityPayload = payload.city || {};
@@ -1180,15 +1113,6 @@ function RFQList() {
           };
         } catch (_error) {
           const err = _error;
-          if (import.meta.env.DEV) {
-            console.warn('LOCATION_REVERSE_FAIL', {
-              status: err?.response?.status,
-              data: err?.response?.data,
-              message: err?.message,
-              url: `${err?.config?.baseURL || ''}${err?.config?.url || ''}`,
-              params: err?.config?.params
-            });
-          }
           return { status: 'error', error: err };
         }
       };
@@ -1249,17 +1173,10 @@ function RFQList() {
         return;
       }
       if (!selection?.city?.name) {
-        if (import.meta.env.DEV) {
-          console.warn('LOCATION_REVERSE_FAIL');
-        }
         setLocationWarning('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
         setToast('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
         openManualSelection();
         return;
-      }
-
-      if (import.meta.env.DEV) {
-        console.debug('LOCATION_REVERSE_OK', selection.city.name);
       }
 
       const resolvedCity = selection.city;
@@ -1398,9 +1315,6 @@ function RFQList() {
       if (!isCreateSheetDragging) {
         return;
       }
-      if (import.meta.env?.DEV) {
-        console.log('[sheet] move', { y: event.clientY });
-      }
       const clientY = event.clientY;
       if (typeof clientY !== 'number') {
         return;
@@ -1424,9 +1338,6 @@ function RFQList() {
     () => {
       if (!isCreateSheetDragging) {
         return;
-      }
-      if (import.meta.env?.DEV) {
-        console.log('[sheet] up');
       }
       setIsCreateSheetDragging(false);
       const snap = getCreateSheetSnapPoints();
@@ -1467,9 +1378,6 @@ function RFQList() {
       }
       event.preventDefault();
       event.stopPropagation();
-      if (import.meta.env?.DEV) {
-        console.log('[sheet] down');
-      }
       if (event.currentTarget?.setPointerCapture && event.pointerId !== undefined) {
         event.currentTarget.setPointerCapture(event.pointerId);
       }
@@ -1637,21 +1545,58 @@ function RFQList() {
     [toRadians]
   );
 
-  const getCategoryName = useCallback((categoryValue) => {
-    if (!categoryValue) {
-      return '';
-    }
+  const categoryIndex = useMemo(() => {
+    const map = new Map();
+    flatSubcategories.forEach((item) => {
+      if (!item) return;
+      const id = item._id ? String(item._id) : '';
+      if (id) map.set(id, item);
+      if (item.slug) map.set(String(item.slug), item);
+      if (item.name) map.set(String(item.name).toLowerCase(), item);
+    });
+    return map;
+  }, [flatSubcategories]);
 
-    if (typeof categoryValue === 'string') {
-      return categoryValue;
-    }
+  const resolveCategoryItem = useCallback(
+    (categoryValue) => {
+      if (!categoryValue) {
+        return null;
+      }
+      if (typeof categoryValue === 'object') {
+        const rawId = categoryValue._id || categoryValue.id || categoryValue.slug || categoryValue.name || '';
+        const key = rawId ? String(rawId) : '';
+        return (key && categoryIndex.get(key)) || (key && categoryIndex.get(key.toLowerCase())) || null;
+      }
+      if (typeof categoryValue === 'string') {
+        return categoryIndex.get(categoryValue) || categoryIndex.get(categoryValue.toLowerCase()) || null;
+      }
+      return null;
+    },
+    [categoryIndex]
+  );
 
-    if (typeof categoryValue === 'object') {
-      return categoryValue.name || categoryValue.slug || '';
-    }
-
-    return '';
-  }, []);
+  const getCategoryDisplayName = useCallback(
+    (categoryValue) => {
+      if (!categoryValue) {
+        return '';
+      }
+      if (typeof categoryValue === 'object') {
+        const direct = categoryValue.name || categoryValue.title;
+        if (direct) {
+          return direct;
+        }
+      }
+      const resolved = resolveCategoryItem(categoryValue);
+      if (resolved) {
+        if (resolved.parentName && resolved.name && resolved.parentName !== resolved.name) {
+          return `${resolved.parentName} > ${resolved.name}`;
+        }
+        return resolved.name || '';
+      }
+      return typeof categoryValue === 'string' ? categoryValue : '';
+    },
+    [resolveCategoryItem]
+  );
 
   const getCategoryKey = useCallback((item) => {
     const categoryValue = item?.category;
@@ -1671,7 +1616,7 @@ function RFQList() {
   }, []);
 
   const getCategoryPlaceholder = useCallback((category) => {
-    const value = String(getCategoryName(category) || '').toLowerCase();
+    const value = String(getCategoryDisplayName(category) || '').toLowerCase();
     if (value.includes('elektronik')) {
       return '/placeholders/electronics.svg';
     }
@@ -1682,7 +1627,7 @@ function RFQList() {
       return '/placeholders/service.svg';
     }
     return '/placeholders/default.svg';
-  }, [getCategoryName]);
+  }, [getCategoryDisplayName]);
 
   const getCardImages = useCallback(
     (rfq) => {
@@ -1751,7 +1696,7 @@ function RFQList() {
           : radiusCenter && rfqCoords
             ? distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(rfqCoords.lat), Number(rfqCoords.lng))
             : null;
-      const radiusLimit = Number(filters.radius) || 30;
+    const radiusLimit = Number(deferredFilters.radius) || 30;
       const isNearby = typeof distanceKm === 'number' ? distanceKm <= radiusLimit : false;
 
       return {
@@ -1761,47 +1706,51 @@ function RFQList() {
         isNearby
       };
     });
-  }, [distanceInKm, filters.radius, getRFQCoords, isPremiumRFQ, radiusCenter, rfqs]);
+  }, [deferredFilters.radius, distanceInKm, getRFQCoords, isPremiumRFQ, radiusCenter, rfqs]);
 
   const filteredEnrichedRFQs = useMemo(() => {
     return enrichedRFQs.filter((item) => {
-      const cityMatch = filters.city ? String(getCityName(item)).toLowerCase() === String(filters.city).toLowerCase() : true;
-      const districtMatch = filters.district
-        ? String(getDistrictName(item)).toLowerCase() === String(filters.district).toLowerCase()
+      const cityMatch = deferredFilters.city
+        ? String(getCityName(item)).toLowerCase() === String(deferredFilters.city).toLowerCase()
         : true;
-      const categoryMatch = filters.category ? getCategoryKey(item) === String(filters.category) : true;
+      const districtMatch = deferredFilters.district
+        ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
+        : true;
+      const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
       const radiusMatch = radiusCenter
         ? typeof item.distanceKm === 'number'
-          ? item.distanceKm <= (Number(filters.radius) || 30)
+          ? item.distanceKm <= (Number(deferredFilters.radius) || 30)
           : true
         : true;
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [enrichedRFQs, filters.category, filters.city, filters.district, filters.radius, getCategoryKey, getCityName, getDistrictName, radiusCenter]);
+  }, [deferredFilters.category, deferredFilters.city, deferredFilters.district, deferredFilters.radius, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, radiusCenter]);
 
   const filteredNearbyRFQs = useMemo(() => {
     return nearbyRFQs.filter((item) => {
-      const cityMatch = filters.city ? String(getCityName(item)).toLowerCase() === String(filters.city).toLowerCase() : true;
-      const districtMatch = filters.district
-        ? String(getDistrictName(item)).toLowerCase() === String(filters.district).toLowerCase()
+      const cityMatch = deferredFilters.city
+        ? String(getCityName(item)).toLowerCase() === String(deferredFilters.city).toLowerCase()
         : true;
-      const categoryMatch = filters.category ? getCategoryKey(item) === String(filters.category) : true;
+      const districtMatch = deferredFilters.district
+        ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
+        : true;
+      const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
       const radiusMatch = radiusCenter
         ? (() => {
             const coords = getRFQCoords(item);
             if (!coords) return true;
             const dist = distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(coords.lat), Number(coords.lng));
-            return Number.isFinite(dist) ? dist <= (Number(filters.radius) || 30) : true;
+            return Number.isFinite(dist) ? dist <= (Number(deferredFilters.radius) || 30) : true;
           })()
         : true;
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
   }, [
+    deferredFilters.category,
+    deferredFilters.city,
+    deferredFilters.district,
+    deferredFilters.radius,
     distanceInKm,
-    filters.category,
-    filters.city,
-    filters.district,
-    filters.radius,
     getCategoryKey,
     getCityName,
     getDistrictName,
@@ -1974,7 +1923,10 @@ function RFQList() {
     [filteredNearbyRFQs]
   );
   const filteredOrderedRFQs = orderedRFQs;
-  const selectedCityLabel = useMemo(() => filters.city || selectedCity?.name || 'Seçili Şehir', [filters.city, selectedCity?.name]);
+  const selectedCityLabel = useMemo(
+    () => deferredFilters.city || selectedCity?.name || 'Seçili Şehir',
+    [deferredFilters.city, selectedCity?.name]
+  );
   const mapRadiusCenter = liveLocation;
   const hasRadiusCenter = Boolean(mapRadiusCenter && Number.isFinite(mapRadiusCenter.lat) && Number.isFinite(mapRadiusCenter.lng));
   const quickFilteredRFQs = useMemo(() => {
@@ -2073,32 +2025,6 @@ function RFQList() {
     return Array.isArray(filtered) ? filtered : [];
   }, [getRFQCoords, hasRadiusCenter, mapAreaFilterActive, mapAreaFilterIds, mapBaseItems, mapBounds, mapRadiusCenter, mapRadiusKm]);
 
-  useEffect(() => {
-    if (viewMode !== 'map' || !mapRef.current || mapAreaFilterActive) {
-      return;
-    }
-    if (!mapItems.length) {
-      return;
-    }
-
-    const coordsList = mapItems
-      .map((item) => getRFQCoords(item))
-      .filter(Boolean)
-      .map((coords) => L.latLng(coords.lat, coords.lng));
-
-    if (!coordsList.length) {
-      return;
-    }
-
-    if (coordsList.length === 1) {
-      mapRef.current.setView(coordsList[0], Math.max(12, mapRef.current.getZoom()));
-      return;
-    }
-
-    const bounds = L.latLngBounds(coordsList);
-    mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
-  }, [getRFQCoords, mapAreaFilterActive, mapItems, viewMode]);
-
   const mapCenter = useMemo(() => {
     if (userCoords) {
       return [userCoords.lat, userCoords.lng];
@@ -2111,6 +2037,24 @@ function RFQList() {
     }
     return [41.0082, 28.9784];
   }, [getRFQCoords, mapItems, userCoords]);
+
+  const mapViewActive = viewMode === 'map' &&
+    !isFilterSheetOpen &&
+    !isCategoryModalOpen &&
+    !isCreateSheetMounted &&
+    !showLocationModal;
+
+  useEffect(() => {
+    if (mapViewActive) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [mapViewActive]);
 
   const listIsEmpty = radiusFilteredRFQs.length === 0;
   const mapIsEmpty = mapItems.length === 0;
@@ -2218,44 +2162,6 @@ function RFQList() {
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
   const mapAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
-
-  const createMarkerIcon = useCallback(
-    (title, subTitle, isPremium, isNew, isActive, isFeatured) =>
-      L.divIcon({
-        className: 'custom-marker',
-        html: `<div class="marker-badge ${isPremium ? 'premium-marker' : ''} ${isNew ? 'new-rfq-marker' : ''} ${isDarkMode ? 'dark-marker' : ''} ${!isActive ? 'inactive-marker' : ''}"><div class="marker-title">${escapeHtml(isFeatured ? `⭐ Öne ${title}` : title)}</div><div class="marker-sub">${escapeHtml(subTitle)}</div></div>`,
-        iconSize: [150, 44],
-        iconAnchor: [75, 44]
-      }),
-    [isDarkMode]
-  );
-
-  const userMarkerIcon = useMemo(
-    () =>
-      L.divIcon({
-        html: '<div class="user-marker"></div>',
-        className: 'user-live-marker',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9]
-      }),
-    []
-  );
-
-  const createClusterIcon = useCallback(
-    (cluster) => {
-      const count = cluster.getChildCount();
-      const baseSize = 52 - mapZoom * 1.3 + count * 0.28;
-      const size = Math.max(32, Math.min(60, Math.round(baseSize)));
-      const hasPremiumChild = cluster.getAllChildMarkers().some((marker) => Boolean(marker.options?.isPremium));
-
-      return L.divIcon({
-        html: `<div class="cluster-bubble ${hasPremiumChild ? 'premium-cluster' : ''} ${isDarkMode ? 'dark-cluster' : ''}">${count}</div>`,
-        className: 'custom-cluster',
-        iconSize: L.point(size, size)
-      });
-    },
-    [isDarkMode, mapZoom]
-  );
 
   const selectedRfqCoords = useMemo(() => {
     if (!selectedRfq) {
@@ -2372,7 +2278,7 @@ function RFQList() {
   }, [filters.category, flatSubcategories]);
 
   const suggestionResults = useMemo(() => {
-    const query = normalizeSearch(searchQuery);
+    const query = normalizeSearch(deferredSearchQuery);
     if (!query) return [];
     const results = flatSubcategories.filter((item) =>
       normalizeSearch(item.name).includes(query)
@@ -2386,7 +2292,7 @@ function RFQList() {
       return aName.localeCompare(bName, 'tr');
     });
     return results.slice(0, 10);
-  }, [flatSubcategories, normalizeSearch, searchQuery]);
+  }, [deferredSearchQuery, flatSubcategories, normalizeSearch]);
 
   const handleSuggestSelect = useCallback(
     (item) => {
@@ -2531,7 +2437,7 @@ function RFQList() {
                 </div>
               ) : null}
             </div>
-            <div className="rfq-sub">Kategori: {getCategoryName(rfq.category) || '-'}</div>
+            <div className="rfq-sub">Kategori: {getCategoryDisplayName(rfq.category) || '-'}</div>
             {rfq.productDetails?.brand || rfq.productDetails?.model ? (
               <div className="rfq-sub">
                 {rfq.productDetails?.brand || ''} {rfq.productDetails?.model || ''}
@@ -2571,7 +2477,7 @@ function RFQList() {
       formatDate,
       getBuyerId,
       getCardImages,
-      getCategoryName,
+      getCategoryDisplayName,
       getCityName,
       getDistrictName,
       handleCloseRFQ,
@@ -2794,13 +2700,19 @@ function RFQList() {
             </div>
 
             {nearbyLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
+            {isFiltering ? (
+              <div className="filter-loading">
+                <span className="spinner" aria-hidden="true" />
+                <span>Filtreleniyor…</span>
+              </div>
+            ) : null}
 
             {listIsEmpty && !nearbyLoading ? (
               <EmptyStateCard
                 title={hasCityFilter ? 'Bu bölgede talep yok' : 'Şehir seçerek talepleri gör'}
                 description={
                   hasCityFilter
-                    ? `${filters.city || selectedCityLabel} • ${selectedKm} km için henüz ilan bulunamadı.`
+                    ? `${deferredFilters.city || selectedCityLabel} • ${selectedKm} km için henüz ilan bulunamadı.`
                     : 'Şehir seçerek bulunduğun bölgedeki talepleri görebilirsin.'
                 }
                 primaryLabel={hasCityFilter ? 'Talep oluştur' : 'Şehir seç'}
@@ -2825,7 +2737,7 @@ function RFQList() {
         </motion.div>
       ) : null}
 
-      {!loading && viewMode === 'map' ? (
+      {!loading && mapViewActive ? (
         <motion.div
           key="map"
           className="mode-fade rfq-map-wrap"
@@ -2869,126 +2781,50 @@ function RFQList() {
               <span className="map-live-status">Yaricap filtresi icin canli konumu ac</span>
             )}
           </div>
-          <MapContainer
-            center={mapCenter}
-            zoom={11}
-            minZoom={6}
-            maxZoom={18}
-            scrollWheelZoom
-            className="rfq-map"
-            whenCreated={(map) => {
-              mapRef.current = map;
-              const bounds = map.getBounds();
-              setMapBounds({
-                south: bounds.getSouth(),
-                west: bounds.getWest(),
-                north: bounds.getNorth(),
-                east: bounds.getEast()
-              });
-            }}
+          <Suspense
+            fallback={
+              <div className="map-overlay map-loading">
+                <div className="map-loading-card">
+                  <div className="map-loading-spinner" />
+                  <div>
+                    <div className="map-loading-title">Harita yükleniyor…</div>
+                    <div className="map-loading-sub">Veriler hazırlanıyor</div>
+                  </div>
+                </div>
+              </div>
+            }
           >
-            <MapZoomSync
-              onZoomChange={setMapZoom}
-              onBoundsChange={(next) =>
-                setMapBounds((prev) => {
-                  if (
-                    prev &&
-                    prev.south === next.south &&
-                    prev.west === next.west &&
-                    prev.north === next.north &&
-                    prev.east === next.east
-                  ) {
-                    return prev;
-                  }
-                  return next;
-                })
-              }
-              onUserMove={() => setMapHasMoved(true)}
-              suppressUpdates={shouldSuppressMapUpdates}
+            <RFQListMap
+              mapCenter={mapCenter}
+              mapItems={mapItems}
+              mapTileUrl={mapTileUrl}
+              mapAttribution={mapAttribution}
+              liveLocation={liveLocation}
+              mapRadiusKm={mapRadiusKm}
+              clusterRef={clusterRef}
+              mapZoom={mapZoom}
+              setMapZoom={setMapZoom}
+              setMapBounds={setMapBounds}
+              setMapHasMoved={setMapHasMoved}
+              shouldSuppressMapUpdates={shouldSuppressMapUpdates}
+              getRFQCoords={getRFQCoords}
+              getCardImages={getCardImages}
+              getCategoryName={getCategoryDisplayName}
+              isPremiumRFQ={isPremiumRFQ}
+              isFeaturedRFQ={isFeaturedRFQ}
+              isActiveRequest={isActiveRequest}
+              nowTs={nowTs}
+              newRFQMarkers={newRFQMarkers}
+              selectedRfq={selectedRfq}
+              setSelectedRfq={setSelectedRfq}
+              navigate={navigate}
+              routePoints={routePoints}
+              userPosition={userPosition}
+              isDarkMode={isDarkMode}
+              mapAreaFilterActive={mapAreaFilterActive}
+              escapeHtml={escapeHtml}
             />
-            <TileLayer url={mapTileUrl} attribution={mapAttribution} />
-            {liveLocation && mapRadiusKm > 0 ? (
-              <Circle center={[liveLocation.lat, liveLocation.lng]} radius={mapRadiusKm * 1000} pathOptions={{ color: '#2563eb', weight: 2, opacity: 0.6, fillOpacity: 0.08 }} />
-            ) : null}
-            <MarkerClusterGroup
-              ref={clusterRef}
-              chunkedLoading
-              iconCreateFunction={createClusterIcon}
-            >
-              {mapItems.map((rfq) => {
-                const coords = getRFQCoords(rfq);
-                if (!coords) {
-                  return null;
-                }
-
-                const images = getCardImages(rfq);
-                const firstImage = images[0];
-                const markerCategory =
-                  rfq?.category?.name ||
-                  rfq?.category?.title ||
-                  rfq?.categoryName ||
-                  getCategoryName(rfq.category) ||
-                  'Kategori';
-                const markerSub = rfq?.title || (rfq?.description ? String(rfq.description).slice(0, 40) : 'Talep');
-                const premium = isPremiumRFQ(rfq);
-                const featured = isFeaturedRFQ(rfq);
-                const isActive = isActiveRequest(rfq, nowTs);
-                return (
-                  <Marker
-                    key={rfq._id}
-                    position={[coords.lat, coords.lng]}
-                    icon={createMarkerIcon(
-                      markerCategory,
-                      markerSub,
-                      premium,
-                      Boolean(newRFQMarkers[rfq._id]),
-                      isActive,
-                      featured
-                    )}
-                    isPremium={premium}
-                    zIndexOffset={featured ? 1200 : premium ? 800 : 0}
-                    eventHandlers={{
-                      click: () => setSelectedRfq(rfq),
-                      popupclose: () => {
-                        if (selectedRfq?._id === rfq._id) {
-                          setSelectedRfq(null);
-                        }
-                      }
-                    }}
-                  >
-                    {selectedRfq?._id === rfq._id ? (
-                      <Popup autoPan maxWidth={260} minWidth={200} closeButton>
-                        <div className="map-popup">
-                          {firstImage ? <img src={firstImage} alt={rfq.title} className="map-popup-image" /> : null}
-                          <div className="map-popup-category">{markerCategory}</div>
-                          <div className="map-popup-sub">{markerSub}</div>
-                          <button
-                            type="button"
-                            className="map-popup-action"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedRfq(null);
-                              navigate(`/rfq/${rfq._id}`);
-                            }}
-                          >
-                            Detay
-                          </button>
-                        </div>
-                      </Popup>
-                    ) : null}
-                  </Marker>
-                );
-              })}
-            </MarkerClusterGroup>
-            {routePoints ? (
-              <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
-            ) : null}
-            {userPosition ? (
-              <Marker position={[userPosition.lat, userPosition.lng]} icon={userMarkerIcon} zIndexOffset={1200}>
-                <Popup>Konumunuz</Popup>
-              </Marker>
-            ) : null}
-          </MapContainer>
+          </Suspense>
 
         </motion.div>
       ) : null}
