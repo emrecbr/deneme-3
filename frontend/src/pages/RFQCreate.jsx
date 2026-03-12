@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import CategorySelector from '../components/CategorySelector';
-import MapPicker from '../components/MapPicker';
-import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
+
+const CategorySelector = lazy(() => import('../components/CategorySelector'));
+const MapPicker = lazy(() => import('../components/MapPicker'));
+const ReusableBottomSheet = lazy(() => import('../components/ReusableBottomSheet'));
 
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) {
   const navigate = useNavigate();
@@ -324,11 +325,108 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setLocating(true);
     setLocationError('');
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(pos.coords.latitude);
-        setLongitude(pos.coords.longitude);
-        setSelectedLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocating(false);
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        setSelectedLocation({ lat, lng });
+
+        try {
+          const reverseResponse = await api.get('/location/reverse', { params: { lat, lng } });
+          const payload = reverseResponse.data?.data || reverseResponse.data || {};
+          const resolveName = (value) => {
+            if (!value) return '';
+            if (typeof value === 'string') return value;
+            return value.name || value.label || value.title || '';
+          };
+          const cityCandidates = [
+            resolveName(payload.city),
+            resolveName(payload.province),
+            resolveName(payload.state),
+            resolveName(payload.region),
+            resolveName(payload.adminArea),
+            resolveName(payload.administrativeArea),
+            resolveName(payload.county),
+            payload.cityName,
+            payload.provinceName,
+            payload.stateName,
+            payload.regionName,
+            payload.il,
+            payload.sehir
+          ].filter(Boolean);
+          const districtCandidates = [
+            resolveName(payload.district),
+            resolveName(payload.town),
+            resolveName(payload.municipality),
+            resolveName(payload.county),
+            payload.districtName,
+            payload.ilce
+          ].filter(Boolean);
+
+          const cityName = cityCandidates[0] || '';
+          const districtName = districtCandidates[0] || '';
+
+          if (cityName) {
+            setForm((prev) => ({
+              ...prev,
+              city: cityName
+            }));
+            setCityQuery(cityName);
+            const cityRes = await api.get('/location/search', { params: { q: cityName } });
+            const cityItems = Array.isArray(cityRes.data?.data)
+              ? cityRes.data.data
+              : Array.isArray(cityRes.data?.items)
+                ? cityRes.data.items
+                : Array.isArray(cityRes.data)
+                  ? cityRes.data
+                  : [];
+            const match = cityItems.find((item) => item?.name?.toLowerCase() === cityName.toLowerCase());
+            const fallbackCity = match || cityItems[0];
+            const cityId = fallbackCity?._id || fallbackCity?.id || '';
+            setLocationIds((prev) => ({
+              ...prev,
+              cityId,
+              districtId: '',
+              neighborhoodId: ''
+            }));
+            if (cityItems.length) {
+              setCityOptions(cityItems.map(normalizeOption));
+            }
+            if (districtName && cityId) {
+              setForm((prev) => ({
+                ...prev,
+                district: districtName,
+                neighborhood: '',
+                street: ''
+              }));
+              setDistrictQuery(districtName);
+              const districtRes = await api.get('/location/districts', {
+                params: { cityId, q: districtName, page: 1, limit: 200 }
+              });
+              const districtItems = (districtRes.data?.data || districtRes.data?.items || []).map(normalizeOption);
+              const matchDistrict = districtItems.find(
+                (item) => item.name?.toLowerCase() === districtName.toLowerCase()
+              );
+              const districtId = matchDistrict?.id || districtItems[0]?.id || '';
+              setLocationIds((prev) => ({
+                ...prev,
+                cityId,
+                districtId,
+                neighborhoodId: ''
+              }));
+              if (districtItems.length) {
+                setDistrictOptions(districtItems);
+              }
+            }
+          }
+        } catch (_error) {
+          if (!silent) {
+            setLocationError('Konum bilgisi alinamadi, tekrar dene.');
+          }
+        } finally {
+          setLocating(false);
+        }
       },
       (error) => {
         if (!silent) {
@@ -459,7 +557,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       if (!Number.isFinite(quantityValue) || quantityValue < 1) {
         return 'Adet en az 1 olmalı';
       }
-      if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      const hasPriceInput = priceText.trim().length > 0 || Number.isFinite(priceValue);
+      if (hasPriceInput && (!Number.isFinite(priceValue) || priceValue <= 0)) {
         return 'Hedef fiyat gir';
       }
       if (!form.deadline) {
@@ -717,9 +816,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setIsCategoryModalOpen(false);
   };
 
-  const canContinueStep1 = getStepError(1) === '';
-  const canContinueStep2 = getStepError(2) === '';
-  const canContinueStep3 = getStepError(3) === '';
+  const step1Error = getStepError(1);
+  const step2Error = getStepError(2);
+  const step3Error = getStepError(3);
+  const canContinueStep1 = step1Error === '';
+  const canContinueStep2 = step2Error === '';
+  const canContinueStep3 = step3Error === '';
+  const showStep1Errors = Boolean(stepError) || Boolean(form.title || form.description || form.categoryId);
+  const step1FieldErrors = {
+    title: form.title.trim().length >= 3 ? '' : 'Başlık en az 3 karakter olmalı',
+    categoryId: form.categoryId ? '' : 'Kategori seç',
+    description: form.description.trim().length >= 10 ? '' : 'Açıklama en az 10 karakter olmalı'
+  };
 
   const handleCheckout = async (planCode) => {
     try {
@@ -756,6 +864,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               <div className="form-group">
                 <label htmlFor="title">Başlık</label>
                 <input id="title" name="title" value={form.title} onChange={handleChange} required />
+                {showStep1Errors && !canContinueStep1 && step1FieldErrors.title ? (
+                  <div className="error">{step1FieldErrors.title}</div>
+                ) : null}
               </div>
 
               <div className="form-group">
@@ -768,6 +879,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                 >
                   {selectedCategoryLabel || 'Kategori sec'}
                 </button>
+                {showStep1Errors && !canContinueStep1 && step1FieldErrors.categoryId ? (
+                  <div className="error">{step1FieldErrors.categoryId}</div>
+                ) : null}
               </div>
               {selectedCategoryLabel ? (
                 <div className="rfq-sub category-chip-row">
@@ -787,6 +901,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   onChange={handleChange}
                   required
                 />
+                {showStep1Errors && !canContinueStep1 && step1FieldErrors.description ? (
+                  <div className="error">{step1FieldErrors.description}</div>
+                ) : null}
               </div>
 
               <div className="wizard-actions">
@@ -795,10 +912,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   className="primary-btn"
                   disabled={!canContinueStep1}
                   onClick={() => {
-                    const validationError = getStepError(1);
-                    if (validationError) {
-                      setStepError(validationError);
-                      showToast(validationError);
+                    if (step1Error) {
+                      setStepError(step1Error);
+                      showToast(step1Error);
                       return;
                     }
                     setStepError('');
@@ -1059,7 +1175,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                     {locating ? 'Konum aliniyor...' : 'Şu anki konum'}
                   </button>
                 </div>
-                <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={240} />
+                <Suspense fallback={<div className="map-picker-loading">Harita yukleniyor...</div>}>
+                  <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={240} />
+                </Suspense>
                 <small className="input-helper">
                   Pin&apos;i haritadan seç
                 </small>
@@ -1161,106 +1279,122 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         </form>
       </div>
 
-      <CategorySelector
-        mode="modal"
-        open={isCategoryModalOpen}
-        title="Kategori Sec"
-        onClose={() => setIsCategoryModalOpen(false)}
-        onSelect={handleCategorySelect}
-        onClear={handleClearCategory}
-        selectedCategoryId={form.categoryId}
-      />
-      <ReusableBottomSheet
-        open={carBrandSheetOpen}
-        onClose={() => setCarBrandSheetOpen(false)}
-        title="Marka Sec"
-        contentClassName="notif-sheet"
-        initialSnap="mid"
-      >
-        <div className="notif-list">
-          <input
-            className="search-input"
-            placeholder="Marka ara..."
-            value={carBrandQuery}
-            onChange={(event) => setCarBrandQuery(event.target.value)}
+      {isCategoryModalOpen ? (
+        <Suspense fallback={null}>
+          <CategorySelector
+            mode="modal"
+            open={isCategoryModalOpen}
+            title="Kategori Sec"
+            onClose={() => setIsCategoryModalOpen(false)}
+            onSelect={handleCategorySelect}
+            onClear={handleClearCategory}
+            selectedCategoryId={form.categoryId}
           />
-          {carBrands.map((item) => (
-            <button
-              key={item._id}
-              type="button"
-              className="notif-item"
-              onClick={() => {
-                setCarBrand(item);
-                setCarModel(null);
-                setCarVariant(null);
-                setCarBrandSheetOpen(false);
-              }}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
-      </ReusableBottomSheet>
-      <ReusableBottomSheet
-        open={carModelSheetOpen}
-        onClose={() => setCarModelSheetOpen(false)}
-        title="Model Sec"
-        contentClassName="notif-sheet"
-        initialSnap="mid"
-      >
-        <div className="notif-list">
-          <input
-            className="search-input"
-            placeholder="Model ara..."
-            value={carModelQuery}
-            onChange={(event) => setCarModelQuery(event.target.value)}
-          />
-          {carModels.map((item) => (
-            <button
-              key={item._id}
-              type="button"
-              className="notif-item"
-              onClick={() => {
-                setCarModel(item);
-                setCarVariant(null);
-                setCarModelSheetOpen(false);
-              }}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
-      </ReusableBottomSheet>
-      <ReusableBottomSheet
-        open={carVariantSheetOpen}
-        onClose={() => setCarVariantSheetOpen(false)}
-        title="Tip Sec"
-        contentClassName="notif-sheet"
-        initialSnap="mid"
-      >
-        <div className="notif-list">
-          <input
-            className="search-input"
-            placeholder="Tip ara..."
-            value={carVariantQuery}
-            onChange={(event) => setCarVariantQuery(event.target.value)}
-          />
-          {carVariants.map((item) => (
-            <button
-              key={item._id}
-              type="button"
-              className="notif-item"
-              onClick={() => {
-                setCarVariant({ _id: item._id, name: item.variantName || item.name });
-                setCarVariantSheetOpen(false);
-              }}
-            >
-              {item.variantName || item.name}
-              {item.year ? <span className="notif-time">{item.year}</span> : null}
-            </button>
-          ))}
-        </div>
-      </ReusableBottomSheet>
+        </Suspense>
+      ) : null}
+      {carBrandSheetOpen ? (
+        <Suspense fallback={null}>
+          <ReusableBottomSheet
+            open={carBrandSheetOpen}
+            onClose={() => setCarBrandSheetOpen(false)}
+            title="Marka Sec"
+            contentClassName="notif-sheet"
+            initialSnap="mid"
+          >
+            <div className="notif-list">
+              <input
+                className="search-input"
+                placeholder="Marka ara..."
+                value={carBrandQuery}
+                onChange={(event) => setCarBrandQuery(event.target.value)}
+              />
+              {carBrands.map((item) => (
+                <button
+                  key={item._id}
+                  type="button"
+                  className="notif-item"
+                  onClick={() => {
+                    setCarBrand(item);
+                    setCarModel(null);
+                    setCarVariant(null);
+                    setCarBrandSheetOpen(false);
+                  }}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </ReusableBottomSheet>
+        </Suspense>
+      ) : null}
+      {carModelSheetOpen ? (
+        <Suspense fallback={null}>
+          <ReusableBottomSheet
+            open={carModelSheetOpen}
+            onClose={() => setCarModelSheetOpen(false)}
+            title="Model Sec"
+            contentClassName="notif-sheet"
+            initialSnap="mid"
+          >
+            <div className="notif-list">
+              <input
+                className="search-input"
+                placeholder="Model ara..."
+                value={carModelQuery}
+                onChange={(event) => setCarModelQuery(event.target.value)}
+              />
+              {carModels.map((item) => (
+                <button
+                  key={item._id}
+                  type="button"
+                  className="notif-item"
+                  onClick={() => {
+                    setCarModel(item);
+                    setCarVariant(null);
+                    setCarModelSheetOpen(false);
+                  }}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </ReusableBottomSheet>
+        </Suspense>
+      ) : null}
+      {carVariantSheetOpen ? (
+        <Suspense fallback={null}>
+          <ReusableBottomSheet
+            open={carVariantSheetOpen}
+            onClose={() => setCarVariantSheetOpen(false)}
+            title="Tip Sec"
+            contentClassName="notif-sheet"
+            initialSnap="mid"
+          >
+            <div className="notif-list">
+              <input
+                className="search-input"
+                placeholder="Tip ara..."
+                value={carVariantQuery}
+                onChange={(event) => setCarVariantQuery(event.target.value)}
+              />
+              {carVariants.map((item) => (
+                <button
+                  key={item._id}
+                  type="button"
+                  className="notif-item"
+                  onClick={() => {
+                    setCarVariant({ _id: item._id, name: item.variantName || item.name });
+                    setCarVariantSheetOpen(false);
+                  }}
+                >
+                  {item.variantName || item.name}
+                  {item.year ? <span className="notif-time">{item.year}</span> : null}
+                </button>
+              ))}
+            </div>
+          </ReusableBottomSheet>
+        </Suspense>
+      ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
     </div>
   );

@@ -1234,11 +1234,11 @@ body.dark-mode .ux-error-state {
 }
 
 .list-head {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .list-section {
-  margin-top: 48px;
+  margin-top: 32px;
 }
 
 .rfq-list-page {
@@ -1775,25 +1775,6 @@ body.dark-mode .user-marker {
   display: none;
 }
 
-.map-live-controls {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: grid;
-  gap: 6px;
-  padding: 8px 10px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  z-index: 5;
-}
-
-.map-live-status {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
 .marker-badge.inactive-marker {
   opacity: 0.5;
   filter: grayscale(0.4);
@@ -1931,6 +1912,20 @@ body.dark-mode .custom-cluster .cluster-bubble.premium-cluster {
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(226, 232, 240, 0.8);
   font-size: 12px;
+}
+
+.map-picker-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 240px;
+  border-radius: 16px;
+  background: #f5f5f7;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #3a3a3c;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .auth-card {
@@ -3861,15 +3856,24 @@ body.dark-mode .category-name {
   }
 }
 
+.rfq-search-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  padding: 0 12px 14px;
+  position: relative;
+}
+
 .rfq-search-trigger {
-  margin: 10px 12px 14px;
+  margin: 10px 0 0;
   height: 52px;
+  width: 52px;
   border-radius: 26px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  width: 52px;
   background: rgba(15, 23, 42, 0.45);
   border: 1px solid rgba(148, 163, 184, 0.2);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.32);
@@ -3877,16 +3881,141 @@ body.dark-mode .category-name {
   position: relative;
   overflow: hidden;
   justify-content: flex-start;
-  transition: width 380ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 180ms ease,
+  transition: transform 180ms ease,
     border-color 260ms ease,
     box-shadow 260ms ease,
     background 260ms ease;
 }
 
+.map-filter-shell {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1500;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  pointer-events: auto;
+}
+
+.map-filter-toggle {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.3);
+  color: rgba(226, 232, 240, 0.92);
+  transition: transform 180ms ease, box-shadow 260ms ease, border-color 260ms ease, background 260ms ease;
+}
+
+.map-filter-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.map-filter-toggle:active {
+  transform: scale(0.98);
+}
+
+.map-filter-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 0;
+  max-width: min(280px, calc(100vw - 36px));
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  pointer-events: none;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border-radius: 16px;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.3);
+  overflow: hidden;
+  transition: width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 220ms ease,
+    transform 280ms ease,
+    padding 220ms ease;
+  z-index: 1501;
+}
+
+.map-filter-shell.is-open .map-filter-panel {
+  width: min(260px, calc(100vw - 36px));
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  padding: 10px 12px;
+}
+
+.map-filter-shell.is-open .map-filter-toggle {
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.36);
+}
+
+.map-filter-panel .map-live-controls {
+  display: grid;
+  gap: 6px;
+}
+
+.map-filter-panel .map-live-status {
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.map-filter-panel .map-radius-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.map-filter-panel .map-radius-controls input[type='range'] {
+  width: 100%;
+}
+
+.map-filter-panel .map-radius-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.8);
+}
+
+.map-filter-panel .map-radius-header strong {
+  font-size: 13px;
+  color: #fff;
+}
+
+.map-filter-panel .map-radius-hint {
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.6);
+}
+
+@media (max-width: 480px) {
+  .rfq-search-area {
+    gap: 8px;
+    padding: 0 10px 12px;
+  }
+
+  .rfq-search-trigger {
+    height: 48px;
+    width: 48px;
+  }
+
+  .map-filter-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .map-filter-shell.is-open .map-filter-panel {
+    width: min(220px, calc(100vw - 28px));
+  }
+}
+
 .rfq-search-trigger.is-open {
-  width: min(360px, calc(100% - 24px));
-  padding: 0 18px;
   background: rgba(2, 6, 23, 0.42);
   border-color: rgba(148, 163, 184, 0.28);
   box-shadow: 0 18px 36px rgba(2, 6, 23, 0.38);
@@ -3952,12 +4081,31 @@ body.dark-mode .category-name {
 }
 
 .rfq-search-panel {
-  margin: 0 12px 14px;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 12px;
+  right: 12px;
+  margin: 0;
   padding: 12px 14px 10px;
   border-radius: 16px;
-  background: rgba(2, 6, 23, 0.32);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.22);
+  background: #0b1224;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.45);
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: searchPanelIn 220ms ease forwards;
+  z-index: 20;
+}
+
+@keyframes searchPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .rfq-search-panel .search-hint {
@@ -4045,6 +4193,13 @@ body.dark-mode .category-name {
   transform: translateX(0);
   pointer-events: auto;
   transition-delay: 120ms;
+}
+
+.rfq-search-panel .rfq-search-cta {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  margin-left: 8px;
 }
 
 .rfq-search-trigger:hover .rfq-search-placeholder {

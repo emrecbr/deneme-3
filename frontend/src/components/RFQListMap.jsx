@@ -60,8 +60,9 @@ export default function RFQListMap({
   mapItems,
   mapTileUrl,
   mapAttribution,
-  liveLocation,
+  radiusCenter,
   mapRadiusKm,
+  showRadiusCircle = true,
   clusterRef,
   mapZoom,
   setMapZoom,
@@ -194,9 +195,9 @@ export default function RFQListMap({
         suppressUpdates={shouldSuppressMapUpdates}
       />
       <TileLayer url={mapTileUrl} attribution={mapAttribution} />
-      {liveLocation && mapRadiusKm > 0 ? (
+      {radiusCenter && mapRadiusKm > 0 && showRadiusCircle ? (
         <Circle
-          center={[liveLocation.lat, liveLocation.lng]}
+          center={[radiusCenter.lat, radiusCenter.lng]}
           radius={mapRadiusKm * 1000}
           pathOptions={{ color: '#2563eb', weight: 2, opacity: 0.6, fillOpacity: 0.08 }}
         />
