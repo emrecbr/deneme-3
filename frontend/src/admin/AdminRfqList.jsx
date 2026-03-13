@@ -201,7 +201,7 @@ export default function AdminRfqList({ defaultStatus = '' }) {
                 </div>
                 <div>{rfq.moderationStatus || 'pending'}</div>
                 <div>{rfq.buyer?.email || '—'}</div>
-                <div>{rfq.city?.name || rfq.locationData?.city || '—'}</div>
+                <div>{rfq.city?.name || rfq.locationData?.city || rfq.city || '—'}</div>
                 <div>{formatDate(rfq.createdAt)}</div>
                 <div>
                   <Link to={`/admin/rfq/${rfq._id}`} className="admin-link">

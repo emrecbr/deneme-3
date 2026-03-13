@@ -153,11 +153,48 @@ export const listAdminRfqs = async (req, res, next) => {
         .limit(limit)
         .populate('buyer', 'name email role')
         .populate('category', 'name slug parent')
-        .populate('city', 'name')
-        .populate('district', 'name city')
         .lean(),
       RFQ.countDocuments(query)
     ]);
+
+    const cityIds = Array.from(
+      new Set(
+        items
+          .map((item) => item.city)
+          .filter((value) => value && mongoose.isValidObjectId(value))
+          .map((value) => String(value))
+      )
+    );
+    const districtIds = Array.from(
+      new Set(
+        items
+          .map((item) => item.district)
+          .filter((value) => value && mongoose.isValidObjectId(value))
+          .map((value) => String(value))
+      )
+    );
+
+    const [cityDocs, districtDocs] = await Promise.all([
+      cityIds.length ? City.find({ _id: { $in: cityIds } }).select('name').lean() : [],
+      districtIds.length ? District.find({ _id: { $in: districtIds } }).select('name city').lean() : []
+    ]);
+
+    const cityMap = new Map(cityDocs.map((doc) => [String(doc._id), doc]));
+    const districtMap = new Map(districtDocs.map((doc) => [String(doc._id), doc]));
+
+    items.forEach((item) => {
+      if (item.city && mongoose.isValidObjectId(item.city)) {
+        item.city = cityMap.get(String(item.city)) || item.city;
+      } else if (typeof item.city === 'string' && item.city.trim()) {
+        item.city = { name: item.city.trim() };
+      }
+
+      if (item.district && mongoose.isValidObjectId(item.district)) {
+        item.district = districtMap.get(String(item.district)) || item.district;
+      } else if (typeof item.district === 'string' && item.district.trim()) {
+        item.district = { name: item.district.trim() };
+      }
+    });
 
     return res.status(200).json({
       success: true,
