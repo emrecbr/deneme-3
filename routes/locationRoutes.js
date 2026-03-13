@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import City from '../models/City.js';
 import District from '../models/District.js';
+import AppSetting from '../models/AppSetting.js';
 import Neighborhood from '../models/Neighborhood.js';
 import Street from '../models/Street.js';
 import Location from '../models/Location.js';
@@ -384,7 +385,11 @@ locationRoutes.get('/cities', async (req, res, next) => {
     const limit = parseLimit(req.query.limit, 200);
     const searchRegex = toSearchRegex(req.query.search || req.query.q);
     const includeCoords = String(req.query.includeCoords || '').toLowerCase() === 'true';
+    const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
     const modernMatch = searchRegex ? { name: searchRegex } : {};
+    if (!includeInactive) {
+      modernMatch.isActive = { $ne: false };
+    }
 
     const [modernData, modernTotal] = await Promise.all([
       City.find(modernMatch)
@@ -457,10 +462,14 @@ locationRoutes.get('/districts', async (req, res, next) => {
         });
       }
 
-      const modernMatch = { city: cityId };
-      if (searchRegex) {
-        modernMatch.name = searchRegex;
-      }
+    const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
+    const modernMatch = { city: cityId };
+    if (searchRegex) {
+      modernMatch.name = searchRegex;
+    }
+    if (!includeInactive) {
+      modernMatch.isActive = { $ne: false };
+    }
 
       const [modernData, modernTotal] = await Promise.all([
         District.find(modernMatch)
@@ -527,6 +536,26 @@ locationRoutes.get('/districts', async (req, res, next) => {
         total,
         hasMore: page * limit < total
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+locationRoutes.get('/radius-settings', async (_req, res, next) => {
+  try {
+    const doc = await AppSetting.findOne({ key: 'radius_settings' }).lean();
+    const defaults = {
+      min: 5,
+      max: 80,
+      step: 1,
+      default: 30,
+      cityFallbackEnabled: true,
+      liveLocationEnabled: true
+    };
+    return res.status(200).json({
+      success: true,
+      data: doc?.value || defaults
     });
   } catch (error) {
     return next(error);

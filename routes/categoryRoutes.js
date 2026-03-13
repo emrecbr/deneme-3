@@ -5,7 +5,8 @@ const router = express.Router();
 
 router.get('/', async (_req, res) => {
   try {
-    const categories = await Category.find().lean();
+    const includeInactive = String(_req.query?.includeInactive || '').toLowerCase() === 'true';
+    const categories = await Category.find(includeInactive ? {} : { isActive: { $ne: false } }).lean();
     const map = new Map();
     const roots = [];
 

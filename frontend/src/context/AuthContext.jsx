@@ -40,6 +40,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(
     ({ redirect = true } = {}) => {
       clearSession();
+      api.post('/auth/logout').catch(() => null);
       if (redirect && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }

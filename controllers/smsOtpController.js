@@ -5,6 +5,7 @@ import Otp from '../models/Otp.js';
 import User from '../models/User.js';
 import { sendOtpSms } from '../src/services/sms.js';
 import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
+import { logAuthEvent } from '../src/utils/authLog.js';
 
 const TOKEN_EXPIRES_IN = '7d';
 const SIGNUP_TOKEN_EXPIRES_IN = '5m';
@@ -86,12 +87,21 @@ export const sendSmsOtpController = async (req, res) => {
     });
 
     await sendOtpSms({ phone, code });
+    await logAuthEvent({ channel: 'sms', event: 'sms_otp_send', status: 'success', target: phone });
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
     console.error('SMS_OTP_SEND_FAIL', {
       status: error?.status || error?.statusCode,
       code: error?.code,
       message: error?.message,
+      provider: error?.provider
+    });
+    await logAuthEvent({
+      channel: 'sms',
+      event: 'sms_otp_send',
+      status: 'failed',
+      target: resolvePhone(req.body),
+      errorMessage: error?.message || 'SMS_OTP_SEND_FAIL',
       provider: error?.provider
     });
     if (error?.code === 'INVALID_PHONE') {
@@ -138,6 +148,7 @@ export const verifySmsOtpController = async (req, res) => {
 
     record.usedAt = new Date();
     await record.save();
+    await logAuthEvent({ channel: 'sms', event: 'sms_otp_verify', status: 'success', target: phone });
 
     let user = await User.findOne({ phoneE164: phone });
     if (!user) {
@@ -163,6 +174,13 @@ export const verifySmsOtpController = async (req, res) => {
     });
   } catch (error) {
     console.error('SMS_OTP_VERIFY_FAIL', error);
+    await logAuthEvent({
+      channel: 'sms',
+      event: 'sms_otp_verify',
+      status: 'failed',
+      target: resolvePhone(req.body),
+      errorMessage: error?.message || 'SMS_OTP_VERIFY_FAIL'
+    });
     const status = error.statusCode || 500;
     return res.status(status).json({ ok: false, message: 'Doğrulama başarısız' });
   }

@@ -11,6 +11,21 @@ const districtSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'City',
       required: true
+    },
+    center: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined
+      }
+    },
+    isActive: {
+      type: Boolean,
+      default: true
     }
   },
   {

@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
     .trim()
     .replace(/\/$/, '');
@@ -23,10 +23,16 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
+    if (!isAuthenticated) {
+      return;
     }
-  }, [isAuthenticated, navigate]);
+    const role = user?.role;
+    if (role === 'admin' || role === 'moderator') {
+      navigate('/admin');
+      return;
+    }
+    navigate('/');
+  }, [isAuthenticated, navigate, user?.role]);
 
   useEffect(() => {
     if (!sheetOpen) {
@@ -165,6 +171,11 @@ function Login() {
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
+        const role = data?.user?.role;
+        if (role === 'admin' || role === 'moderator') {
+          navigate('/admin', { replace: true });
+          return;
+        }
         navigate('/app');
         return;
       }

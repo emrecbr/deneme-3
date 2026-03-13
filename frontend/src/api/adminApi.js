@@ -1,0 +1,18 @@
+import axios from 'axios';
+import { API_BASE_URL } from './axios';
+
+const adminApi = axios.create({
+  baseURL: API_BASE_URL
+});
+
+adminApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('admin_token');
+  config.headers = config.headers || {};
+  config.headers['Cache-Control'] = 'no-cache';
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default adminApi;

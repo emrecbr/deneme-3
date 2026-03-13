@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import {
   getMe,
   login,
+  logout,
   register,
   requestPhoneOtp,
   verifyPhoneOtp,
@@ -45,6 +46,7 @@ const precheckLimiter = rateLimit({
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/logout', logout);
 router.post('/register/otp/send', otpLimiter, sendRegisterOtp);
 router.post('/register/otp/verify', otpLimiter, verifyRegisterOtp);
 router.post('/login/otp/send', otpLimiter, sendLoginOtp);

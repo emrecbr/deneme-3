@@ -25,8 +25,30 @@ const prefetchRFQListMap = () => import('../components/RFQListMap');
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
 const SEARCH_HISTORY_KEY = 'rfq_search_history_v1';
-const DEFAULT_RADIUS_KM = 30;
-const MAX_RADIUS_KM = 80;
+const DEFAULT_RADIUS_SETTINGS = {
+  min: 5,
+  max: 80,
+  step: 1,
+  default: 30,
+  cityFallbackEnabled: true,
+  liveLocationEnabled: true
+};
+const DEFAULT_MAP_SETTINGS = {
+  mapViewEnabled: true,
+  defaultCenter: { lat: 41.0082, lng: 28.9784 },
+  defaultZoom: 11,
+  minZoom: 6,
+  maxZoom: 18,
+  clusterEnabled: true,
+  radiusCircleEnabled: true,
+  controlsEnabled: true
+};
+const DEFAULT_FEATURE_FLAGS = {
+  mapViewEnabled: true,
+  searchPanelEnabled: true,
+  liveLocationEnabled: true,
+  cityFallbackEnabled: true
+};
 
 function calculateDistance(fromLat, fromLng, toLat, toLng) {
   const earthRadius = 6371;
@@ -109,7 +131,7 @@ function RFQList() {
   const [selectedRfq, setSelectedRfq] = useState(null);
   const [routeSummary, setRouteSummary] = useState(null);
   const [newRFQMarkers, setNewRFQMarkers] = useState({});
-  const [mapZoom, setMapZoom] = useState(11);
+  const [mapZoom, setMapZoom] = useState(DEFAULT_MAP_SETTINGS.defaultZoom);
   const [mapBounds, setMapBounds] = useState(null);
   const [mapHasMoved, setMapHasMoved] = useState(false);
   const [mapAreaFilterActive, setMapAreaFilterActive] = useState(false);
@@ -132,8 +154,12 @@ function RFQList() {
       return [];
     }
   });
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [radiusConfig, setRadiusConfig] = useState(DEFAULT_RADIUS_SETTINGS);
+  const [mapSettings, setMapSettings] = useState(DEFAULT_MAP_SETTINGS);
+  const [featureFlags, setFeatureFlags] = useState(DEFAULT_FEATURE_FLAGS);
   const [filters, setFilters] = useState({
-    radius: 30,
+    radius: DEFAULT_RADIUS_SETTINGS.default,
     cityId: null,
     districtId: null,
     category: null,
@@ -152,13 +178,22 @@ function RFQList() {
   const [cityCenterCoords, setCityCenterCoords] = useState(null);
   const [showResultsToast, setShowResultsToast] = useState(false);
   const [resultsToastVisible, setResultsToastVisible] = useState(false);
-  const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || DEFAULT_RADIUS_KM);
+  const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || DEFAULT_RADIUS_SETTINGS.default);
   const [isMapFilterOpen, setIsMapFilterOpen] = useState(false);
   const [isSearchTriggerOpen, setIsSearchTriggerOpen] = useState(false);
   const searchAreaRef = useRef(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const deferredFilters = useDeferredValue(filters);
   const isFiltering = deferredFilters !== filters;
+  const minRadiusKm = Number.isFinite(Number(radiusConfig.min)) ? Number(radiusConfig.min) : DEFAULT_RADIUS_SETTINGS.min;
+  const maxRadiusKm = Number.isFinite(Number(radiusConfig.max)) ? Number(radiusConfig.max) : DEFAULT_RADIUS_SETTINGS.max;
+  const radiusStep = Number.isFinite(Number(radiusConfig.step)) ? Number(radiusConfig.step) : DEFAULT_RADIUS_SETTINGS.step;
+  const mapViewEnabled = featureFlags.mapViewEnabled !== false && mapSettings.mapViewEnabled !== false;
+  const searchPanelEnabled = featureFlags.searchPanelEnabled !== false;
+  const liveLocationEnabled =
+    radiusConfig.liveLocationEnabled !== false && featureFlags.liveLocationEnabled !== false;
+  const cityFallbackEnabled =
+    radiusConfig.cityFallbackEnabled !== false && featureFlags.cityFallbackEnabled !== false;
 
   const currentUserId = useMemo(() => currentUser?.id || currentUser?._id || null, [currentUser]);
   const activeCity = useMemo(() => normalizeSocketCity(filters.city || currentUser?.city), [currentUser?.city, filters.city]);
@@ -173,6 +208,109 @@ function RFQList() {
     stopLiveLocation
   } = useLiveLocation();
   const shouldSuppressMapUpdates = Boolean(selectedRfq?._id);
+  useEffect(() => {
+    let active = true;
+    const loadRadiusSettings = async () => {
+      try {
+        const response = await api.get('/location/radius-settings');
+        const nextConfig = response.data?.data;
+        if (!active || !nextConfig) return;
+        setRadiusConfig((prev) => ({ ...prev, ...nextConfig }));
+        setFilters((prev) => {
+          const nextDefault = Number(nextConfig.default);
+          if (!Number.isFinite(nextDefault)) return prev;
+          if (prev.radius === DEFAULT_RADIUS_SETTINGS.default) {
+            return { ...prev, radius: nextDefault };
+          }
+          return prev;
+        });
+      } catch (_error) {
+        // ignore settings fetch errors
+      }
+    };
+    loadRadiusSettings();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadMapSettings = async () => {
+      try {
+        const response = await api.get('/map/settings');
+        const next = response.data?.data;
+        if (!active || !next) return;
+        setMapSettings((prev) => ({ ...prev, ...next }));
+        setMapZoom((prev) => (prev === DEFAULT_MAP_SETTINGS.defaultZoom ? Number(next.defaultZoom || prev) : prev));
+      } catch (_error) {
+        // ignore map settings errors
+      }
+    };
+    loadMapSettings();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadSuggestions = async () => {
+      try {
+        const response = await api.get('/search/suggestions');
+        if (!active) return;
+        setSearchSuggestions(response.data?.items || []);
+      } catch (_error) {
+        if (active) setSearchSuggestions([]);
+      }
+    };
+    loadSuggestions();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadFeatureFlags = async () => {
+      try {
+        const response = await api.get('/system/feature-flags');
+        if (!active) return;
+        const nextFlags = response.data?.data;
+        if (nextFlags) {
+          setFeatureFlags((prev) => ({ ...prev, ...nextFlags }));
+        }
+      } catch (_error) {
+        // ignore feature flags fetch errors
+      }
+    };
+    loadFeatureFlags();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapViewEnabled && viewMode === 'map') {
+      setViewMode('list');
+    }
+  }, [mapViewEnabled, viewMode]);
+
+  useEffect(() => {
+    if (!searchPanelEnabled && isSearchTriggerOpen) {
+      setIsSearchTriggerOpen(false);
+    }
+  }, [isSearchTriggerOpen, searchPanelEnabled]);
+
+  useEffect(() => {
+    setFilters((prev) => {
+      const current = Number(prev.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const clamped = Math.min(Math.max(current, minRadiusKm), maxRadiusKm);
+      if (clamped === current) return prev;
+      return { ...prev, radius: clamped };
+    });
+    setMapRadiusKm((prev) => Math.min(Math.max(prev, minRadiusKm), maxRadiusKm));
+  }, [maxRadiusKm, minRadiusKm, radiusConfig.default]);
   function getRFQCoords(rfq) {
     if (!rfq) {
       return null;
@@ -814,19 +952,22 @@ function RFQList() {
   }, []);
 
   const handleRadiusChange = useCallback((value) => {
-    const next = Math.min(Math.max(Number(value) || DEFAULT_RADIUS_KM, 5), MAX_RADIUS_KM);
+    const next = Math.min(
+      Math.max(Number(value) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default, minRadiusKm),
+      maxRadiusKm
+    );
     updateFilter('radius', next);
     setDraftFilters((prev) => (prev ? { ...prev, radius: next } : prev));
-  }, [DEFAULT_RADIUS_KM, MAX_RADIUS_KM, updateFilter]);
+  }, [maxRadiusKm, minRadiusKm, radiusConfig.default, updateFilter]);
 
   useEffect(() => {
     if (liveStatus === 'active' || liveStatus === 'requesting') {
       const currentRadius = Number(filters.radius) || 0;
       if (currentRadius <= 0) {
-        updateFilter('radius', DEFAULT_RADIUS_KM);
+        updateFilter('radius', radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default);
       }
     }
-  }, [DEFAULT_RADIUS_KM, filters.radius, liveStatus, updateFilter]);
+  }, [filters.radius, liveStatus, radiusConfig.default, updateFilter]);
 
   const fetchNearby = useCallback(async () => {
     if (!userCoords) {
@@ -1214,9 +1355,10 @@ function RFQList() {
       });
       setCityCenterCoords(resolvedCenter || coords);
 
+      const baseRadius = radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
       const nextRadiusKm = Math.max(
-        Number(selection.radiusKm) || Number(filters.radius) || DEFAULT_RADIUS_KM,
-        DEFAULT_RADIUS_KM
+        Number(selection.radiusKm) || Number(filters.radius) || baseRadius,
+        baseRadius
       );
 
       const nextDraft = {
@@ -1225,7 +1367,7 @@ function RFQList() {
         cityId: resolvedCity._id,
         district: resolvedDistrict?.name || null,
         districtId: resolvedDistrict?._id || null,
-        radius: Math.min(nextRadiusKm, MAX_RADIUS_KM)
+        radius: Math.min(nextRadiusKm, maxRadiusKm)
       };
       setDraftFilters(nextDraft);
       locationAutoApplyRef.current = true;
@@ -1252,18 +1394,18 @@ function RFQList() {
       setUseCurrentLocationLoading(false);
     }
   }, [
-    DEFAULT_RADIUS_KM,
-    MAX_RADIUS_KM,
     draftFilters,
     filters,
+    maxRadiusKm,
+    openManualSelection,
+    radiusConfig.default,
+    setCityCenterCoords,
     setSelectedCity,
     setSelectedDistrict,
     setToast,
-    setCityCenterCoords,
     setUserCoords,
     setUserPosition,
-    useCurrentLocationLoading,
-    openManualSelection
+    useCurrentLocationLoading
   ]);
 
   function getCreateSheetSnapPoints() {
@@ -1723,8 +1865,8 @@ function RFQList() {
           : radiusCenter && rfqCoords
             ? distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(rfqCoords.lat), Number(rfqCoords.lng))
             : null;
-      const radiusLimit = Number(deferredFilters.radius) || DEFAULT_RADIUS_KM;
-      const isCityWide = radiusLimit >= MAX_RADIUS_KM && Boolean(deferredFilters.city || selectedCity?.name);
+      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
       const isNearby = typeof distanceKm === 'number' ? (isCityWide ? true : distanceKm <= radiusLimit) : false;
 
       return {
@@ -1734,7 +1876,7 @@ function RFQList() {
         isNearby
       };
     });
-  }, [DEFAULT_RADIUS_KM, MAX_RADIUS_KM, deferredFilters.city, deferredFilters.radius, distanceInKm, getRFQCoords, isPremiumRFQ, radiusCenter, rfqs, selectedCity?.name]);
+  }, [cityFallbackEnabled, deferredFilters.city, deferredFilters.radius, distanceInKm, getRFQCoords, isPremiumRFQ, maxRadiusKm, radiusCenter, radiusConfig.default, rfqs, selectedCity?.name]);
 
   const filteredEnrichedRFQs = useMemo(() => {
     return enrichedRFQs.filter((item) => {
@@ -1745,8 +1887,8 @@ function RFQList() {
         ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
         : true;
       const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
-      const radiusLimit = Number(deferredFilters.radius) || DEFAULT_RADIUS_KM;
-      const isCityWide = radiusLimit >= MAX_RADIUS_KM && Boolean(deferredFilters.city || selectedCity?.name);
+      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
       const radiusMatch = radiusCenter
         ? typeof item.distanceKm === 'number'
           ? (isCityWide ? true : item.distanceKm <= radiusLimit)
@@ -1754,7 +1896,7 @@ function RFQList() {
         : true;
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [DEFAULT_RADIUS_KM, MAX_RADIUS_KM, deferredFilters.category, deferredFilters.city, deferredFilters.district, deferredFilters.radius, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, radiusCenter, selectedCity?.name]);
+  }, [cityFallbackEnabled, deferredFilters.category, deferredFilters.city, deferredFilters.district, deferredFilters.radius, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, maxRadiusKm, radiusCenter, radiusConfig.default, selectedCity?.name]);
 
   const filteredNearbyRFQs = useMemo(() => {
     return nearbyRFQs.filter((item) => {
@@ -1765,8 +1907,8 @@ function RFQList() {
         ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
         : true;
       const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
-      const radiusLimit = Number(deferredFilters.radius) || DEFAULT_RADIUS_KM;
-      const isCityWide = radiusLimit >= MAX_RADIUS_KM && Boolean(deferredFilters.city || selectedCity?.name);
+      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
       const radiusMatch = radiusCenter
         ? (() => {
             const coords = getRFQCoords(item);
@@ -1778,8 +1920,7 @@ function RFQList() {
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
   }, [
-    DEFAULT_RADIUS_KM,
-    MAX_RADIUS_KM,
+    cityFallbackEnabled,
     deferredFilters.category,
     deferredFilters.city,
     deferredFilters.district,
@@ -1789,8 +1930,10 @@ function RFQList() {
     getCityName,
     getDistrictName,
     getRFQCoords,
+    maxRadiusKm,
     nearbyRFQs,
     radiusCenter,
+    radiusConfig.default,
     selectedCity?.name
   ]);
 
@@ -1964,7 +2107,7 @@ function RFQList() {
   );
   const mapRadiusCenter = radiusCenter;
   const hasRadiusCenter = Boolean(mapRadiusCenter && Number.isFinite(mapRadiusCenter.lat) && Number.isFinite(mapRadiusCenter.lng));
-  const isMapCityWide = mapRadiusKm >= MAX_RADIUS_KM && Boolean(filters.city || selectedCity?.name);
+  const isMapCityWide = cityFallbackEnabled && mapRadiusKm >= maxRadiusKm && Boolean(filters.city || selectedCity?.name);
   const quickFilteredRFQs = useMemo(() => {
     let items = filteredOrderedRFQs;
     if (sortKey !== 'advanced') {
@@ -2071,10 +2214,11 @@ function RFQList() {
         return [coords.lat, coords.lng];
       }
     }
-    return [41.0082, 28.9784];
-  }, [getRFQCoords, mapItems, userCoords]);
+    return [mapSettings.defaultCenter?.lat || 41.0082, mapSettings.defaultCenter?.lng || 28.9784];
+  }, [getRFQCoords, mapItems, mapSettings.defaultCenter, userCoords]);
 
-  const mapViewActive = viewMode === 'map' &&
+  const mapViewActive = mapViewEnabled &&
+    viewMode === 'map' &&
     !isFilterSheetOpen &&
     !isCategoryModalOpen &&
     !isCreateSheetMounted &&
@@ -2101,14 +2245,76 @@ function RFQList() {
   const listIsEmpty = radiusFilteredRFQs.length === 0;
   const mapIsEmpty = mapItems.length === 0;
   const hasCityFilter = Boolean(filters.city || selectedCity?.name);
-  const selectedKm = Number(filters.radius) || DEFAULT_RADIUS_KM;
+  const selectedKm = Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
   const canApplyFilters = Boolean((draftFilters || filters).city || (draftFilters || filters).cityId);
   const hasMapCoords = mapBaseItems.length > 0;
+  const [uiTexts, setUiTexts] = useState({
+    searchHint: 'Yazdıkça liste filtrelenecek.',
+    emptyCityTitle: 'Şehir seçerek talepleri gör',
+    emptyCityDescription: 'Şehir seçerek bulunduğun bölgedeki talepleri görebilirsin.'
+  });
+  const [homeContent, setHomeContent] = useState({
+    heroTitle: '',
+    heroSubtitle: ''
+  });
+
+  useEffect(() => {
+    let active = true;
+    const loadUiTexts = async () => {
+      try {
+        const response = await api.get('/content/ui-texts');
+        if (!active) return;
+        setUiTexts((prev) => ({ ...prev, ...(response.data?.data || {}) }));
+      } catch (_error) {
+        // ignore UI text errors
+      }
+    };
+    loadUiTexts();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadHomeContent = async () => {
+      try {
+        const response = await api.get('/content/home');
+        if (!active) return;
+        setHomeContent((prev) => ({ ...prev, ...(response.data?.data || {}) }));
+      } catch (_error) {
+        // ignore content errors
+      }
+    };
+    loadHomeContent();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const saveSearchHistory = useCallback((next) => {
     setSearchHistory(next);
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
   }, []);
+
+  const logSearchEvent = useCallback(
+    async ({ term, source = 'manual', suggestionId } = {}) => {
+      const normalized = String(term || '').trim();
+      if (!normalized) return;
+      try {
+        await api.post('/search/log', {
+          term: normalized,
+          source,
+          suggestionId: suggestionId || undefined,
+          categoryId: filters.category || undefined,
+          resultsCount: radiusFilteredRFQs.length
+        });
+      } catch (_error) {
+        // ignore analytics errors
+      }
+    },
+    [filters.category, radiusFilteredRFQs.length]
+  );
 
   const pushSearchHistory = useCallback(
     (value) => {
@@ -2116,21 +2322,22 @@ function RFQList() {
       if (!normalized) {
         return;
       }
+      logSearchEvent({ term: normalized, source: 'manual' });
       const prev = Array.isArray(searchHistory) ? searchHistory : [];
       const without = prev.filter((item) => String(item || '').toLowerCase() !== normalized.toLowerCase());
       const next = [normalized, ...without].slice(0, 8);
       saveSearchHistory(next);
     },
-    [saveSearchHistory, searchHistory]
+    [logSearchEvent, saveSearchHistory, searchHistory]
   );
 
   useEffect(() => {
-    const nextRadius = Number(filters.radius) || DEFAULT_RADIUS_KM;
+    const nextRadius = Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
     const timer = window.setTimeout(() => {
       setMapRadiusKm(nextRadius);
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [DEFAULT_RADIUS_KM, filters.radius]);
+  }, [filters.radius, radiusConfig.default]);
 
   useEffect(() => {
     if (!isSearchTriggerOpen) {
@@ -2183,6 +2390,11 @@ function RFQList() {
   }, [fetchNearby, fetchRFQs]);
 
   const toggleLiveLocation = useCallback(() => {
+    if (!liveLocationEnabled) {
+      setToast('Canlı konum şu an kapalı.');
+      window.setTimeout(() => setToast(null), 1800);
+      return;
+    }
     if (liveStatus === 'active' || liveStatus === 'requesting') {
       stopLiveLocation();
       setUserPosition(null);
@@ -2190,7 +2402,7 @@ function RFQList() {
       return;
     }
     startLiveLocation();
-  }, [liveStatus, startLiveLocation, stopLiveLocation]);
+  }, [liveLocationEnabled, liveStatus, setToast, startLiveLocation, stopLiveLocation]);
 
   const handleSearchThisArea = useCallback(() => {
     if (!mapBounds) {
@@ -2339,9 +2551,28 @@ function RFQList() {
   const suggestionResults = useMemo(() => {
     const query = normalizeSearch(deferredSearchQuery);
     if (!query) return [];
-    const results = flatSubcategories.filter((item) =>
-      normalizeSearch(item.name).includes(query)
-    );
+    const apiResults = searchSuggestions
+      .filter((item) => normalizeSearch(item.term).includes(query))
+      .map((item) => ({
+        ...item,
+        source: 'suggestion',
+        name: item.term,
+        parentName: item.parentName || ''
+      }));
+    if (apiResults.length) {
+      apiResults.sort((a, b) => {
+        const aName = normalizeSearch(a.name);
+        const bName = normalizeSearch(b.name);
+        const aExact = aName === query ? 1 : 0;
+        const bExact = bName === query ? 1 : 0;
+        if (aExact !== bExact) return bExact - aExact;
+        return aName.localeCompare(bName, 'tr');
+      });
+      return apiResults.slice(0, 10);
+    }
+    const results = flatSubcategories
+      .filter((item) => normalizeSearch(item.name).includes(query))
+      .map((item) => ({ ...item, source: 'category' }));
     results.sort((a, b) => {
       const aName = normalizeSearch(a.name);
       const bName = normalizeSearch(b.name);
@@ -2351,15 +2582,29 @@ function RFQList() {
       return aName.localeCompare(bName, 'tr');
     });
     return results.slice(0, 10);
-  }, [deferredSearchQuery, flatSubcategories, normalizeSearch]);
+  }, [deferredSearchQuery, flatSubcategories, normalizeSearch, searchSuggestions]);
 
   const handleSuggestSelect = useCallback(
     (item) => {
-      updateFilter('category', String(item._id));
-      setCategoryLabel(`${item.parentName} > ${item.name}`);
+      if (item.categoryId || item.category?._id || item.source === 'category') {
+        const categoryId = String(item.categoryId || item.category?._id || '');
+        updateFilter('category', categoryId);
+        if (item.parentName) {
+          setCategoryLabel(`${item.parentName} > ${item.name}`);
+        } else {
+          setCategoryLabel(item.name || '');
+        }
+      } else {
+        setSearchQuery(item.name || '');
+      }
+      logSearchEvent({
+        term: item.name || '',
+        source: item.source === 'suggestion' ? 'suggestion' : 'manual',
+        suggestionId: item.source === 'suggestion' ? item._id : undefined
+      });
       closeSearchSheet();
     },
-    [closeSearchSheet, updateFilter]
+    [closeSearchSheet, logSearchEvent, updateFilter]
   );
 
   const renderRFQCard = useCallback(
@@ -2577,13 +2822,15 @@ function RFQList() {
         >
           Liste
         </button>
-        <button
-          type="button"
-          className={viewMode === 'map' ? 'active' : ''}
-          onClick={() => setViewMode('map')}
-        >
-          Harita
-        </button>
+        {mapViewEnabled ? (
+          <button
+            type="button"
+            className={viewMode === 'map' ? 'active' : ''}
+            onClick={() => setViewMode('map')}
+          >
+            Harita
+          </button>
+        ) : null}
       </div>
 
       <div className="home-filters">
@@ -2627,6 +2874,7 @@ function RFQList() {
         </div>
       </div>
 
+      {searchPanelEnabled ? (
       <div className="rfq-search-area" ref={searchAreaRef}>
         <div
           className={`rfq-search-trigger ${isSearchTriggerOpen ? 'is-open' : ''}`}
@@ -2699,7 +2947,7 @@ function RFQList() {
                 Ara
               </button>
             </div>
-            <div className="search-hint">Yazdıkça liste filtrelenecek.</div>
+            <div className="search-hint">{uiTexts.searchHint}</div>
             <div className="search-category-meta">
               <div className="search-meta-title">Ana Kategori</div>
               <div className="search-parent-chip">{activeParentName || 'Kategori secilmedi'}</div>
@@ -2752,6 +3000,7 @@ function RFQList() {
           </div>
         ) : null}
       </div>
+      ) : null}
 
       {loading ? <RFQSkeletonGrid count={6} /> : null}
 
@@ -2767,7 +3016,13 @@ function RFQList() {
         >
           <section className="list-section">
             <div className="list-head">
+              {homeContent.heroTitle ? (
+                <div className="list-hero-title">{homeContent.heroTitle}</div>
+              ) : null}
               <h1>{`📍 ${selectedCityLabel}`}</h1>
+              {homeContent.heroSubtitle ? (
+                <div className="list-subtitle">{homeContent.heroSubtitle}</div>
+              ) : null}
             </div>
 
             {nearbyLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
@@ -2780,11 +3035,11 @@ function RFQList() {
 
             {listIsEmpty && !nearbyLoading ? (
               <EmptyStateCard
-                title={hasCityFilter ? 'Bu bölgede talep yok' : 'Şehir seçerek talepleri gör'}
+                title={hasCityFilter ? 'Bu bölgede talep yok' : uiTexts.emptyCityTitle}
                 description={
                   hasCityFilter
-                    ? `${deferredFilters.city || selectedCityLabel} • ${selectedKm >= MAX_RADIUS_KM ? 'Şehir geneli' : `${selectedKm} km`} için henüz ilan bulunamadı.`
-                    : 'Şehir seçerek bulunduğun bölgedeki talepleri görebilirsin.'
+                    ? `${deferredFilters.city || selectedCityLabel} • ${selectedKm >= maxRadiusKm ? 'Şehir geneli' : `${selectedKm} km`} için henüz ilan bulunamadı.`
+                    : uiTexts.emptyCityDescription
                 }
                 primaryLabel={hasCityFilter ? 'Talep oluştur' : 'Şehir seç'}
                 secondaryLabel={hasCityFilter ? 'Km artır' : null}
@@ -2840,7 +3095,7 @@ function RFQList() {
               Bu alanı ara
             </button>
           ) : null}
-          {mapViewActive && !isSearchTriggerOpen ? (
+          {mapViewActive && mapSettings.controlsEnabled !== false && !isSearchTriggerOpen ? (
             <div className={`map-filter-shell ${isMapFilterOpen ? 'is-open' : ''}`} ref={mapFilterRef}>
               <button
                 type="button"
@@ -2860,7 +3115,12 @@ function RFQList() {
               </button>
               <div className="map-filter-panel">
                 <div className="map-live-controls">
-                  <button type="button" className="secondary-btn" onClick={toggleLiveLocation}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={toggleLiveLocation}
+                    disabled={!liveLocationEnabled}
+                  >
                     {liveStatus === 'active' || liveStatus === 'requesting' ? 'Canli konumu kapat' : 'Canli konumu ac'}
                   </button>
                   {liveStatus === 'active' ? (
@@ -2881,10 +3141,10 @@ function RFQList() {
                   <input
                     ref={mapRadiusInputRef}
                     type="range"
-                    min="5"
-                    max={MAX_RADIUS_KM}
-                    step="1"
-                    value={Math.min(selectedKm, MAX_RADIUS_KM)}
+                    min={minRadiusKm}
+                    max={maxRadiusKm}
+                    step={radiusStep}
+                    value={Math.min(selectedKm, maxRadiusKm)}
                     onChange={(event) => handleRadiusChange(event.target.value)}
                     disabled={!radiusCenter}
                     aria-label="Yarıçap filtresi"
@@ -2913,16 +3173,19 @@ function RFQList() {
               </div>
             }
           >
-            <RFQListMap
+          <RFQListMap
               mapCenter={mapCenter}
               mapItems={mapItems}
               mapTileUrl={mapTileUrl}
               mapAttribution={mapAttribution}
               radiusCenter={mapRadiusCenter}
               mapRadiusKm={mapRadiusKm}
-              showRadiusCircle={!isMapCityWide}
+              showRadiusCircle={mapSettings.radiusCircleEnabled !== false && !isMapCityWide}
               clusterRef={clusterRef}
               mapZoom={mapZoom}
+              mapMinZoom={mapSettings.minZoom}
+              mapMaxZoom={mapSettings.maxZoom}
+              clusterEnabled={mapSettings.clusterEnabled !== false}
               setMapZoom={setMapZoom}
               setMapBounds={setMapBounds}
               setMapHasMoved={setMapHasMoved}
@@ -2956,7 +3219,7 @@ function RFQList() {
         <div className={`results-toast ${resultsToastVisible ? 'show' : ''}`}>
           📍 <strong>{filters.city}</strong> icinde{' '}
           <span className="results-km">
-            {selectedKm >= MAX_RADIUS_KM ? 'Şehir geneli' : `${selectedKm} km`}
+            {selectedKm >= maxRadiusKm ? 'Şehir geneli' : `${selectedKm} km`}
           </span>{' '}
           capindaki talepler gosteriliyor
         </div>

@@ -29,6 +29,10 @@ const citySchema = new mongoose.Schema(
         default: undefined
       }
     },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
     boundaryUpdatedAt: {
       type: Date
     }

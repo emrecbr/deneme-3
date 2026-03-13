@@ -88,6 +88,41 @@ const rfqSchema = new mongoose.Schema(
       enum: ['open', 'closed', 'awarded'],
       default: 'open'
     },
+    statusUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    statusUpdatedAt: {
+      type: Date
+    },
+    moderationNote: {
+      type: String,
+      trim: true
+    },
+    moderationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', 'flagged'],
+      default: 'pending'
+    },
+    moderationReason: {
+      type: String,
+      trim: true
+    },
+    isFlagged: {
+      type: Boolean,
+      default: false
+    },
+    followUp: {
+      type: Boolean,
+      default: false
+    },
+    moderatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    moderatedAt: {
+      type: Date
+    },
     isAuction: {
       type: Boolean,
       default: false

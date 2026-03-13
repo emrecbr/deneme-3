@@ -19,6 +19,7 @@ const STEPS = [
 
 function OnboardingModal({ open, onComplete }) {
   const [step, setStep] = useState(0);
+  const [contentSteps, setContentSteps] = useState(STEPS);
   const [touchStartX, setTouchStartX] = useState(null);
   const [touchDeltaX, setTouchDeltaX] = useState(0);
   const [locationError, setLocationError] = useState('');
@@ -41,7 +42,7 @@ function OnboardingModal({ open, onComplete }) {
     neighborhood: '',
     street: ''
   });
-  const current = useMemo(() => STEPS[step] || STEPS[0], [step]);
+  const current = useMemo(() => contentSteps[step] || contentSteps[0], [contentSteps, step]);
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
       return { id: item, name: item, type: undefined };
@@ -63,6 +64,31 @@ function OnboardingModal({ open, onComplete }) {
       setLocationError('');
       setSelectionIds({ cityId: '', districtId: '', neighborhoodId: '' });
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let active = true;
+    const loadContent = async () => {
+      try {
+        const response = await api.get('/content/onboarding');
+        if (!active) return;
+        const steps = response.data?.data?.steps;
+        if (Array.isArray(steps) && steps.length) {
+          setContentSteps(steps);
+        } else {
+          setContentSteps(STEPS);
+        }
+      } catch (_error) {
+        if (active) setContentSteps(STEPS);
+      }
+    };
+    loadContent();
+    return () => {
+      active = false;
+    };
   }, [open]);
 
   useEffect(() => {
@@ -161,7 +187,7 @@ function OnboardingModal({ open, onComplete }) {
     fetchStreets();
   }, [open, selection.city, selection.district, selection.neighborhood, selectionIds.neighborhoodId, streetQuery]);
 
-  const isLastStep = step === STEPS.length - 1;
+  const isLastStep = step === contentSteps.length - 1;
   const isFirstStep = step === 0;
 
   const goNext = () => {
@@ -179,7 +205,7 @@ function OnboardingModal({ open, onComplete }) {
       return;
     }
     setLocationError('');
-    setStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+    setStep((prev) => Math.min(prev + 1, contentSteps.length - 1));
   };
 
   const goBack = () => {

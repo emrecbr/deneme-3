@@ -5,6 +5,7 @@ import Otp from '../models/Otp.js';
 import { sendOtpEmail } from '../src/services/email.js';
 import { sendOtpSms } from '../src/services/sms.js';
 import User from '../models/User.js';
+import { logAuthEvent } from '../src/utils/authLog.js';
 
 const SIGNUP_TOKEN_EXPIRES_IN = '5m';
 const getSignupSecret = () =>
@@ -111,6 +112,7 @@ export const sendOtp = async (req, res) => {
         sendOtpEmail({ to: target, code })
           .then(() => {
             console.log('OTP_SEND_OK', { reqId, channel });
+            logAuthEvent({ channel: 'email', event: 'otp_send', status: 'success', target });
           })
           .catch((err) => {
             console.error('OTP_SEND_FAIL', {
@@ -121,12 +123,21 @@ export const sendOtp = async (req, res) => {
               errMsg: err?.message,
               provider: err?.provider
             });
+            logAuthEvent({
+              channel: 'email',
+              event: 'otp_send',
+              status: 'failed',
+              target,
+              errorMessage: err?.message || 'EMAIL_SEND_FAIL',
+              provider: err?.provider
+            });
           });
       });
     } else {
       const timeoutMs = Number(process.env.SEND_OTP_TIMEOUT_MS || 8000);
       await withTimeout(sendOtpSms({ phone: target, code }), timeoutMs);
       console.log('OTP_SEND_OK', { reqId, channel });
+      await logAuthEvent({ channel: 'sms', event: 'otp_send', status: 'success', target });
     }
 
     return res.json({ ok: true, message: 'Kod gönderildi' });
@@ -134,6 +145,13 @@ export const sendOtp = async (req, res) => {
     const reqId = req.headers['x-request-id'] || 'unknown';
     if (error?.code === 'OTP_SEND_TIMEOUT') {
       console.warn('OTP_SEND_TIMEOUT', { reqId, channel: req.body?.channel });
+      await logAuthEvent({
+        channel: req.body?.channel,
+        event: 'otp_send',
+        status: 'failed',
+        target: resolveTarget(req.body?.channel, req.body),
+        errorMessage: 'OTP_SEND_TIMEOUT'
+      });
       return res.status(500).json({ ok: false, message: 'Kod gönderilemedi' });
     }
     console.error('OTP_SEND_FAIL', {
@@ -142,6 +160,14 @@ export const sendOtp = async (req, res) => {
       errName: error?.name,
       errCode: error?.code,
       errMsg: error?.message,
+      provider: error?.provider
+    });
+    await logAuthEvent({
+      channel: req.body?.channel,
+      event: 'otp_send',
+      status: 'failed',
+      target: resolveTarget(req.body?.channel, req.body),
+      errorMessage: error?.message || 'OTP_SEND_FAIL',
       provider: error?.provider
     });
     if (String(error?.code || '').startsWith('EMAIL')) {
@@ -218,6 +244,7 @@ export const verifyOtp = async (req, res) => {
 
     record.usedAt = new Date();
     await record.save();
+    await logAuthEvent({ channel, event: 'otp_verify', status: 'success', target });
 
     if (channel === 'email') {
       const email = normalizeEmail(target);
@@ -263,6 +290,13 @@ export const verifyOtp = async (req, res) => {
     return res.json({ ok: true, message: 'Doğrulandı' });
   } catch (error) {
     console.error('OTP_VERIFY_FAIL', error);
+    await logAuthEvent({
+      channel: req.body?.channel,
+      event: 'otp_verify',
+      status: 'failed',
+      target: resolveTarget(req.body?.channel, req.body),
+      errorMessage: error?.message || 'OTP_VERIFY_FAIL'
+    });
     return res.status(500).json({ ok: false, message: 'Doğrulama başarısız' });
   }
 };

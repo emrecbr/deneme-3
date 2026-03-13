@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -535,60 +535,76 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     }, 2500);
   };
 
-  const getStepError = (currentStep) => {
+  const logFlowEvent = useCallback(async (payload) => {
+    try {
+      await api.post('/rfq-flow/event', payload);
+    } catch (_error) {
+      // ignore analytics errors
+    }
+  }, []);
+
+  useEffect(() => {
+    logFlowEvent({ step, event: 'step_view' });
+  }, [logFlowEvent, step]);
+
+  const getStepErrorDetail = (currentStep) => {
     if (currentStep === 1) {
       if (form.title.trim().length < 3) {
-        return 'Başlık en az 3 karakter olmalı';
+        return { message: 'Başlık en az 3 karakter olmalı', field: 'title' };
       }
       if (!form.categoryId) {
-        return 'Kategori seç';
+        return { message: 'Kategori seç', field: 'categoryId' };
       }
       if (form.description.trim().length < 10) {
-        return 'Açıklama en az 10 karakter olmalı';
+        return { message: 'Açıklama en az 10 karakter olmalı', field: 'description' };
       }
-      return '';
+      return { message: '', field: '' };
     }
 
     if (currentStep === 2) {
       if (isCarCategory && (!carBrand || !carModel)) {
-        return 'Marka ve model seç';
+        return { message: 'Marka ve model seç', field: 'carBrand' };
       }
       const quantityValue = Number(form.quantity);
       if (!Number.isFinite(quantityValue) || quantityValue < 1) {
-        return 'Adet en az 1 olmalı';
+        return { message: 'Adet en az 1 olmalı', field: 'quantity' };
       }
       const hasPriceInput = priceText.trim().length > 0 || Number.isFinite(priceValue);
       if (hasPriceInput && (!Number.isFinite(priceValue) || priceValue <= 0)) {
-        return 'Hedef fiyat gir';
+        return { message: 'Hedef fiyat gir', field: 'targetPrice' };
       }
       if (!form.deadline) {
-        return 'Teslim süresi seç';
+        return { message: 'Teslim süresi seç', field: 'deadline' };
       }
       const deadlineValue = new Date(form.deadline).getTime();
       if (!Number.isFinite(deadlineValue) || deadlineValue <= Date.now()) {
-        return 'Teslim süresi gelecekte olmalı';
+        return { message: 'Teslim süresi gelecekte olmalı', field: 'deadline' };
       }
-      return '';
+      return { message: '', field: '' };
     }
 
     if (currentStep === 3) {
       if (!form.city) {
-        return 'Şehir seç';
+        return { message: 'Şehir seç', field: 'city' };
       }
       if (!form.district) {
-        return 'İlçe seç';
+        return { message: 'İlçe seç', field: 'district' };
       }
       if (
         !selectedLocation ||
         !Number.isFinite(Number(selectedLocation.lat)) ||
         !Number.isFinite(Number(selectedLocation.lng))
       ) {
-        return 'Konum seç';
+        return { message: 'Konum seç', field: 'location' };
       }
-      return '';
+      return { message: '', field: '' };
     }
 
-    return '';
+    return { message: '', field: '' };
+  };
+
+  const getStepError = (currentStep) => {
+    return getStepErrorDetail(currentStep).message;
   };
 
   const handleSubmit = async (event) => {
@@ -597,10 +613,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       showToast('Lütfen adımları tamamla');
       return;
     }
-    const validationError = getStepError(3);
-    if (validationError) {
-      setStepError(validationError);
-      showToast(validationError);
+    const validationDetail = getStepErrorDetail(3);
+    if (validationDetail.message) {
+      setStepError(validationDetail.message);
+      showToast(validationDetail.message);
+      logFlowEvent({ step: 3, event: 'step_blocked', field: validationDetail.field, error: validationDetail.message });
       return;
     }
     setError('');
@@ -707,6 +724,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         const created = response.data?.data || response.data;
         const createdId = created?._id || created?.id;
         console.log('RFQ_CREATE_OK', { id: createdId });
+        logFlowEvent({ step: 4, event: 'step_complete' });
 
         setForm({
           title: '',
@@ -912,12 +930,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   className="primary-btn"
                   disabled={!canContinueStep1}
                   onClick={() => {
-                    if (step1Error) {
-                      setStepError(step1Error);
-                      showToast(step1Error);
+                    const detail = getStepErrorDetail(1);
+                    if (detail.message) {
+                      setStepError(detail.message);
+                      showToast(detail.message);
+                      logFlowEvent({ step: 1, event: 'step_blocked', field: detail.field, error: detail.message });
                       return;
                     }
                     setStepError('');
+                    logFlowEvent({ step: 1, event: 'step_complete' });
                     setStep(2);
                   }}
                 >
@@ -1032,13 +1053,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   className="primary-btn"
                   disabled={!canContinueStep2}
                   onClick={() => {
-                    const validationError = getStepError(2);
-                    if (validationError) {
-                      setStepError(validationError);
-                      showToast(validationError);
+                    const detail = getStepErrorDetail(2);
+                    if (detail.message) {
+                      setStepError(detail.message);
+                      showToast(detail.message);
+                      logFlowEvent({ step: 2, event: 'step_blocked', field: detail.field, error: detail.message });
                       return;
                     }
                     setStepError('');
+                    logFlowEvent({ step: 2, event: 'step_complete' });
                     setStep(3);
                   }}
                 >
@@ -1196,13 +1219,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   className="primary-btn"
                   disabled={!canContinueStep3}
                   onClick={() => {
-                    const validationError = getStepError(3);
-                    if (validationError) {
-                      setStepError(validationError);
-                      showToast(validationError);
+                    const detail = getStepErrorDetail(3);
+                    if (detail.message) {
+                      setStepError(detail.message);
+                      showToast(detail.message);
+                      logFlowEvent({ step: 3, event: 'step_blocked', field: detail.field, error: detail.message });
                       return;
                     }
                     setStepError('');
+                    logFlowEvent({ step: 3, event: 'step_complete' });
                     setStep(4);
                   }}
                 >

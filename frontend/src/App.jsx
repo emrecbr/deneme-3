@@ -1,6 +1,42 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
+import AdminLayout from './admin/AdminLayout';
+const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
+const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
+const AdminRfqList = lazy(() => import('./admin/AdminRfqList'));
+const AdminRfqDetail = lazy(() => import('./admin/AdminRfqDetail'));
+const AdminUserList = lazy(() => import('./admin/AdminUserList'));
+const AdminUserDetail = lazy(() => import('./admin/AdminUserDetail'));
+const AdminAuditLog = lazy(() => import('./admin/AdminAuditLog'));
+const AdminCategories = lazy(() => import('./admin/AdminCategories'));
+const AdminSubcategories = lazy(() => import('./admin/AdminSubcategories'));
+const AdminCategoryIssues = lazy(() => import('./admin/AdminCategoryIssues'));
+const AdminSearchSuggestions = lazy(() => import('./admin/AdminSearchSuggestions'));
+const AdminCities = lazy(() => import('./admin/AdminCities'));
+const AdminDistricts = lazy(() => import('./admin/AdminDistricts'));
+const AdminLocationIssues = lazy(() => import('./admin/AdminLocationIssues'));
+const AdminRadiusSettings = lazy(() => import('./admin/AdminRadiusSettings'));
+const AdminOtpLogs = lazy(() => import('./admin/AdminOtpLogs'));
+const AdminSmsLogs = lazy(() => import('./admin/AdminSmsLogs'));
+const AdminSystemHealth = lazy(() => import('./admin/AdminSystemHealth'));
+const AdminFeatureFlags = lazy(() => import('./admin/AdminFeatureFlags'));
+const AdminMaintenance = lazy(() => import('./admin/AdminMaintenance'));
+const AdminMapSettings = lazy(() => import('./admin/AdminMapSettings'));
+const AdminMapTest = lazy(() => import('./admin/AdminMapTest'));
+const AdminSearchAnalytics = lazy(() => import('./admin/AdminSearchAnalytics'));
+const AdminContentHome = lazy(() => import('./admin/AdminContentHome'));
+const AdminContentOnboarding = lazy(() => import('./admin/AdminContentOnboarding'));
+const AdminUiTexts = lazy(() => import('./admin/AdminUiTexts'));
+const AdminRfqFlowSteps = lazy(() => import('./admin/AdminRfqFlowSteps'));
+const AdminRfqValidationAnalytics = lazy(() => import('./admin/AdminRfqValidationAnalytics'));
+const AdminModerationQueueAdvanced = lazy(() => import('./admin/AdminModerationQueueAdvanced'));
+const AdminRiskSignals = lazy(() => import('./admin/AdminRiskSignals'));
+const AdminReportsOverview = lazy(() => import('./admin/AdminReportsOverview'));
+const AdminReportsExports = lazy(() => import('./admin/AdminReportsExports'));
+const AdminPermissions = lazy(() => import('./admin/AdminPermissions'));
+const AdminAdmins = lazy(() => import('./admin/AdminAdmins'));
+import AdminProtectedRoute from './admin/AdminProtectedRoute';
 import PrivateRoute from './components/PrivateRoute';
 import api from './api/axios';
 import { useAuth } from './context/AuthContext';
@@ -34,8 +70,10 @@ const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 
 function App() {
   const { user, loading, checkAuth } = useAuth();
+  const location = useLocation();
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [maintenance, setMaintenance] = useState({ loading: true, enabled: false, message: '' });
 
   useEffect(() => {
     const body = document.body;
@@ -93,14 +131,114 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadMaintenance = async () => {
+      try {
+        const response = await api.get('/system/maintenance');
+        if (!active) return;
+        const data = response.data?.data || {};
+        setMaintenance({
+          loading: false,
+          enabled: Boolean(data.enabled),
+          message: data.message || 'Sistem bakımda.'
+        });
+      } catch (_error) {
+        if (!active) return;
+        setMaintenance((prev) => ({ ...prev, loading: false }));
+      }
+    };
+    loadMaintenance();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (loading) {
     return <div className="card">Yukleniyor...</div>;
+  }
+
+  const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
+  const maintenanceBlocking =
+    !maintenance.loading &&
+    maintenance.enabled &&
+    !isAdminRole &&
+    !location.pathname.startsWith('/admin') &&
+    !location.pathname.startsWith('/login');
+
+  if (maintenanceBlocking) {
+    return (
+      <div className="card maintenance-card">
+        <h2>Bakım Modu</h2>
+        <p>{maintenance.message || 'Sistem bakımda.'}</p>
+      </div>
+    );
   }
 
   return (
     <>
     <Suspense fallback={<div className="card">Yukleniyor...</div>}>
     <Routes>
+      <Route
+        path="/admin"
+        element={
+          <AdminProtectedRoute>
+            <AdminLayout />
+          </AdminProtectedRoute>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="rfq/all" element={<AdminRfqList />} />
+        <Route path="rfq/moderation" element={<AdminRfqList defaultStatus="pending" />} />
+        <Route path="rfq/flagged" element={<AdminRfqList defaultStatus="flagged" />} />
+        <Route path="rfq/:id" element={<AdminRfqDetail />} />
+        <Route path="moderation/queue-advanced" element={<AdminModerationQueueAdvanced />} />
+        <Route path="moderation/risk-signals" element={<AdminRiskSignals />} />
+        <Route path="rfq-flow/steps" element={<AdminRfqFlowSteps />} />
+        <Route path="rfq-flow/validation" element={<Navigate to="/admin/rfq-flow/validation-analytics" replace />} />
+        <Route path="rfq-flow/validation-analytics" element={<AdminRfqValidationAnalytics />} />
+        <Route path="rfq-flow/errors" element={<AdminPlaceholder title="Form Hata İzleme" />} />
+        <Route path="users/all" element={<AdminUserList />} />
+        <Route path="users/flagged" element={<AdminUserList defaultStatus="blocked" />} />
+        <Route path="users/:id" element={<AdminUserDetail />} />
+        <Route path="categories/main" element={<AdminCategories />} />
+        <Route path="categories/sub" element={<AdminSubcategories />} />
+        <Route path="categories/mapping" element={<AdminCategoryIssues />} />
+        <Route path="categories/suggestions" element={<AdminSearchSuggestions />} />
+        <Route path="locations/cities" element={<AdminCities />} />
+        <Route path="locations/districts" element={<AdminDistricts />} />
+        <Route path="locations/issues" element={<AdminLocationIssues />} />
+        <Route path="locations/live" element={<AdminRadiusSettings />} />
+        <Route path="location/cities" element={<AdminCities />} />
+        <Route path="location/districts" element={<AdminDistricts />} />
+        <Route path="location/issues" element={<AdminLocationIssues />} />
+        <Route path="location/radius-settings" element={<AdminRadiusSettings />} />
+        <Route path="map/settings" element={<AdminMapSettings />} />
+        <Route path="map/missing" element={<AdminPlaceholder title="Haritada Görünmeyen İlanlar" />} />
+        <Route path="map/test" element={<AdminMapTest />} />
+        <Route path="search/analytics" element={<AdminSearchAnalytics />} />
+        <Route path="search/suggestions" element={<AdminSearchSuggestions />} />
+        <Route path="search/filters" element={<AdminPlaceholder title="Filtre Ayarları" />} />
+        <Route path="notifications/sms" element={<Navigate to="/admin/notifications/sms-logs" replace />} />
+        <Route path="notifications/otp" element={<Navigate to="/admin/notifications/otp-logs" replace />} />
+        <Route path="notifications/sms-logs" element={<AdminSmsLogs />} />
+        <Route path="notifications/otp-logs" element={<AdminOtpLogs />} />
+        <Route path="notifications/templates" element={<AdminPlaceholder title="Bildirim Şablonları" />} />
+        <Route path="content/home" element={<AdminContentHome />} />
+        <Route path="content/onboarding" element={<AdminContentOnboarding />} />
+        <Route path="content/ui" element={<Navigate to="/admin/content/ui-texts" replace />} />
+        <Route path="content/ui-texts" element={<AdminUiTexts />} />
+        <Route path="system/health" element={<AdminSystemHealth />} />
+        <Route path="system/errors" element={<AdminPlaceholder title="Hata Kayıtları" />} />
+        <Route path="system/flags" element={<Navigate to="/admin/system/feature-flags" replace />} />
+        <Route path="system/feature-flags" element={<AdminFeatureFlags />} />
+        <Route path="system/maintenance" element={<AdminMaintenance />} />
+        <Route path="admins" element={<AdminAdmins />} />
+        <Route path="roles" element={<AdminPermissions />} />
+        <Route path="reports/overview" element={<AdminReportsOverview />} />
+        <Route path="reports/exports" element={<AdminReportsExports />} />
+        <Route path="audit" element={<AdminAuditLog />} />
+      </Route>
       <Route
         path="/login"
         element={

@@ -63,7 +63,7 @@ const userSchema = new mongoose.Schema(
     ],
     role: {
       type: String,
-      enum: ['buyer', 'supplier', 'admin'],
+      enum: ['buyer', 'supplier', 'admin', 'moderator'],
       default: 'buyer'
     },
     city: {
@@ -125,6 +125,9 @@ const userSchema = new mongoose.Schema(
     isOnboardingCompleted: {
       type: Boolean,
       default: false
+    },
+    lastLoginAt: {
+      type: Date
     }
   },
   {

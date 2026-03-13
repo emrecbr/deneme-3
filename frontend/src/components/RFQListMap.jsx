@@ -65,6 +65,9 @@ export default function RFQListMap({
   showRadiusCircle = true,
   clusterRef,
   mapZoom,
+  mapMinZoom = 6,
+  mapMaxZoom = 18,
+  clusterEnabled = true,
   setMapZoom,
   setMapBounds,
   setMapHasMoved,
@@ -159,9 +162,9 @@ export default function RFQListMap({
   return (
     <MapContainer
       center={mapCenter}
-      zoom={11}
-      minZoom={6}
-      maxZoom={18}
+      zoom={mapZoom || 11}
+      minZoom={mapMinZoom}
+      maxZoom={mapMaxZoom}
       scrollWheelZoom
       className="rfq-map"
       whenCreated={(map) => {
@@ -202,12 +205,74 @@ export default function RFQListMap({
           pathOptions={{ color: '#2563eb', weight: 2, opacity: 0.6, fillOpacity: 0.08 }}
         />
       ) : null}
-      <MarkerClusterGroup
-        ref={clusterRef}
-        chunkedLoading
-        iconCreateFunction={createClusterIcon}
-      >
-        {mapItems.map((rfq) => {
+      {clusterEnabled ? (
+        <MarkerClusterGroup
+          ref={clusterRef}
+          chunkedLoading
+          iconCreateFunction={createClusterIcon}
+        >
+          {mapItems.map((rfq) => {
+            const coords = getRFQCoords(rfq);
+            if (!coords) {
+              return null;
+            }
+
+            const images = getCardImages(rfq);
+            const firstImage = images[0];
+            const markerCategory = buildMarkerCategory(rfq, getCategoryName);
+            const markerSub = rfq?.title || (rfq?.description ? String(rfq.description).slice(0, 40) : 'Talep');
+            const premium = isPremiumRFQ(rfq);
+            const featured = isFeaturedRFQ(rfq);
+            const isActive = isActiveRequest(rfq, nowTs);
+            return (
+              <Marker
+                key={rfq._id}
+                position={[coords.lat, coords.lng]}
+                icon={createMarkerIcon(
+                  markerCategory,
+                  markerSub,
+                  premium,
+                  Boolean(newRFQMarkers[rfq._id]),
+                  isActive,
+                  featured
+                )}
+                isPremium={premium}
+                zIndexOffset={featured ? 1200 : premium ? 800 : 0}
+                eventHandlers={{
+                  click: () => setSelectedRfq(rfq),
+                  popupclose: () => {
+                    if (selectedRfq?._id === rfq._id) {
+                      setSelectedRfq(null);
+                    }
+                  }
+                }}
+              >
+                {selectedRfq?._id === rfq._id ? (
+                  <Popup autoPan maxWidth={260} minWidth={200} closeButton>
+                    <div className="map-popup">
+                      {firstImage ? <img src={firstImage} alt={rfq.title} className="map-popup-image" /> : null}
+                      <div className="map-popup-category">{markerCategory}</div>
+                      <div className="map-popup-sub">{markerSub}</div>
+                      <button
+                        type="button"
+                        className="map-popup-action"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedRfq(null);
+                          navigate(`/rfq/${rfq._id}`);
+                        }}
+                      >
+                        Detay
+                      </button>
+                    </div>
+                  </Popup>
+                ) : null}
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
+      ) : (
+        mapItems.map((rfq) => {
           const coords = getRFQCoords(rfq);
           if (!coords) {
             return null;
@@ -265,8 +330,8 @@ export default function RFQListMap({
               ) : null}
             </Marker>
           );
-        })}
-      </MarkerClusterGroup>
+        })
+      )}
       {routePoints ? (
         <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
       ) : null}

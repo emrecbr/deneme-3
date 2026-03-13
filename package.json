@@ -13,6 +13,7 @@
     "seed:full": "node scripts/seedFullMarketplaceCategories.js",
     "seed:locations": "node scripts/seedTurkeyLocations.js",
     "seed:turkey-normalized": "node scripts/seedTurkeyNormalized.js",
+    "seed:admin": "node scripts/seedAdmin.js",
     "seed:turkey-full": "node scripts/seedTurkeyFullLocation.js"
   },
   "dependencies": {

@@ -11,6 +11,7 @@ import { connectDB } from '../config/db.js';
 import { setIO } from '../config/socket.js';
 import mainRouter from '../routes/index.js';
 import authRoutes from '../routes/authRoutes.js';
+import adminAuthRoutes from '../routes/adminAuthRoutes.js';
 import rfqRoutes from '../routes/rfqRoutes.js';
 import offerRoutes from '../routes/offerRoutes.js';
 import notificationRoutes from '../routes/notificationRoutes.js';
@@ -24,11 +25,17 @@ import locationRoutes from '../routes/locationRoutes.js';
 import billingRoutes from '../routes/billingRoutes.js';
 import otpRoutes from '../routes/otpRoutes.js';
 import verifyRoutes from '../routes/verifyRoutes.js';
+import searchRoutes from '../routes/searchRoutes.js';
+import contentRoutes from '../routes/contentRoutes.js';
+import rfqFlowRoutes from '../routes/rfqFlowRoutes.js';
+import mapRoutes from '../routes/mapRoutes.js';
 import City from '../models/City.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
+import AppSetting from '../models/AppSetting.js';
 import iyzico from './providers/iyzico/index.js';
+import { ensureAdminSeed } from './utils/adminSeed.js';
 
 dotenv.config();
 
@@ -86,6 +93,7 @@ const corsOptions = {
 const ROUTE_MOUNTS = [
   ['/api', mainRouter],
   ['/api/auth', authRoutes],
+  ['/api/admin/auth', adminAuthRoutes],
   ['/api/rfq', rfqRoutes],
   ['/api/offers', offerRoutes],
   ['/api/notifications', notificationRoutes],
@@ -98,7 +106,11 @@ const ROUTE_MOUNTS = [
   ['/api/location', locationRoutes],
   ['/api/billing', billingRoutes],
   ['/api/auth/otp', otpRoutes],
-  ['/api/auth/verify', verifyRoutes]
+  ['/api/auth/verify', verifyRoutes],
+  ['/api/search', searchRoutes],
+  ['/api/content', contentRoutes],
+  ['/api/rfq-flow', rfqFlowRoutes],
+  ['/api/map', mapRoutes]
 ];
 const onlineUsers = new Set();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
@@ -152,6 +164,50 @@ app.use((_req, res, next) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   next();
+});
+
+let maintenanceCache = { enabled: false, message: 'Sistem bakımda.', ts: 0 };
+const MAINTENANCE_TTL_MS = 15000;
+const getMaintenanceState = async () => {
+  const now = Date.now();
+  if (now - maintenanceCache.ts < MAINTENANCE_TTL_MS) {
+    return maintenanceCache;
+  }
+  try {
+    const doc = await AppSetting.findOne({ key: 'maintenance_mode' }).lean();
+    maintenanceCache = {
+      enabled: Boolean(doc?.value?.enabled),
+      message: doc?.value?.message || 'Sistem bakımda.',
+      ts: now
+    };
+  } catch (_error) {
+    maintenanceCache.ts = now;
+  }
+  return maintenanceCache;
+};
+
+app.use(async (req, res, next) => {
+  if (!req.originalUrl.startsWith('/api')) {
+    return next();
+  }
+  if (req.originalUrl.startsWith('/api/admin') || req.originalUrl.startsWith('/api/health')) {
+    return next();
+  }
+  if (req.originalUrl.startsWith('/api/system/maintenance')) {
+    return next();
+  }
+  if (req.originalUrl.startsWith('/api/auth')) {
+    return next();
+  }
+  const maintenance = await getMaintenanceState();
+  if (maintenance.enabled) {
+    return res.status(503).json({
+      success: false,
+      maintenance: true,
+      message: maintenance.message
+    });
+  }
+  return next();
 });
 
 app.get('/health', (_req, res) => res.send('OK'));
@@ -275,6 +331,7 @@ const startServer = async () => {
 
   try {
     await connectWithRetry();
+    await ensureAdminSeed();
   } catch (_err) {
     console.error('MongoDB bağlantısı kurulamadı. Sunucu başlatılmadı.');
     process.exit(1);
