@@ -9,6 +9,7 @@ import FilterBar from '../components/FilterBar';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import LocationPermissionModal from '../components/LocationPermissionModal';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
+import LoadingOverlay from '../components/LoadingOverlay';
 import RFQCreate from './RFQCreate';
 import { useAuth } from '../context/AuthContext';
 import { useLiveLocation } from '../context/LocationContext';
@@ -95,6 +96,7 @@ function RFQList() {
   const createSheetSnapRef = useRef({ full: 0, half: 0, closed: 0 });
   const searchInputRef = useRef(null);
   const mapFilterRef = useRef(null);
+  const overlayTimerRef = useRef(null);
 
   const [rfqs, setRfqs] = useState([]);
   const [nearbyRFQs, setNearbyRFQs] = useState([]);
@@ -104,6 +106,8 @@ function RFQList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [showLoadingOverlay, setShowLoadingOverlay] = useState(false);
+  const hasLoadedOnceRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const [error, setError] = useState('');
@@ -194,6 +198,28 @@ function RFQList() {
     radiusConfig.liveLocationEnabled !== false && featureFlags.liveLocationEnabled !== false;
   const cityFallbackEnabled =
     radiusConfig.cityFallbackEnabled !== false && featureFlags.cityFallbackEnabled !== false;
+
+  useEffect(() => {
+    const isInitialLoad = loading && !hasLoadedOnceRef.current;
+    const shouldShow = loading && !loadingMore && !nearbyLoading && (isInitialLoad || isFiltering);
+
+    if (shouldShow) {
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+      overlayTimerRef.current = setTimeout(() => {
+        setShowLoadingOverlay(true);
+      }, 200);
+    } else {
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+      setShowLoadingOverlay(false);
+      if (!loading) {
+        hasLoadedOnceRef.current = true;
+      }
+    }
+
+    return () => {
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    };
+  }, [isFiltering, loading, loadingMore, nearbyLoading]);
 
   const currentUserId = useMemo(() => currentUser?.id || currentUser?._id || null, [currentUser]);
   const activeCity = useMemo(() => normalizeSocketCity(filters.city || currentUser?.city), [currentUser?.city, filters.city]);
@@ -2297,8 +2323,31 @@ function RFQList() {
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
   }, []);
 
+  const getSearchResultsCount = useCallback(
+    (term) => {
+      const query = normalizeSearch(term);
+      if (!query) {
+        return radiusFilteredRFQs.length;
+      }
+      return radiusFilteredRFQs.filter((item) => {
+        const text = [
+          item?.title,
+          item?.description,
+          getCategoryDisplayName(item?.category),
+          getCityName(item),
+          getDistrictName(item)
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return text.includes(query);
+      }).length;
+    },
+    [getCategoryDisplayName, getCityName, getDistrictName, normalizeSearch, radiusFilteredRFQs]
+  );
+
   const logSearchEvent = useCallback(
-    async ({ term, source = 'manual', suggestionId } = {}) => {
+    async ({ term, source = 'manual', suggestionId, resultsCount } = {}) => {
       const normalized = String(term || '').trim();
       if (!normalized) return;
       try {
@@ -2307,13 +2356,15 @@ function RFQList() {
           source,
           suggestionId: suggestionId || undefined,
           categoryId: filters.category || undefined,
-          resultsCount: radiusFilteredRFQs.length
+          resultsCount: Number.isFinite(Number(resultsCount))
+            ? Number(resultsCount)
+            : getSearchResultsCount(normalized)
         });
       } catch (_error) {
         // ignore analytics errors
       }
     },
-    [filters.category, radiusFilteredRFQs.length]
+    [filters.category, getSearchResultsCount]
   );
 
   const pushSearchHistory = useCallback(
@@ -2322,7 +2373,7 @@ function RFQList() {
       if (!normalized) {
         return;
       }
-      logSearchEvent({ term: normalized, source: 'manual' });
+      logSearchEvent({ term: normalized, source: 'manual', resultsCount: getSearchResultsCount(normalized) });
       const prev = Array.isArray(searchHistory) ? searchHistory : [];
       const without = prev.filter((item) => String(item || '').toLowerCase() !== normalized.toLowerCase());
       const next = [normalized, ...without].slice(0, 8);
@@ -2600,11 +2651,12 @@ function RFQList() {
       logSearchEvent({
         term: item.name || '',
         source: item.source === 'suggestion' ? 'suggestion' : 'manual',
-        suggestionId: item.source === 'suggestion' ? item._id : undefined
+        suggestionId: item.source === 'suggestion' ? item._id : undefined,
+        resultsCount: getSearchResultsCount(item.name || '')
       });
       closeSearchSheet();
     },
-    [closeSearchSheet, logSearchEvent, updateFilter]
+    [closeSearchSheet, getSearchResultsCount, logSearchEvent, updateFilter]
   );
 
   const renderRFQCard = useCallback(
@@ -2803,6 +2855,7 @@ function RFQList() {
       <div className="pull-indicator" style={{ height: `${pullDistance}px` }}>
         {pullDistance > 0 ? <span className="spinner" /> : null}
       </div>
+      <LoadingOverlay visible={showLoadingOverlay} />
 
       {locationWarning && !showLocationModal ? <div className="location-error-box">{locationWarning}</div> : null}
 

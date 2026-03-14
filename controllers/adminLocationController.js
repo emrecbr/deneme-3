@@ -245,8 +245,18 @@ export const listLocationIssues = async (req, res, next) => {
 
     const locationDataMissing = await RFQ.find({
       $or: [
-        { 'locationData.city': { $exists: false } },
-        { 'locationData.district': { $exists: false } }
+        {
+          $and: [
+            { $or: [{ 'locationData.city': { $exists: false } }, { 'locationData.city': null }] },
+            { $or: [{ city: { $exists: false } }, { city: null }, { city: '' }] }
+          ]
+        },
+        {
+          $and: [
+            { $or: [{ 'locationData.district': { $exists: false } }, { 'locationData.district': null }] },
+            { $or: [{ district: { $exists: false } }, { district: null }, { district: '' }] }
+          ]
+        }
       ]
     })
       .limit(limit)
@@ -267,18 +277,24 @@ export const fixLocationIssue = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'RFQ not found.' });
     }
     const { cityId, districtId, latitude, longitude } = req.body || {};
+    const locationData = { ...(rfq.locationData || {}) };
+    let touchedCity = false;
+    let touchedDistrict = false;
+
     if (cityId && mongoose.isValidObjectId(cityId)) {
       rfq.city = cityId;
       const cityDoc = await City.findById(cityId).select('name').lean();
       if (cityDoc?.name) {
-        rfq.locationData = { ...(rfq.locationData || {}), city: cityDoc.name };
+        locationData.city = cityDoc.name;
+        touchedCity = true;
       }
     }
     if (districtId && mongoose.isValidObjectId(districtId)) {
       rfq.district = districtId;
       const districtDoc = await District.findById(districtId).select('name').lean();
       if (districtDoc?.name) {
-        rfq.locationData = { ...(rfq.locationData || {}), district: districtDoc.name };
+        locationData.district = districtDoc.name;
+        touchedDistrict = true;
       }
     }
     if (latitude !== undefined && longitude !== undefined) {
@@ -287,6 +303,31 @@ export const fixLocationIssue = async (req, res, next) => {
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         rfq.location = { type: 'Point', coordinates: [lng, lat] };
       }
+    }
+
+    if (rfq.city && !touchedCity && !locationData.city) {
+      if (mongoose.isValidObjectId(rfq.city)) {
+        const cityDoc = await City.findById(rfq.city).select('name').lean();
+        if (cityDoc?.name) {
+          locationData.city = cityDoc.name;
+        }
+      } else if (typeof rfq.city === 'string' && rfq.city.trim()) {
+        locationData.city = rfq.city.trim();
+      }
+    }
+    if (rfq.district && !touchedDistrict && !locationData.district) {
+      if (mongoose.isValidObjectId(rfq.district)) {
+        const districtDoc = await District.findById(rfq.district).select('name').lean();
+        if (districtDoc?.name) {
+          locationData.district = districtDoc.name;
+        }
+      } else if (typeof rfq.district === 'string' && rfq.district.trim()) {
+        locationData.district = rfq.district.trim();
+      }
+    }
+
+    if (locationData.city || locationData.district) {
+      rfq.locationData = locationData;
     }
     await rfq.save();
     await logAdminAction(req, 'location_issue_fix', { rfqId: rfq._id });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -10,12 +11,15 @@ const formatDate = (value) => {
 };
 
 export default function AdminUserList({ defaultStatus = '' }) {
+  const { user: currentUser } = useAuth();
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
   const [filters, setFilters] = useState({ q: '', role: '', status: defaultStatus });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -48,11 +52,25 @@ export default function AdminUserList({ defaultStatus = '' }) {
     return () => {
       active = false;
     };
-  }, [queryParams]);
+  }, [queryParams, refreshKey]);
 
   const onFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
+  };
+
+  const deleteUser = async (userId) => {
+    if (currentUser?.role !== 'admin') return;
+    const confirmDelete = window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem kullanıcıyı pasife alır.');
+    if (!confirmDelete) return;
+    setActionMessage('');
+    try {
+      await api.patch(`/admin/users/${userId}/delete`);
+      setActionMessage('Kullanıcı silindi (pasif).');
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      setActionMessage(err?.response?.data?.message || 'Kullanıcı silinemedi.');
+    }
   };
 
   return (
@@ -66,20 +84,23 @@ export default function AdminUserList({ defaultStatus = '' }) {
             value={filters.q}
             onChange={(event) => onFilterChange('q', event.target.value)}
           />
-          <input
-            className="admin-input"
-            placeholder="Rol (buyer/supplier/admin/moderator)"
-            value={filters.role}
-            onChange={(event) => onFilterChange('role', event.target.value)}
-          />
-          <input
-            className="admin-input"
-            placeholder="Durum (active/passive/blocked)"
-            value={filters.status}
-            onChange={(event) => onFilterChange('status', event.target.value)}
-          />
+          <select className="admin-input" value={filters.role} onChange={(event) => onFilterChange('role', event.target.value)}>
+            <option value="">Rol (tümü)</option>
+            <option value="buyer">buyer</option>
+            <option value="supplier">supplier</option>
+            <option value="user">user</option>
+            <option value="moderator">moderator</option>
+            <option value="admin">admin</option>
+          </select>
+          <select className="admin-input" value={filters.status} onChange={(event) => onFilterChange('status', event.target.value)}>
+            <option value="">Durum (tümü)</option>
+            <option value="active">active</option>
+            <option value="passive">passive</option>
+            <option value="blocked">blocked</option>
+          </select>
         </div>
 
+        {actionMessage ? <div className="admin-muted">{actionMessage}</div> : null}
         {error ? <div className="admin-error">{error}</div> : null}
         {loading ? (
           <div className="admin-empty">Yükleniyor…</div>
@@ -93,6 +114,7 @@ export default function AdminUserList({ defaultStatus = '' }) {
               <div>Rol</div>
               <div>Durum</div>
               <div>Son giriş</div>
+              <div></div>
               <div></div>
             </div>
             {items.map((user) => (
@@ -108,6 +130,16 @@ export default function AdminUserList({ defaultStatus = '' }) {
                   <Link to={`/admin/users/${user._id}`} className="admin-link">
                     Detay
                   </Link>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    className="admin-btn"
+                    onClick={() => deleteUser(user._id)}
+                    disabled={currentUser?.role !== 'admin'}
+                  >
+                    Sil
+                  </button>
                 </div>
               </div>
             ))}

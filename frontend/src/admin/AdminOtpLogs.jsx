@@ -1,12 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/axios';
 
+const EVENT_LABELS = {
+  otp_send: 'OTP gönderimi',
+  otp_verify: 'OTP doğrulama',
+  login_otp_send: 'Giriş OTP gönderimi',
+  login_otp_verify: 'Giriş OTP doğrulama',
+  register_otp_send: 'Kayıt OTP gönderimi',
+  register_otp_verify: 'Kayıt OTP doğrulama',
+  phone_otp_send: 'Telefon OTP gönderimi',
+  phone_otp_verify: 'Telefon OTP doğrulama'
+};
+
+const STATUS_LABELS = {
+  success: 'Başarılı',
+  failed: 'Başarısız'
+};
+
 const formatDate = (value) => {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('tr-TR');
 };
+
+const formatEvent = (value) => EVENT_LABELS[value] || value || '—';
+const formatStatus = (value) => STATUS_LABELS[value] || value || '—';
 
 export default function AdminOtpLogs() {
   const [items, setItems] = useState([]);
@@ -60,9 +79,18 @@ export default function AdminOtpLogs() {
       <div className="admin-panel-title">OTP Logları</div>
       <div className="admin-panel-body">
         <div className="admin-filter-grid">
-          <input className="admin-input" placeholder="Event (otp_send, otp_verify, login_otp_send)" value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }} />
-          <input className="admin-input" placeholder="Target ara" value={target} onChange={(e) => { setTarget(e.target.value); setPage(1); }} />
-          <input className="admin-input" placeholder="Status (success/failed)" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} />
+          <select className="admin-input" value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }}>
+            <option value="">İşlem türü</option>
+            {Object.keys(EVENT_LABELS).map((key) => (
+              <option key={key} value={key}>{EVENT_LABELS[key]}</option>
+            ))}
+          </select>
+          <input className="admin-input" placeholder="Hedef ara (email)" value={target} onChange={(e) => { setTarget(e.target.value); setPage(1); }} />
+          <select className="admin-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+            <option value="">Durum</option>
+            <option value="success">Başarılı</option>
+            <option value="failed">Başarısız</option>
+          </select>
           <input className="admin-input" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
           <input className="admin-input" type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
         </div>
@@ -76,10 +104,12 @@ export default function AdminOtpLogs() {
             {items.map((item) => (
               <li key={item._id}>
                 <div>
-                  <strong>{item.event}</strong>
-                  <span className="admin-muted">{item.status}</span>
-                  <span className="admin-muted">{item.maskedTarget || item.target}</span>
+                  <strong>{formatEvent(item.event)}</strong>
+                  <span className="admin-muted">{formatStatus(item.status)}</span>
+                  <span className="admin-muted">{item.maskedTarget || item.target || '—'}</span>
+                  {item.provider ? <span className="admin-muted">{item.provider}</span> : null}
                 </div>
+                {item.errorMessage ? <div className="admin-error">{item.errorMessage}</div> : null}
                 <span className="admin-muted">{formatDate(item.createdAt)}</span>
               </li>
             ))}

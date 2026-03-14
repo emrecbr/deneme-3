@@ -119,3 +119,49 @@ export const adminLogout = async (req, res, next) => {
     return next(error);
   }
 };
+
+export const changeAdminPassword = async (req, res, next) => {
+  try {
+    const adminId = req.admin?.id;
+    const currentPassword = req.body?.currentPassword;
+    const newPassword = req.body?.newPassword;
+
+    if (!adminId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Mevcut şifre ve yeni şifre zorunludur.' });
+    }
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, message: 'Yeni şifre en az 8 karakter olmalıdır.' });
+    }
+
+    const user = await User.findById(adminId).select('+password');
+    if (!user || !user.password) {
+      return res.status(404).json({ success: false, message: 'Admin bulunamadı.' });
+    }
+    if (!ALLOWED_ROLES.has(user.role)) {
+      return res.status(403).json({ success: false, message: 'Admin yetkisi gerekli.' });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Mevcut şifre hatalı.' });
+    }
+
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      return res.status(400).json({ success: false, message: 'Yeni şifre eski şifre ile aynı olamaz.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    await logAdminAction(req, user, 'admin_password_change');
+
+    return res.status(200).json({ success: true, requireReauth: true });
+  } catch (error) {
+    return next(error);
+  }
+};

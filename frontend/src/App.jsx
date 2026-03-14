@@ -36,6 +36,7 @@ const AdminReportsOverview = lazy(() => import('./admin/AdminReportsOverview'));
 const AdminReportsExports = lazy(() => import('./admin/AdminReportsExports'));
 const AdminPermissions = lazy(() => import('./admin/AdminPermissions'));
 const AdminAdmins = lazy(() => import('./admin/AdminAdmins'));
+const AdminChangePassword = lazy(() => import('./admin/AdminChangePassword'));
 import AdminProtectedRoute from './admin/AdminProtectedRoute';
 import PrivateRoute from './components/PrivateRoute';
 import api from './api/axios';
@@ -235,6 +236,7 @@ function App() {
         <Route path="system/maintenance" element={<AdminMaintenance />} />
         <Route path="admins" element={<AdminAdmins />} />
         <Route path="roles" element={<AdminPermissions />} />
+        <Route path="account/password" element={<AdminChangePassword />} />
         <Route path="reports/overview" element={<AdminReportsOverview />} />
         <Route path="reports/exports" element={<AdminReportsExports />} />
         <Route path="audit" element={<AdminAuditLog />} />

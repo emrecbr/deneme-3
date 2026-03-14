@@ -196,3 +196,22 @@ export const addAdminUserNote = async (req, res, next) => {
     return next(error);
   }
 };
+
+export const deleteAdminUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
+    }
+
+    user.isDeleted = true;
+    user.isActive = false;
+    await user.save();
+
+    await logAdminAction(req, 'user_delete', { userId: user._id });
+
+    return res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    return next(error);
+  }
+};

@@ -115,6 +115,10 @@ const MENU_SECTIONS = [
       { label: 'Roller ve Yetkiler', to: '/admin/roles' },
       { label: 'Audit Log', to: '/admin/audit' }
     ]
+  },
+  {
+    title: 'Hesap',
+    items: [{ label: 'Şifre Değiştir', to: '/admin/account/password' }]
   }
 ];
 

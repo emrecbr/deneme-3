@@ -8,6 +8,66 @@ const formatDate = (value) => {
   return date.toLocaleString('tr-TR');
 };
 
+const ACTION_LABELS = {
+  admin_login: 'Admin giriş',
+  admin_logout: 'Admin çıkış',
+  admin_password_change: 'Şifre değiştirildi',
+  user_status_update: 'Kullanıcı durumu güncellendi',
+  user_role_update: 'Kullanıcı rolü güncellendi',
+  user_note_create: 'Kullanıcı notu eklendi',
+  user_delete: 'Kullanıcı pasife alındı',
+  rfq_update: 'RFQ güncellendi',
+  rfq_status_update: 'RFQ durumu güncellendi',
+  rfq_bulk_status_update: 'RFQ toplu durum güncellendi',
+  rfq_moderation_update: 'RFQ moderasyon güncellendi',
+  category_create: 'Kategori oluşturuldu',
+  category_update: 'Kategori güncellendi',
+  search_suggestion_create: 'Arama önerisi oluşturuldu',
+  search_suggestion_update: 'Arama önerisi güncellendi',
+  city_create: 'Şehir oluşturuldu',
+  city_update: 'Şehir güncellendi',
+  district_create: 'İlçe oluşturuldu',
+  district_update: 'İlçe güncellendi',
+  location_issue_fix: 'Konum sorunu düzeltildi',
+  radius_settings_update: 'Yarıçap ayarları güncellendi',
+  settings_feature_flags_update: 'Feature flag güncellendi',
+  settings_maintenance_update: 'Bakım modu güncellendi',
+  settings_map_update: 'Harita ayarları güncellendi',
+  content_update: 'İçerik güncellendi',
+  permission_denied: 'Yetki reddedildi',
+  export_data: 'Export alındı'
+};
+
+const getModuleLabel = (action) => {
+  if (!action) return '—';
+  if (action.startsWith('rfq_')) return 'RFQ';
+  if (action.startsWith('user_')) return 'Kullanıcı';
+  if (action.startsWith('category_')) return 'Kategori';
+  if (action.startsWith('search_suggestion')) return 'Arama';
+  if (action.startsWith('city_')) return 'Şehir';
+  if (action.startsWith('district_')) return 'İlçe';
+  if (action.startsWith('location_') || action.startsWith('radius_')) return 'Konum';
+  if (action.startsWith('settings_')) return 'Sistem';
+  if (action.startsWith('content_')) return 'İçerik';
+  if (action.startsWith('admin_')) return 'Admin';
+  if (action.startsWith('export_')) return 'Rapor';
+  return '—';
+};
+
+const summarizeMeta = (meta) => {
+  if (!meta) return '';
+  if (meta.rfqId) return `RFQ #${String(meta.rfqId).slice(-6)}`;
+  if (meta.userId) return `Kullanıcı #${String(meta.userId).slice(-6)}`;
+  if (meta.categoryId) return `Kategori #${String(meta.categoryId).slice(-6)}`;
+  if (meta.cityId) return `Şehir #${String(meta.cityId).slice(-6)}`;
+  if (meta.districtId) return `İlçe #${String(meta.districtId).slice(-6)}`;
+  if (meta.suggestionId) return `Öneri #${String(meta.suggestionId).slice(-6)}`;
+  if (meta.status) return `Durum: ${meta.status}`;
+  if (meta.role) return `Rol: ${meta.role}`;
+  if (meta.path) return `Yol: ${meta.path}`;
+  return '';
+};
+
 export default function AdminAuditLog() {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -117,10 +177,12 @@ export default function AdminAuditLog() {
               {items.map((item) => (
                 <li key={item._id}>
                   <div>
-                    <strong>{item.action}</strong>
+                    <strong>{ACTION_LABELS[item.action] || item.action}</strong>
+                    <span className="admin-muted">{getModuleLabel(item.action)}</span>
                     <span className="admin-muted">{item.role || '-'}</span>
                     {item.adminId ? <span className="admin-muted">#{String(item.adminId).slice(-6)}</span> : null}
-                    {item.meta ? <span className="admin-muted">{JSON.stringify(item.meta)}</span> : null}
+                    {summarizeMeta(item.meta) ? <span className="admin-muted">{summarizeMeta(item.meta)}</span> : null}
+                    <span className="admin-muted">{item.action}</span>
                   </div>
                   <span className="admin-muted">{formatDate(item.createdAt)}</span>
                 </li>

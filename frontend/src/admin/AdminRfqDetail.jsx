@@ -131,10 +131,23 @@ export default function AdminRfqDetail() {
 
   const meta = useMemo(() => {
     if (!rfq) return null;
+    const category = rfq.category;
+    let categoryLabel = 'Kategori bulunamadı';
+    if (category && typeof category === 'object') {
+      const name = category.name || '';
+      if (category.parent?.name && name) {
+        categoryLabel = `${category.parent.name} > ${name}`;
+      } else if (name) {
+        categoryLabel = name;
+      }
+    } else if (typeof category === 'string' && category.trim()) {
+      categoryLabel = 'Kategori bulunamadı';
+    }
     return {
       buyerEmail: rfq.buyer?.email || '—',
       city: rfq.city?.name || rfq.locationData?.city || '—',
-      district: rfq.district?.name || rfq.locationData?.district || '—'
+      district: rfq.district?.name || rfq.locationData?.district || '—',
+      category: categoryLabel
     };
   }, [rfq]);
 
@@ -167,6 +180,10 @@ export default function AdminRfqDetail() {
             <div className="admin-muted">Şehir / İlçe</div>
             <div>{meta?.city} / {meta?.district}</div>
           </div>
+          <div>
+            <div className="admin-muted">Kategori</div>
+            <div>{meta?.category}</div>
+          </div>
         </div>
 
         <div className="admin-form-grid">
@@ -179,8 +196,8 @@ export default function AdminRfqDetail() {
             <textarea className="admin-textarea" rows="4" value={form.description} onChange={(e) => onFormChange('description', e.target.value)} />
           </label>
           <label>
-            Kategori ID
-            <input className="admin-input" value={form.categoryId} onChange={(e) => onFormChange('categoryId', e.target.value)} />
+            Kategori
+            <input className="admin-input" value={meta?.category || 'Kategori bulunamadı'} readOnly />
           </label>
           <label>
             Şehir ID

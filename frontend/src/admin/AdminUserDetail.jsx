@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +12,7 @@ const formatDate = (value) => {
 
 export default function AdminUserDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,6 +99,20 @@ export default function AdminUserDetail() {
     }
   };
 
+  const deleteUser = async () => {
+    if (currentUser?.role !== 'admin') return;
+    const confirmDelete = window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem kullanıcıyı pasife alır.');
+    if (!confirmDelete) return;
+    setActionMessage('');
+    try {
+      await api.patch(`/admin/users/${id}/delete`);
+      setActionMessage('Kullanıcı silindi (pasif).');
+      navigate('/admin/users');
+    } catch (err) {
+      setActionMessage(err?.response?.data?.message || 'Kullanıcı silinemedi.');
+    }
+  };
+
   if (loading) {
     return <div className="admin-empty">Yükleniyor…</div>;
   }
@@ -157,6 +172,9 @@ export default function AdminUserDetail() {
           <button type="button" className="admin-btn" onClick={updateStatus}>Durumu Güncelle</button>
           <button type="button" className="admin-btn" onClick={updateRole} disabled={currentUser?.role !== 'admin'}>
             Rolü Güncelle
+          </button>
+          <button type="button" className="admin-btn" onClick={deleteUser} disabled={currentUser?.role !== 'admin'}>
+            Kullanıcıyı Sil
           </button>
           {actionMessage ? <span className="admin-muted">{actionMessage}</span> : null}
         </div>

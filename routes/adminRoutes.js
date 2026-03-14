@@ -15,7 +15,8 @@ import {
   getAdminUser,
   updateAdminUserStatus,
   updateAdminUserRole,
-  addAdminUserNote
+  addAdminUserNote,
+  deleteAdminUser
 } from '../controllers/adminUserController.js';
 import { listAdminAuditLogs } from '../controllers/adminAuditController.js';
 import {
@@ -76,6 +77,7 @@ router.get('/users/:id', adminRoleMiddleware, getAdminUser);
 router.patch('/users/:id/status', adminRoleMiddleware, updateAdminUserStatus);
 router.patch('/users/:id/role', adminRoleMiddleware, requireAdminOnly, updateAdminUserRole);
 router.post('/users/:id/notes', adminRoleMiddleware, addAdminUserNote);
+router.patch('/users/:id/delete', adminRoleMiddleware, requireAdminOnly, deleteAdminUser);
 
 router.get('/audit', adminRoleMiddleware, listAdminAuditLogs);
 
