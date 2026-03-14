@@ -2318,6 +2318,8 @@ function RFQList() {
     };
   }, []);
 
+  const normalizeSearch = useCallback((value) => String(value || '').toLowerCase().trim(), []);
+
   const saveSearchHistory = useCallback((next) => {
     setSearchHistory(next);
     localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(next));
@@ -2589,8 +2591,6 @@ function RFQList() {
     setCategoryLabel('');
     setIsCategoryModalOpen(false);
   }, [updateFilter]);
-
-  const normalizeSearch = useCallback((value) => String(value || '').toLowerCase().trim(), []);
 
   const activeParentName = useMemo(() => {
     const selectedId = String(filters.category || '');
