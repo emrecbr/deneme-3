@@ -2,9 +2,29 @@ import nodemailer from 'nodemailer';
 
 const getEnv = (key, fallback = '') => (process.env[key] || fallback).trim();
 
+const maskSensitive = (text, values) => {
+  if (!text) return text;
+  let masked = String(text);
+  values.forEach((val) => {
+    if (!val) return;
+    const safe = String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    masked = masked.replace(new RegExp(safe, 'g'), '***');
+  });
+  return masked;
+};
+
+const parseFrom = (value) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(.*)<([^>]+)>$/);
+  if (match) {
+    return { name: match[1].trim().replace(/"$/g, '').replace(/^"/g, ''), email: match[2].trim() };
+  }
+  return { name: 'Talepet', email: raw };
+};
+
 let verifiedOnce = false;
 
-const logEmailFail = (error) => {
+const logEmailFail = (error, meta = {}) => {
   const payload = {
     code: error?.code,
     responseCode: error?.responseCode,
@@ -13,7 +33,10 @@ const logEmailFail = (error) => {
     name: error?.name,
     hostname: error?.hostname,
     syscall: error?.syscall,
-    errno: error?.errno
+    errno: error?.errno,
+    provider: meta.provider,
+    host: meta.host,
+    port: meta.port
   };
   console.error('EMAIL_SEND_FAIL', payload);
 };
@@ -22,6 +45,7 @@ const resolveSmtpConfig = () => {
   const sendgridKey = getEnv('SENDGRID_API_KEY');
   if (sendgridKey) {
     return {
+      provider: 'sendgrid',
       host: 'smtp.sendgrid.net',
       port: 587,
       secure: false,
@@ -34,11 +58,23 @@ const resolveSmtpConfig = () => {
   const user = getEnv('BREVO_SMTP_USER');
   const pass = getEnv('BREVO_SMTP_PASS');
   return {
+    provider: 'brevo',
     host,
     port,
     secure: port === 465,
     auth: user && pass ? { user, pass } : null
   };
+};
+
+const resolveApiProvider = () => {
+  const provider = getEnv('EMAIL_PROVIDER');
+  if (provider === 'sendgrid_api') {
+    return { provider, apiKey: getEnv('SENDGRID_API_KEY') };
+  }
+  if (provider === 'brevo_api') {
+    return { provider, apiKey: getEnv('BREVO_API_KEY') };
+  }
+  return { provider: '' };
 };
 
 export const makeMailer = () => {
@@ -98,8 +134,9 @@ export const sendOtpEmail = async ({ to, code }) => {
       }
       return { id: 'mock', status: 'mocked' };
     }
-    const mailer = makeMailer();
-    const from = getEnv('MAIL_FROM', getEnv('EMAIL_FROM', 'Talepet <noreply@talepet.net.tr>'));
+
+    const fromRaw = getEnv('MAIL_FROM', getEnv('EMAIL_FROM', 'Talepet <noreply@talepet.net.tr>'));
+    const from = parseFrom(fromRaw);
     const text = `Doğrulama kodun: ${code}\nKod 5 dakika geçerlidir.`;
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">
@@ -110,15 +147,116 @@ export const sendOtpEmail = async ({ to, code }) => {
       </div>
     `;
 
+    const apiConfig = resolveApiProvider();
+    if (apiConfig.provider === 'brevo_api') {
+      if (!apiConfig.apiKey) {
+        const error = new Error('Brevo API key eksik.');
+        error.code = 'CONFIG_MISSING_BREVO_API';
+        error.statusCode = 501;
+        throw error;
+      }
+      const url = 'https://api.brevo.com/v3/smtp/email';
+      const controller = new AbortController();
+      const timeoutMs = Number(getEnv('EMAIL_SEND_TIMEOUT_MS', '15000')) || 15000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'api-key': apiConfig.apiKey
+          },
+          body: JSON.stringify({
+            sender: { name: from.name || 'Talepet', email: from.email },
+            to: [{ email: to }],
+            subject: 'Talepet doğrulama kodun',
+            textContent: text,
+            htmlContent: html
+          }),
+          signal: controller.signal
+        });
+        const rawText = await response.text();
+        if (!response.ok) {
+          console.error('EMAIL_SEND_FAIL', {
+            provider: 'brevo_api',
+            httpStatus: response.status,
+            bodyPreview: maskSensitive(rawText, [apiConfig.apiKey]).slice(0, 1200)
+          });
+          const error = new Error('Email gönderilemedi.');
+          error.code = 'EMAIL_SEND_FAIL';
+          error.statusCode = 502;
+          throw error;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      return { provider: 'brevo_api', status: 'sent' };
+    }
+
+    if (apiConfig.provider === 'sendgrid_api') {
+      if (!apiConfig.apiKey) {
+        const error = new Error('SendGrid API key eksik.');
+        error.code = 'CONFIG_MISSING_SENDGRID_API';
+        error.statusCode = 501;
+        throw error;
+      }
+      const url = 'https://api.sendgrid.com/v3/mail/send';
+      const controller = new AbortController();
+      const timeoutMs = Number(getEnv('EMAIL_SEND_TIMEOUT_MS', '15000')) || 15000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiConfig.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: to }] }],
+            from: { email: from.email, name: from.name || 'Talepet' },
+            subject: 'Talepet doğrulama kodun',
+            content: [
+              { type: 'text/plain', value: text },
+              { type: 'text/html', value: html }
+            ]
+          }),
+          signal: controller.signal
+        });
+        const rawText = await response.text();
+        if (!response.ok) {
+          console.error('EMAIL_SEND_FAIL', {
+            provider: 'sendgrid_api',
+            httpStatus: response.status,
+            bodyPreview: maskSensitive(rawText, [apiConfig.apiKey]).slice(0, 1200)
+          });
+          const error = new Error('Email gönderilemedi.');
+          error.code = 'EMAIL_SEND_FAIL';
+          error.statusCode = 502;
+          throw error;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      return { provider: 'sendgrid_api', status: 'sent' };
+    }
+
+    const mailerConfig = resolveSmtpConfig();
+    const mailer = makeMailer();
     await mailer.sendMail({
-      from,
+      from: `${from.name || 'Talepet'} <${from.email}>`,
       to,
       subject: 'Talepet doğrulama kodun',
       text,
       html
     });
   } catch (error) {
-    logEmailFail(error);
+    const apiConfig = resolveApiProvider();
+    if (apiConfig.provider) {
+      logEmailFail(error, { provider: apiConfig.provider, host: 'api', port: 'https' });
+    } else {
+      const mailerConfig = resolveSmtpConfig();
+      logEmailFail(error, { provider: mailerConfig.provider, host: mailerConfig.host, port: mailerConfig.port });
+    }
     const err = new Error('Email gönderilemedi.');
     err.code = error?.code || 'EMAIL_SEND_FAIL';
     err.statusCode = error?.statusCode || 502;

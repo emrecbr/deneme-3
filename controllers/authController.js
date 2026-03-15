@@ -410,6 +410,14 @@ export const sendRegisterOtp = async (req, res) => {
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const now = new Date();
 
+    if (method === 'email') {
+      await sendOtpEmail({ to: target, code });
+      await logAuthEvent({ channel: 'email', event: 'register_otp_send', status: 'success', target });
+    } else {
+      await sendOtpSms({ phone: target, code });
+      await logAuthEvent({ channel: 'sms', event: 'register_otp_send', status: 'success', target });
+    }
+
     await Otp.deleteMany({ channel: method, target });
     await Otp.create({
       channel: method,
@@ -418,14 +426,6 @@ export const sendRegisterOtp = async (req, res) => {
       expiresAt,
       lastSentAt: now
     });
-
-    if (method === 'email') {
-      await sendOtpEmail({ to: target, code });
-      await logAuthEvent({ channel: 'email', event: 'register_otp_send', status: 'success', target });
-    } else {
-      await sendOtpSms({ phone: target, code });
-      await logAuthEvent({ channel: 'sms', event: 'register_otp_send', status: 'success', target });
-    }
 
     return res.json({ ok: true, message: 'Kod gönderildi' });
   } catch (error) {
@@ -443,8 +443,19 @@ export const sendRegisterOtp = async (req, res) => {
       errorMessage: error?.message || 'REGISTER_OTP_SEND_FAIL',
       provider: error?.provider
     });
-    if (String(error?.code || '').startsWith('EMAIL')) {
-      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
+    if (
+      String(error?.code || '').startsWith('EMAIL') ||
+      String(error?.code || '').startsWith('CONFIG_MISSING') ||
+      error?.code === 'ETIMEDOUT' ||
+      error?.code === 'ECONNREFUSED'
+    ) {
+      console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail, code: error?.code });
+      if (error?.code === 'ETIMEDOUT' || error?.code === 'ECONNREFUSED') {
+        return res.status(502).json({ ok: false, message: 'E-posta sağlayıcısına bağlanılamadı. Lütfen daha sonra tekrar deneyin.' });
+      }
+      if (String(error?.code || '').startsWith('CONFIG_MISSING')) {
+        return res.status(502).json({ ok: false, message: 'E-posta servis ayarları eksik. Lütfen destek ile iletişime geçin.' });
+      }
       return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
     }
     if (error?.code === 'TWILIO_TRIAL_UNVERIFIED') {
