@@ -1,7 +1,13 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
+import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
+import PaymentMethod from '../models/PaymentMethod.js';
+import AdminAuditLog from '../models/AdminAuditLog.js';
 
 const router = express.Router();
 
@@ -27,12 +33,45 @@ const isValidPassword = (value) => {
   return text.length >= 3 && /[A-Z]/.test(text) && /[0-9]/.test(text) && /[^A-Za-z0-9]/.test(text);
 };
 
+const uploadDir = path.resolve('uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    cb(null, `avatar-${Date.now()}-${file.originalname}`);
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error('Geçersiz dosya tipi. Sadece JPG/PNG/WEBP.'));
+  }
+});
+
+const normalizeName = (value) => String(value || '').trim();
+
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('firstName lastName phone email name');
+    const user = await User.findById(req.user.id).select(
+      'firstName lastName phone email name avatarUrl listingQuotaWindowStart listingQuotaWindowEnd listingQuotaUsedFree paidListingCredits paymentProvider paymentMethod'
+    );
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanici bulunamadi' });
     }
+    const settings = await getListingQuotaSettings();
+    const quota = getListingQuotaSnapshot(user, settings);
     return res.status(200).json({
       success: true,
       data: {
@@ -40,7 +79,11 @@ router.get('/me', authMiddleware, async (req, res) => {
         lastName: user.lastName || '',
         phone: user.phone || '',
         email: user.email || '',
-        name: user.name || ''
+        name: user.name || '',
+        avatarUrl: user.avatarUrl || '',
+        listingQuota: quota,
+        paymentMethod: user.paymentMethod || null,
+        paymentProvider: user.paymentProvider || null
       }
     });
   } catch (_error) {
@@ -48,10 +91,123 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/me/listing-quota', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      'listingQuotaWindowStart listingQuotaWindowEnd listingQuotaUsedFree paidListingCredits'
+    );
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanici bulunamadi' });
+    }
+    const settings = await getListingQuotaSettings();
+    const quota = getListingQuotaSnapshot(user, settings);
+    return res.status(200).json({ success: true, data: quota });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Sunucu hatasi' });
+  }
+});
+
+router.get('/me/payment-methods', authMiddleware, async (req, res) => {
+  try {
+    const methods = await PaymentMethod.find({ user: req.user.id, isDeleted: { $ne: true } })
+      .sort({ isDefault: -1, createdAt: -1 })
+      .lean();
+    return res.status(200).json({ success: true, items: methods });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Ödeme yöntemleri alınamadı.' });
+  }
+});
+
+router.patch('/me/payment-methods/:id/default', authMiddleware, async (req, res) => {
+  try {
+    const method = await PaymentMethod.findOne({ _id: req.params.id, user: req.user.id, isDeleted: { $ne: true } });
+    if (!method) {
+      return res.status(404).json({ success: false, message: 'Ödeme yöntemi bulunamadı.' });
+    }
+    await PaymentMethod.updateMany({ user: req.user.id }, { $set: { isDefault: false } });
+    method.isDefault = true;
+    await method.save();
+
+    await User.findByIdAndUpdate(req.user.id, {
+      paymentProvider: method.provider,
+      paymentMethod: {
+        brand: method.brand || '',
+        last4: method.last4 || '',
+        expMonth: method.expMonth || '',
+        expYear: method.expYear || '',
+        holderName: method.holderName || ''
+      }
+    });
+
+    try {
+      await AdminAuditLog.create({
+        adminId: req.user?.id || null,
+        role: 'user',
+        action: 'payment_method_set_default',
+        meta: { methodId: method._id }
+      });
+    } catch (_error) {
+      // ignore audit
+    }
+
+    return res.status(200).json({ success: true, data: method });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Ödeme yöntemi güncellenemedi.' });
+  }
+});
+
+router.delete('/me/payment-methods/:id', authMiddleware, async (req, res) => {
+  try {
+    const method = await PaymentMethod.findOne({ _id: req.params.id, user: req.user.id, isDeleted: { $ne: true } });
+    if (!method) {
+      return res.status(404).json({ success: false, message: 'Ödeme yöntemi bulunamadı.' });
+    }
+    method.isDeleted = true;
+    method.isDefault = false;
+    await method.save();
+
+    const nextDefault = await PaymentMethod.findOne({ user: req.user.id, isDeleted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .lean();
+    await PaymentMethod.updateMany({ user: req.user.id }, { $set: { isDefault: false } });
+    if (nextDefault) {
+      await PaymentMethod.findByIdAndUpdate(nextDefault._id, { isDefault: true });
+      await User.findByIdAndUpdate(req.user.id, {
+        paymentProvider: nextDefault.provider,
+        paymentMethod: {
+          brand: nextDefault.brand || '',
+          last4: nextDefault.last4 || '',
+          expMonth: nextDefault.expMonth || '',
+          expYear: nextDefault.expYear || '',
+          holderName: nextDefault.holderName || ''
+        }
+      });
+    } else {
+      await User.findByIdAndUpdate(req.user.id, { paymentMethod: null, paymentProvider: '' });
+    }
+
+    try {
+      await AdminAuditLog.create({
+        adminId: req.user?.id || null,
+        role: 'user',
+        action: 'payment_method_remove',
+        meta: { methodId: method._id }
+      });
+    } catch (_error) {
+      // ignore audit
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Ödeme yöntemi silinemedi.' });
+  }
+});
+
 router.patch('/me', authMiddleware, async (req, res) => {
   try {
     const firstName = String(req.body?.firstName || '').trim();
     const lastName = String(req.body?.lastName || '').trim();
+    const name = normalizeName(req.body?.name);
     const email = String(req.body?.email || '').trim().toLowerCase();
     const phoneInput = req.body?.phone || '';
     const phoneNormalized = normalizePhone(phoneInput);
@@ -76,6 +232,12 @@ router.patch('/me', authMiddleware, async (req, res) => {
       user.email = email;
     }
 
+    if (name) {
+      if (name.length < 2 || name.length > 60) {
+        return res.status(400).json({ success: false, message: 'İsim 2-60 karakter olmalı.' });
+      }
+      user.name = name;
+    }
     if (firstName) {
       user.firstName = firstName;
     }
@@ -86,7 +248,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
       user.phone = phoneNormalized.value || '';
     }
 
-    if (firstName || lastName) {
+    if (!name && (firstName || lastName)) {
       const combined = `${firstName} ${lastName}`.trim();
       if (combined) {
         user.name = combined;
@@ -101,11 +263,45 @@ router.patch('/me', authMiddleware, async (req, res) => {
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         phone: user.phone || '',
-        email: user.email || ''
+        email: user.email || '',
+        name: user.name || '',
+        avatarUrl: user.avatarUrl || ''
       }
     });
   } catch (_error) {
     return res.status(500).json({ success: false, message: 'Guncelleme basarisiz' });
+  }
+});
+
+router.post('/me/avatar', authMiddleware, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Dosya bulunamadı.' });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanici bulunamadi' });
+    }
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    user.avatarUrl = avatarUrl;
+    await user.save();
+    return res.status(200).json({ success: true, data: { avatarUrl } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error?.message || 'Avatar güncellenemedi.' });
+  }
+});
+
+router.delete('/me/avatar', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanici bulunamadi' });
+    }
+    user.avatarUrl = '';
+    await user.save();
+    return res.status(200).json({ success: true, data: { avatarUrl: '' } });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Avatar kaldırılamadı.' });
   }
 });
 

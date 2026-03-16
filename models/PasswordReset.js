@@ -37,6 +37,10 @@ const passwordResetSchema = new mongoose.Schema(
     attempts: {
       type: Number,
       default: 0
+    },
+    lastSentAt: {
+      type: Date,
+      default: null
     }
   },
   {

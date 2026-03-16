@@ -149,6 +149,16 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, [checkAuth]);
 
+  const updateUser = useCallback((nextUser) => {
+    setUser((prev) => {
+      const merged = { ...(prev || {}), ...(nextUser || {}) };
+      if (merged?.name) {
+        localStorage.setItem('userName', merged.name);
+      }
+      return merged;
+    });
+  }, []);
+
   useEffect(() => {
     setUnauthorizedHandler(() => {
       logout({ redirect: true });
@@ -201,6 +211,7 @@ export function AuthProvider({ children }) {
       loginWithEmail,
       requestOtp,
       verifyOtp,
+      updateUser,
       logout,
       checkAuth,
       retryAuth,
@@ -216,6 +227,7 @@ export function AuthProvider({ children }) {
       loginWithEmail,
       requestOtp,
       verifyOtp,
+      updateUser,
       logout,
       networkError,
       retryAuth,

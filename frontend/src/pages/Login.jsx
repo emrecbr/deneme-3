@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { API_BASE_URL } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
-    .trim()
-    .replace(/\/$/, '');
+  const apiBase = API_BASE_URL;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState('login');
   const [activeTab, setActiveTab] = useState('email');
@@ -21,6 +19,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotLink, setShowForgotLink] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -109,6 +108,7 @@ function Login() {
     setPassword('');
     setError('');
     setLoading(false);
+    setShowForgotLink(false);
   };
 
   const openSheet = (mode) => {
@@ -189,6 +189,7 @@ function Login() {
         setError('Bağlantı yok');
       } else if (status === 401) {
         setError('Şifre hatalı');
+        setShowForgotLink(true);
       } else if (status === 429) {
         setError('Çok fazla deneme');
       } else if (status >= 500) {
@@ -256,10 +257,6 @@ function Login() {
             Kayıt Ol
           </button>
         </div>
-
-        <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
-          Şifremi unuttum
-        </button>
       </div>
 
       <ReusableBottomSheet
@@ -386,6 +383,11 @@ function Login() {
           ) : null}
 
           {error ? <div className="auth-alert">{error}</div> : null}
+          {showForgotLink ? (
+            <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
+              Şifremi unuttum
+            </button>
+          ) : null}
 
           <button
             type="submit"

@@ -20,6 +20,33 @@ const ACTION_LABELS = {
   rfq_status_update: 'RFQ durumu güncellendi',
   rfq_bulk_status_update: 'RFQ toplu durum güncellendi',
   rfq_moderation_update: 'RFQ moderasyon güncellendi',
+  rfq_restore: 'RFQ yeniden yayına alındı',
+  rfq_delete: 'RFQ kaldırıldı',
+  listing_expiry_setting_update: 'İlan yayın süresi güncellendi',
+  listing_expired: 'RFQ süresi doldu',
+  listing_quota_settings_update: 'İlan kotası güncellendi',
+  listing_quota_reset: 'İlan kotası sıfırlandı',
+  listing_quota_limit_reached: 'İlan kotası doldu',
+  listing_paid_create_started: 'Ek ilan ödemesi başlatıldı',
+  listing_paid_create_success: 'Ek ilan ödemesi başarılı',
+  listing_paid_create_failed: 'Ek ilan ödemesi başarısız',
+  payment_method_add: 'Ödeme yöntemi eklendi',
+  payment_method_remove: 'Ödeme yöntemi kaldırıldı',
+  payment_method_set_default: 'Ödeme yöntemi varsayılan',
+  moderation_rule_create: 'Moderasyon kuralı eklendi',
+  moderation_rule_update: 'Moderasyon kuralı güncellendi',
+  moderation_rule_delete: 'Moderasyon kuralı silindi',
+  moderation_attempt_review: 'Moderasyon denemesi incelendi',
+  moderation_block: 'İçerik engellendi',
+  moderation_block_advanced: 'İçerik engellendi (ileri)',
+  moderation_review_required: 'Moderasyon inceleme',
+  moderation_risk_user_flag: 'Riskli kullanıcı işaretlendi',
+  moderation_rule_toggle: 'Moderasyon ayarları güncellendi',
+  moderation_override: 'Moderasyon override',
+  monetization_plan_create: 'Paket oluşturuldu',
+  monetization_plan_update: 'Paket güncellendi',
+  monetization_plan_toggle: 'Paket görünürlüğü güncellendi',
+  admin_test_push: 'Test bildirimi gönderildi',
   category_create: 'Kategori oluşturuldu',
   category_update: 'Kategori güncellendi',
   search_suggestion_create: 'Arama önerisi oluşturuldu',
@@ -35,7 +62,9 @@ const ACTION_LABELS = {
   settings_map_update: 'Harita ayarları güncellendi',
   content_update: 'İçerik güncellendi',
   permission_denied: 'Yetki reddedildi',
-  export_data: 'Export alındı'
+  export_data: 'Export alındı',
+  report_status_update: 'Bildirim durumu güncellendi',
+  report_note_add: 'Bildirim notu eklendi'
 };
 
 const getModuleLabel = (action) => {
@@ -47,10 +76,14 @@ const getModuleLabel = (action) => {
   if (action.startsWith('city_')) return 'Şehir';
   if (action.startsWith('district_')) return 'İlçe';
   if (action.startsWith('location_') || action.startsWith('radius_')) return 'Konum';
+  if (action.startsWith('listing_')) return 'İlan';
+  if (action.startsWith('monetization_')) return 'Paket';
+  if (action.startsWith('moderation_')) return 'Moderasyon';
   if (action.startsWith('settings_')) return 'Sistem';
   if (action.startsWith('content_')) return 'İçerik';
   if (action.startsWith('admin_')) return 'Admin';
   if (action.startsWith('export_')) return 'Rapor';
+  if (action.startsWith('report_')) return 'Sorun Bildirimi';
   return '—';
 };
 
@@ -62,6 +95,7 @@ const summarizeMeta = (meta) => {
   if (meta.cityId) return `Şehir #${String(meta.cityId).slice(-6)}`;
   if (meta.districtId) return `İlçe #${String(meta.districtId).slice(-6)}`;
   if (meta.suggestionId) return `Öneri #${String(meta.suggestionId).slice(-6)}`;
+  if (meta.reportId) return `Bildirim #${String(meta.reportId).slice(-6)}`;
   if (meta.status) return `Durum: ${meta.status}`;
   if (meta.role) return `Rol: ${meta.role}`;
   if (meta.path) return `Yol: ${meta.path}`;

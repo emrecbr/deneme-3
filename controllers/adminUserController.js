@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import AdminNote from '../models/AdminNote.js';
+import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
 
 const normalize = (value) => String(value || '').trim();
 const parsePage = (value) => Math.max(Number.parseInt(value, 10) || 1, 1);
@@ -101,7 +102,10 @@ export const getAdminUser = async (req, res, next) => {
       .limit(20)
       .lean();
 
-    return res.status(200).json({ success: true, data: user, rfqs, notes });
+    const settings = await getListingQuotaSettings();
+    const quota = getListingQuotaSnapshot(user, settings);
+
+    return res.status(200).json({ success: true, data: user, rfqs, notes, quota });
   } catch (error) {
     return next(error);
   }

@@ -6,6 +6,7 @@ const statusLabels = {
   open: 'Yayında',
   closed: 'Pasif',
   awarded: 'Ödüllendi',
+  expired: 'Süresi Doldu',
   pending: 'Moderasyon',
   waiting: 'Moderasyon',
   draft: 'Taslak',

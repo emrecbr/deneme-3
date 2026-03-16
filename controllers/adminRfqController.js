@@ -4,6 +4,7 @@ import AdminAuditLog from '../models/AdminAuditLog.js';
 import Category from '../models/Category.js';
 import City from '../models/City.js';
 import District from '../models/District.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs, computeExpiresAt } from '../src/utils/rfqExpiry.js';
 
 const normalize = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalize(value).toLowerCase();
@@ -91,6 +92,7 @@ export const listAdminRfqs = async (req, res, next) => {
     const limit = parseLimit(req.query.limit);
     const q = normalize(req.query.q || req.query.search);
     const status = normalize(req.query.status);
+    const includeExpired = normalize(req.query.includeExpired) === 'true';
     const userId = normalize(req.query.userId || req.query.buyerId);
     const createdFrom = req.query.createdFrom;
     const createdTo = req.query.createdTo;
@@ -101,7 +103,12 @@ export const listAdminRfqs = async (req, res, next) => {
     const flagged = normalize(req.query.flagged);
     const followUp = normalize(req.query.followUp);
 
-    const query = {};
+    const query = { isDeleted: { $ne: true } };
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+
     if (status === 'pending') {
       query.status = 'open';
       query.moderationStatus = 'pending';
@@ -145,6 +152,10 @@ export const listAdminRfqs = async (req, res, next) => {
     if (categoryFilter) Object.assign(query, categoryFilter);
     if (cityFilter) Object.assign(query, cityFilter);
     if (districtFilter) Object.assign(query, districtFilter);
+
+    if (!includeExpired && status !== 'expired') {
+      applyExpiryFilter(query, now);
+    }
 
     const [items, total] = await Promise.all([
       RFQ.find(query)
@@ -221,6 +232,9 @@ export const getAdminRfq = async (req, res, next) => {
       .lean();
 
     if (!rfq) {
+      return res.status(404).json({ success: false, message: 'RFQ not found.' });
+    }
+    if (rfq.isDeleted) {
       return res.status(404).json({ success: false, message: 'RFQ not found.' });
     }
 
@@ -301,7 +315,7 @@ export const updateAdminRfqStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'status zorunlu.' });
     }
 
-    if (!['open', 'closed', 'awarded'].includes(nextStatus)) {
+    if (!['open', 'closed', 'awarded', 'expired'].includes(nextStatus)) {
       return res.status(400).json({ success: false, message: 'Geçersiz status.' });
     }
 
@@ -310,7 +324,13 @@ export const updateAdminRfqStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'RFQ not found.' });
     }
 
+    const prevStatus = rfq.status;
     rfq.status = nextStatus;
+    if (nextStatus === 'expired') {
+      rfq.expiredAt = new Date();
+    } else if (prevStatus === 'expired') {
+      rfq.expiredAt = null;
+    }
     rfq.statusUpdatedBy = req.admin?.id || null;
     rfq.statusUpdatedAt = new Date();
     if (note !== undefined) {
@@ -340,7 +360,7 @@ export const bulkUpdateRfqStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'ids ve status zorunlu.' });
     }
 
-    if (!['open', 'closed', 'awarded'].includes(nextStatus)) {
+    if (!['open', 'closed', 'awarded', 'expired'].includes(nextStatus)) {
       return res.status(400).json({ success: false, message: 'Geçersiz status.' });
     }
 
@@ -349,13 +369,22 @@ export const bulkUpdateRfqStatus = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Geçerli RFQ id bulunamadı.' });
     }
 
+    const updatePayload = {
+      status: nextStatus,
+      statusUpdatedBy: req.admin?.id || null,
+      statusUpdatedAt: new Date()
+    };
+    if (nextStatus === 'expired') {
+      updatePayload.expiredAt = new Date();
+    } else {
+      updatePayload.expiredAt = null;
+    }
+
     const result = await RFQ.updateMany(
       { _id: { $in: objectIds } },
       {
         $set: {
-          status: nextStatus,
-          statusUpdatedBy: req.admin?.id || null,
-          statusUpdatedAt: new Date()
+          ...updatePayload
         }
       }
     );
@@ -408,6 +437,88 @@ export const updateAdminRfqModeration = async (req, res, next) => {
     });
 
     return res.status(200).json({ success: true, data: rfq });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const listExpiredRfqs = async (req, res, next) => {
+  try {
+    const page = parsePage(req.query.page);
+    const limit = parseLimit(req.query.limit);
+    const q = normalize(req.query.q || req.query.search);
+    const query = {
+      status: 'expired',
+      isDeleted: { $ne: true }
+    };
+    if (q) {
+      query.$or = [
+        { title: new RegExp(q, 'i') },
+        { description: new RegExp(q, 'i') }
+      ];
+    }
+    const [items, total] = await Promise.all([
+      RFQ.find(query)
+        .sort({ expiredAt: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('buyer', 'name email role')
+        .populate('category', 'name slug parent')
+        .lean(),
+      RFQ.countDocuments(query)
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: page * limit < total
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const restoreExpiredRfq = async (req, res, next) => {
+  try {
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) {
+      return res.status(404).json({ success: false, message: 'RFQ not found.' });
+    }
+    if (rfq.isDeleted) {
+      return res.status(400).json({ success: false, message: 'RFQ silinmiş.' });
+    }
+    const listingExpiryDays = await getListingExpiryDays();
+    rfq.status = 'open';
+    rfq.expiredAt = null;
+    rfq.expiresAt = computeExpiresAt(new Date(), listingExpiryDays);
+    rfq.statusUpdatedBy = req.admin?.id || null;
+    rfq.statusUpdatedAt = new Date();
+    await rfq.save();
+    await logAdminAction(req, 'rfq_restore', { rfqId: rfq._id });
+    return res.status(200).json({ success: true, data: rfq });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const deleteExpiredRfq = async (req, res, next) => {
+  try {
+    const rfq = await RFQ.findById(req.params.id);
+    if (!rfq) {
+      return res.status(404).json({ success: false, message: 'RFQ not found.' });
+    }
+    rfq.isDeleted = true;
+    rfq.deletedAt = new Date();
+    rfq.statusUpdatedBy = req.admin?.id || null;
+    rfq.statusUpdatedAt = new Date();
+    await rfq.save();
+    await logAdminAction(req, 'rfq_delete', { rfqId: rfq._id });
+    return res.status(200).json({ success: true });
   } catch (error) {
     return next(error);
   }

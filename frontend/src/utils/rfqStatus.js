@@ -38,7 +38,7 @@ export function isClosedRequest(rfq) {
     return false;
   }
   const status = String(rfq.status || '').toLowerCase();
-  return Boolean(status && ['closed', 'cancelled', 'canceled', 'selected', 'awarded', 'done'].includes(status));
+  return Boolean(status && ['closed', 'cancelled', 'canceled', 'selected', 'awarded', 'done', 'expired'].includes(status));
 }
 
 export function isExpiredRequest(rfq, now = Date.now()) {

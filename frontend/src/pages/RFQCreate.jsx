@@ -39,6 +39,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [priceText, setPriceText] = useState('');
   const [priceValue, setPriceValue] = useState(null);
   const [checkoutLoading, setCheckoutLoading] = useState('');
+  const [monetizationPlans, setMonetizationPlans] = useState([]);
   const [cityQuery, setCityQuery] = useState('');
   const [districtQuery, setDistrictQuery] = useState('');
   const [neighborhoodQuery, setNeighborhoodQuery] = useState('');
@@ -65,10 +66,28 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [carBrandSheetOpen, setCarBrandSheetOpen] = useState(false);
   const [carModelSheetOpen, setCarModelSheetOpen] = useState(false);
   const [carVariantSheetOpen, setCarVariantSheetOpen] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [quotaError, setQuotaError] = useState('');
+  const [extraPaymentLoading, setExtraPaymentLoading] = useState(false);
   const isEdit = mode === 'edit';
   const premiumActive = Boolean(
     user?.isPremium && (!user?.premiumUntil || new Date(user.premiumUntil) > new Date())
   );
+  const premiumPlan = useMemo(
+    () => monetizationPlans.find((plan) => plan.key === 'premium_listing') || null,
+    [monetizationPlans]
+  );
+  const featuredPlan = useMemo(
+    () => monetizationPlans.find((plan) => plan.key === 'featured_listing') || null,
+    [monetizationPlans]
+  );
+  const premiumMonthlyCode = premiumPlan?.metadata?.planCodes?.monthly || 'premium_monthly';
+  const premiumYearlyCode = premiumPlan?.metadata?.planCodes?.yearly || 'premium_yearly';
+  const featuredMonthlyCode = featuredPlan?.metadata?.planCodes?.monthly || 'featured_monthly';
+  const featuredYearlyCode = featuredPlan?.metadata?.planCodes?.yearly || 'featured_yearly';
+  const premiumModes = premiumPlan?.billingModes || ['monthly', 'yearly'];
+  const featuredModes = featuredPlan?.billingModes || ['monthly', 'yearly'];
   const hasUnsavedChanges = useMemo(() => {
     return Boolean(
       form.title ||
@@ -148,6 +167,43 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       }
     }
   }, [initialData, isEdit]);
+
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        const response = await api.get('/app/monetization/plans');
+        setMonetizationPlans(response.data?.items || []);
+      } catch (_error) {
+        setMonetizationPlans([]);
+      }
+    };
+    loadPlans();
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) {
+      return;
+    }
+    let active = true;
+    const loadQuota = async () => {
+      try {
+        setQuotaLoading(true);
+        const res = await api.get('/users/me/listing-quota');
+        if (!active) return;
+        setQuotaInfo(res.data?.data || null);
+        setQuotaError('');
+      } catch (err) {
+        if (!active) return;
+        setQuotaError(err?.response?.data?.message || 'Kota bilgisi alınamadı.');
+      } finally {
+        if (active) setQuotaLoading(false);
+      }
+    };
+    loadQuota();
+    return () => {
+      active = false;
+    };
+  }, [isEdit]);
 
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
@@ -779,6 +835,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       if (!submitError?.response) {
         setError('Sunucuya bağlanılamadı');
         showToast('Sunucuya bağlanılamadı');
+      } else if (status === 402 && code === 'LISTING_QUOTA_REACHED') {
+        setError(message || 'Ücretsiz ilan hakkınız doldu.');
+        showToast(message || 'Ücretsiz ilan hakkınız doldu.');
+        if (submitError?.response?.data?.data) {
+          setQuotaInfo(submitError.response.data.data);
+        }
+      } else if (status === 422 && code === 'MODERATION_REVIEW') {
+        setError(message || 'İçeriğiniz incelemeye alındı.');
+        showToast(message || 'İçeriğiniz incelemeye alındı.');
       } else if (status === 400 || status === 422) {
         setError(message || 'Geçersiz bilgi');
         showToast(message || 'Geçersiz bilgi');
@@ -864,6 +929,23 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     }
   };
 
+  const handleExtraListingPayment = async () => {
+    try {
+      setExtraPaymentLoading(true);
+      const response = await api.post('/billing/listing-extra/checkout');
+      const url = response.data?.checkoutUrl;
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (requestError) {
+      const message = requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+      setError(message);
+      showToast(message);
+    } finally {
+      setExtraPaymentLoading(false);
+    }
+  };
+
   return (
     <div className="page">
       <div className="card">
@@ -876,6 +958,46 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
             <span key={dot} className={`wizard-dot ${step === dot ? 'active' : ''}`} />
           ))}
         </div>
+        {!isEdit ? (
+          <div className="quota-card">
+            {quotaLoading ? (
+              <div className="quota-muted">Kota bilgisi yükleniyor…</div>
+            ) : quotaError ? (
+              <div className="quota-error">{quotaError}</div>
+            ) : quotaInfo ? (
+              <>
+                <div className="quota-row">
+                  <strong>Kalan ücretsiz ilan hakkı:</strong>
+                  <span>
+                    {quotaInfo.remainingFree}/{quotaInfo.maxFree}
+                  </span>
+                </div>
+                <div className="quota-row">
+                  <span>Bu dönem bitiş:</span>
+                  <span>{quotaInfo.windowEnd ? new Date(quotaInfo.windowEnd).toLocaleDateString('tr-TR') : 'İlk ilanla başlar'}</span>
+                </div>
+                {quotaInfo.remainingFree === 0 ? (
+                  <div className="quota-alert">
+                    <div>Bu dönem için ücretsiz ilan hakkınız doldu.</div>
+                    {quotaInfo.extraEnabled ? (
+                      <div className="quota-pay">
+                        <span>Ek ilan ücreti: {quotaInfo.extraPrice} {quotaInfo.currency}</span>
+                        <button type="button" className="secondary-btn" onClick={handleExtraListingPayment} disabled={extraPaymentLoading}>
+                          {extraPaymentLoading ? 'Ödeme başlatılıyor…' : 'Ek ilan için ödeme yap'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>Ek ilan özelliği şu an kapalı.</div>
+                    )}
+                  </div>
+                ) : null}
+                {Number(quotaInfo.paidListingCredits || 0) > 0 ? (
+                  <div className="quota-muted">Ücretli ilan hakkınız: {quotaInfo.paidListingCredits}</div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
         <form onSubmit={handleSubmit}>
           {step === 1 ? (
             <>
@@ -1243,36 +1365,58 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                 <div className="premium-cta-card">
                   <div className="premium-cta-header">
                     <strong>Premium ile daha fazla görünür ol</strong>
-                    <span>Aylik / Yillik abone ol</span>
+                    <span>
+                      {premiumPlan
+                        ? `${premiumPlan.monthlyPrice} ${premiumPlan.currency}/ay · ${premiumPlan.yearlyPrice} ${premiumPlan.currency}/yıl`
+                        : 'Aylik / Yillik abone ol'}
+                    </span>
                   </div>
                   <div className="premium-cta-actions">
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      onClick={() => handleCheckout('premium_monthly')}
-                      disabled={checkoutLoading === 'premium_monthly'}
-                    >
-                      {checkoutLoading === 'premium_monthly' ? 'Yonlendiriliyor...' : 'Aylik Abone Ol'}
-                    </button>
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      onClick={() => handleCheckout('premium_yearly')}
-                      disabled={checkoutLoading === 'premium_yearly'}
-                    >
-                      {checkoutLoading === 'premium_yearly' ? 'Yonlendiriliyor...' : 'Yillik Abone Ol'}
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-btn"
-                      onClick={() => handleCheckout('featured_one_time')}
-                      disabled={checkoutLoading === 'featured_one_time'}
-                    >
-                      {checkoutLoading === 'featured_one_time' ? 'Yonlendiriliyor...' : 'Öne Çıkanlar (Tek Seferlik)'}
-                    </button>
+                    {premiumModes.includes('monthly') ? (
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => handleCheckout(premiumMonthlyCode)}
+                        disabled={checkoutLoading === premiumMonthlyCode}
+                      >
+                        {checkoutLoading === premiumMonthlyCode ? 'Yonlendiriliyor...' : 'Aylik Abone Ol'}
+                      </button>
+                    ) : null}
+                    {premiumModes.includes('yearly') ? (
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => handleCheckout(premiumYearlyCode)}
+                        disabled={checkoutLoading === premiumYearlyCode}
+                      >
+                        {checkoutLoading === premiumYearlyCode ? 'Yonlendiriliyor...' : 'Yillik Abone Ol'}
+                      </button>
+                    ) : null}
+                    {featuredPlan && featuredModes.includes('monthly') ? (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => handleCheckout(featuredMonthlyCode)}
+                        disabled={checkoutLoading === featuredMonthlyCode}
+                      >
+                        {checkoutLoading === featuredMonthlyCode ? 'Yonlendiriliyor...' : 'Aylik Öne Çıkar'}
+                      </button>
+                    ) : null}
+                    {featuredPlan && featuredModes.includes('yearly') ? (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => handleCheckout(featuredYearlyCode)}
+                        disabled={checkoutLoading === featuredYearlyCode}
+                      >
+                        {checkoutLoading === featuredYearlyCode ? 'Yonlendiriliyor...' : 'Yillik Öne Çıkar'}
+                      </button>
+                    ) : null}
                   </div>
                   <small className="input-helper">
-                    Tek seferlik: ilanını öne çıkarma kredisi alırsın.
+                    {featuredPlan
+                      ? featuredPlan.shortDescription || 'Öne çıkarma kredisi satın al.'
+                      : 'Öne çıkarma kredisi satın al.'}
                   </small>
                 </div>
               ) : (

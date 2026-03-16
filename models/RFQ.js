@@ -31,6 +31,16 @@ const rfqSchema = new mongoose.Schema(
     expiresAt: {
       type: Date
     },
+    expiredAt: {
+      type: Date
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedAt: {
+      type: Date
+    },
     location: {
       type: {
         type: String,
@@ -85,7 +95,7 @@ const rfqSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['open', 'closed', 'awarded'],
+      enum: ['open', 'closed', 'awarded', 'expired'],
       default: 'open'
     },
     statusUpdatedBy: {

@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import Offer from '../models/Offer.js';
+import { checkModeration } from '../src/utils/moderation.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import Chat from '../models/Chat.js';
 import { emitToRoom } from '../config/socket.js';
+import { sendPushToUser } from '../src/services/pushNotificationService.js';
 
 const offerRoutes = Router();
 const UPDATABLE_STATUSES = ['sent', 'viewed', 'countered'];
@@ -130,6 +132,29 @@ const acceptOffer = async (req, res, next) => {
         }
       }
     ]);
+
+    await sendPushToUser({
+      userId: offer.supplier,
+      type: 'offer_accepted',
+      payload: {
+        rfqId: rfq._id.toString(),
+        offerId: offer._id.toString(),
+        chatId: chat?._id?.toString?.() || null
+      },
+      title: 'Teklif kabul edildi',
+      body: `${rfq.title} talebindeki teklifiniz kabul edildi.`
+    });
+    await sendPushToUser({
+      userId: rfq.buyer,
+      type: 'offer_accepted',
+      payload: {
+        rfqId: rfq._id.toString(),
+        offerId: offer._id.toString(),
+        chatId: chat?._id?.toString?.() || null
+      },
+      title: 'Teklif kabul edildi',
+      body: `${rfq.title} talebindeki teklif kabul edildi.`
+    });
 
     const offerAcceptedPayload = {
       offerId: offer._id.toString(),
@@ -295,6 +320,16 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
       });
     }
 
+    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+      rfq.status = 'expired';
+      rfq.expiredAt = rfq.expiredAt || new Date();
+      await rfq.save();
+      return res.status(410).json({
+        success: false,
+        message: 'İlan süresi doldu.'
+      });
+    }
+
     if (rfq.status !== 'open') {
       return res.status(400).json({
         success: false,
@@ -319,6 +354,29 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
           message: 'Acik arttirma modunda teklif mevcut en iyi tekliften dusuk olmali.'
         });
       }
+    }
+
+    const moderationResult = await checkModeration({
+      userId: req.user.id,
+      contentType: 'offer',
+      title: rfq.title,
+      description: message,
+      sourceRoute: 'offer_create',
+      sourceId: rfq._id
+    });
+    if (moderationResult.decision === 'review') {
+      return res.status(422).json({
+        success: false,
+        code: 'MODERATION_REVIEW',
+        message: 'İçeriğiniz incelemeye alındı. Kurallara uygunluğunu kontrol edin.'
+      });
+    }
+    if (moderationResult.blocked) {
+      return res.status(422).json({
+        success: false,
+        code: 'MODERATION_BLOCKED',
+        message: 'İçeriğiniz topluluk kurallarına uygun olmadığı için gönderilemedi.'
+      });
     }
 
     const existingActiveOffer = await Offer.findOne({
@@ -364,6 +422,18 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
         offerId: offer._id,
         supplierId: offer.supplier
       }
+    });
+
+    await sendPushToUser({
+      userId: rfq.buyer,
+      type: 'offer_received',
+      payload: {
+        rfqId: rfq._id.toString(),
+        offerId: offer._id.toString(),
+        supplierId: offer.supplier.toString()
+      },
+      title: 'Yeni teklif',
+      body: `${rfq.title} talebine yeni bir teklif verildi.`
     });
 
     emitToRoom(`user:${rfq.buyer.toString()}`, 'newOffer', {
@@ -488,6 +558,28 @@ offerRoutes.patch('/:offerId', authMiddleware, async (req, res, next) => {
 
     const nextNote = typeof note === 'string' ? note : typeof message === 'string' ? message : null;
     if (nextNote !== null) {
+      const moderationResult = await checkModeration({
+        userId: req.user.id,
+        contentType: 'offer',
+        title: rfq.title,
+        description: nextNote,
+        sourceRoute: 'offer_update',
+        sourceId: rfq._id
+      });
+      if (moderationResult.decision === 'review') {
+        return res.status(422).json({
+          success: false,
+          code: 'MODERATION_REVIEW',
+          message: 'İçeriğiniz incelemeye alındı. Kurallara uygunluğunu kontrol edin.'
+        });
+      }
+      if (moderationResult.blocked) {
+        return res.status(422).json({
+          success: false,
+          code: 'MODERATION_BLOCKED',
+          message: 'İçeriğiniz topluluk kurallarına uygun olmadığı için güncellenemedi.'
+        });
+      }
       offer.message = nextNote;
     }
     if (Number.isFinite(Number(quantity)) && Number(quantity) > 0) {

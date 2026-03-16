@@ -8,12 +8,16 @@ export const setUnauthorizedHandler = (handler) => {
 
 const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 const DEV_FALLBACK = 'http://localhost:3001/api';
-export const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : '');
+const PROD_FALLBACK = '/api';
+const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
+export const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
 
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
 } else if (!ENV_API_BASE) {
-  console.warn('VITE_API_URL missing in prod build; API calls are disabled.');
+  console.warn('VITE_API_URL missing in prod build; falling back to same-origin /api.');
+} else if (isLocalhost(ENV_API_BASE)) {
+  console.warn('VITE_API_URL is localhost in prod build; this will likely fail.');
 }
 
 const api = axios.create({
@@ -21,9 +25,6 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (!API_BASE_URL && !import.meta.env.DEV) {
-    return Promise.reject(new Error('VITE_API_URL missing in prod build.'));
-  }
   const token = localStorage.getItem('token');
 
   config.headers = config.headers || {};

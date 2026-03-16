@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import User from '../models/User.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import Otp from '../models/Otp.js';
+import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
 import { sendOtpEmail } from '../src/services/email.js';
 import { sendOtpSms } from '../src/services/sms.js';
 import PhoneOtp from '../models/PhoneOtp.js';
@@ -715,7 +716,7 @@ export const oauthAppleCallback = async (_req, res) => {
 export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select(
-      '_id name firstName lastName phone email role city isPremium premiumUntil trustScore totalCompletedDeals positiveReviews negativeReviews isOnboardingCompleted featuredCredits'
+      '_id name firstName lastName phone email role city isPremium premiumUntil trustScore totalCompletedDeals positiveReviews negativeReviews isOnboardingCompleted featuredCredits avatarUrl listingQuotaWindowStart listingQuotaWindowEnd listingQuotaUsedFree paidListingCredits paymentProvider paymentMethod'
     );
     if (!user) {
       return res.status(404).json({
@@ -723,6 +724,9 @@ export const getMe = async (req, res, next) => {
         message: 'User not found.'
       });
     }
+
+    const settings = await getListingQuotaSettings();
+    const quota = getListingQuotaSnapshot(user, settings);
 
     return res.status(200).json({
       user: {
@@ -741,7 +745,11 @@ export const getMe = async (req, res, next) => {
         positiveReviews: Number(user.positiveReviews || 0),
         negativeReviews: Number(user.negativeReviews || 0),
         isOnboardingCompleted: Boolean(user.isOnboardingCompleted),
-        featuredCredits: Number(user.featuredCredits || 0)
+        featuredCredits: Number(user.featuredCredits || 0),
+        avatarUrl: user.avatarUrl || '',
+        listingQuota: quota,
+        paymentMethod: user.paymentMethod || null,
+        paymentProvider: user.paymentProvider || null
       }
     });
   } catch (error) {

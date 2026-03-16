@@ -3,6 +3,7 @@ import AdminAuditLog from '../models/AdminAuditLog.js';
 import RFQ from '../models/RFQ.js';
 import City from '../models/City.js';
 import { haversineDistanceKm } from '../src/utils/geoDistance.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 
 const DEFAULT_MAP_SETTINGS = {
   mapViewEnabled: true,
@@ -78,10 +79,16 @@ export const runMapTest = async (req, res, next) => {
     const cityId = String(req.query.cityId || '').trim();
     const districtId = String(req.query.districtId || '').trim();
 
-    const query = {};
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+
+    const query = { isDeleted: { $ne: true } };
     if (categoryId) query.category = categoryId;
     if (cityId) query.city = cityId;
     if (districtId) query.district = districtId;
+    applyExpiryFilter(query, now);
 
     let rfqs = await RFQ.find(query)
       .populate('city', 'name')

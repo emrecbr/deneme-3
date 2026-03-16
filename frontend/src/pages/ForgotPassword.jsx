@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
@@ -26,6 +26,13 @@ function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState('');
   const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const canSend = useMemo(() => {
+    if (loading) return false;
+    if (method === 'email') return isValidEmail(normalizeEmail(email));
+    return Boolean(toE164TR(phoneDigits));
+  }, [loading, method, email, phoneDigits]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -40,7 +47,9 @@ function ForgotPassword() {
       try {
         setLoading(true);
         await api.post('/auth/password/forgot', { method: 'email', email: em });
-        setInfo('Eğer hesap varsa talimatlar gönderildi.');
+        setInfo('Eğer hesap varsa doğrulama kodu gönderildi.');
+        setSent(true);
+        navigate(`/reset-password?method=email&email=${encodeURIComponent(em)}`);
       } catch (requestError) {
         setError(requestError?.response?.data?.message || requestError?.message || 'Talimatlar gönderilemedi.');
       } finally {
@@ -57,7 +66,9 @@ function ForgotPassword() {
     try {
       setLoading(true);
       await api.post('/auth/password/forgot', { method: 'sms', phone: e164 });
-      setInfo('Eğer hesap varsa talimatlar gönderildi.');
+      setInfo('Eğer hesap varsa doğrulama kodu gönderildi.');
+      setSent(true);
+      navigate(`/reset-password?method=sms&phone=${encodeURIComponent(e164)}`);
     } catch (requestError) {
       if (requestError?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
         setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
@@ -143,8 +154,8 @@ function ForgotPassword() {
           {error ? <div className="auth-alert">{error}</div> : null}
           {info ? <div className="auth-alert">{info}</div> : null}
 
-          <button type="submit" className="primary-btn" disabled={loading}>
-            {loading ? 'Gönderiliyor...' : 'Sıfırlama Gönder'}
+          <button type="submit" className="primary-btn" disabled={!canSend}>
+            {loading ? 'Gönderiliyor...' : sent ? 'Kodu Tekrar Gönder' : 'Kod Gönder'}
           </button>
         </form>
 

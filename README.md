@@ -118,6 +118,17 @@ curl -X POST http://localhost:3001/api/auth/password/forgot \
 ### Şifre Sıfırlama Başlat (SMS)
 
 ```
+
+## Bildirim (OneSignal) - Post-Launch TODO
+
+Bu repo temel OneSignal push altyapisini içerir. Yayina cikis sonrasi yapilacaklar:
+
+1. Gelişmiş bildirim tercih ekranı (kullanıcı segmentleri + detaylı kategoriler)
+2. Segment/journey bazlı kampanya gonderimi
+3. In-app messaging ve template yönetimi
+4. Gelişmiş analytics (open/click oranı) ve dashboard
+5. Identity verification sertleştirmeleri
+6. Detaylı deep link senaryoları
 curl -X POST http://localhost:3001/api/auth/password/forgot \
   -H "Content-Type: application/json" \
   -d '{"method":"sms","phone":"+905551112233"}'

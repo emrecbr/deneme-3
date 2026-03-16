@@ -6,6 +6,7 @@ import { getProductSchema } from '../lib/rfqProductSchemas';
 import { triggerHaptic } from '../utils/haptic';
 import RFQCreate from './RFQCreate';
 import OfferSheet from '../components/OfferSheet';
+import ReportIssueSheet from '../components/ReportIssueSheet';
 
 function RFQDetail() {
   const navigate = useNavigate();
@@ -54,6 +55,8 @@ function RFQDetail() {
   const [counterForm, setCounterForm] = useState({ price: '', note: '' });
   const [counterOfferId, setCounterOfferId] = useState(null);
   const [featureLoading, setFeatureLoading] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [monetizationPlans, setMonetizationPlans] = useState([]);
   const OFFER_UPDATABLE = ['sent', 'viewed', 'countered'];
   const OFFER_FINAL = ['accepted', 'rejected', 'withdrawn', 'completed'];
   const currentUserId = currentUser?.id || currentUser?._id || null;
@@ -61,6 +64,22 @@ function RFQDetail() {
   const isOwner = useMemo(() => idEq(rfq?.buyer, currentUserId), [currentUserId, rfq?.buyer]);
   const isBuyer = isOwner;
   const isSeller = Boolean(currentUserId && !isBuyer);
+  const canReport = Boolean(currentUserId && rfq && !isOwner);
+  const featuredPlan = useMemo(
+    () => monetizationPlans.find((plan) => plan.key === 'featured_listing') || null,
+    [monetizationPlans]
+  );
+  const featuredModes = featuredPlan?.billingModes || ['monthly', 'yearly'];
+  const featuredPlanCode = useMemo(() => {
+    if (!featuredPlan) return 'featured_monthly';
+    if (featuredModes.includes('monthly')) {
+      return featuredPlan.metadata?.planCodes?.monthly || 'featured_monthly';
+    }
+    if (featuredModes.includes('yearly')) {
+      return featuredPlan.metadata?.planCodes?.yearly || 'featured_yearly';
+    }
+    return featuredPlan.metadata?.planCodes?.monthly || 'featured_monthly';
+  }, [featuredModes, featuredPlan]);
 
   const fetchRFQ = async () => {
     try {
@@ -87,6 +106,24 @@ function RFQDetail() {
       setUserLoading(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    const fetchPlans = async () => {
+      try {
+        const response = await api.get('/app/monetization/plans');
+        if (!active) return;
+        setMonetizationPlans(response.data?.items || []);
+      } catch (_error) {
+        if (!active) return;
+        setMonetizationPlans([]);
+      }
+    };
+    fetchPlans();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchMyOffer = async () => {
     if (!id || !currentUserId) {
@@ -725,7 +762,12 @@ function RFQDetail() {
 
   const handlePurchaseFeatured = async () => {
     try {
-      const response = await api.post('/billing/checkout', { planCode: 'featured_one_time' });
+      if (!featuredPlanCode) {
+        setChatToast('Öne çıkarma paketi bulunamadı.');
+        window.setTimeout(() => setChatToast(''), 3000);
+        return;
+      }
+      const response = await api.post('/billing/checkout', { planCode: featuredPlanCode });
       const url = response.data?.checkoutUrl;
       if (url) {
         window.location.href = url;
@@ -838,15 +880,26 @@ function RFQDetail() {
             ) : null}
 
             {!isOwner ? (
-              <button
-                type="button"
-                className="primary-btn offer-submit-btn"
-                onClick={() => handleStartChat(buyerId)}
-                disabled={chatStarting || !supplierOffer}
-                title={!supplierOffer ? 'Once teklif ver' : undefined}
-              >
-                {chatStarting ? 'Aciliyor...' : 'Sohbet Et'}
-              </button>
+              <div className="detail-actions-row">
+                <button
+                  type="button"
+                  className="primary-btn offer-submit-btn"
+                  onClick={() => handleStartChat(buyerId)}
+                  disabled={chatStarting || !supplierOffer}
+                  title={!supplierOffer ? 'Once teklif ver' : undefined}
+                >
+                  {chatStarting ? 'Aciliyor...' : 'Sohbet Et'}
+                </button>
+                {canReport ? (
+                  <button
+                    type="button"
+                    className="secondary-btn report-trigger-btn"
+                    onClick={() => setReportOpen(true)}
+                  >
+                    Sorun Bildir
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </section>
 
@@ -1171,6 +1224,22 @@ function RFQDetail() {
             }
             submitting={submitting}
             isAuction={rfq?.isAuction}
+          />
+
+          <ReportIssueSheet
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            sourceType="rfq"
+            sourceId={rfq?._id}
+            relatedRfqId={rfq?._id}
+            relatedRfqTitle={rfq?.title}
+            reportedUserId={buyerId}
+            reportedUserLabel={
+              typeof rfq?.buyer === 'object'
+                ? rfq?.buyer?.name || rfq?.buyer?.email || 'İlan sahibi'
+                : 'İlan sahibi'
+            }
+            defaultRoleRelation="owner"
           />
 
           {chatToast ? <div className="results-toast show">{chatToast}</div> : null}

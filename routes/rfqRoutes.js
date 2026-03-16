@@ -11,7 +11,11 @@ import RFQ from '../models/RFQ.js';
 import Chat from '../models/Chat.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
+import AdminAuditLog from '../models/AdminAuditLog.js';
 import { emitToRoom } from '../config/socket.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
+import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
+import { checkModeration } from '../src/utils/moderation.js';
 
 const rfqRoutes = Router();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
@@ -23,6 +27,7 @@ const cleanText = (value) => {
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, next) => {
+  let quotaConsumption = null;
   try {
     if (!req.user?.id) {
       return res.status(401).json({
@@ -39,7 +44,6 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       targetPrice,
       deadline,
       isAuction,
-      expiresAt,
       longitude,
       latitude,
       location,
@@ -217,6 +221,44 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       });
     }
 
+    const moderationResult = await checkModeration({
+      userId: req.user.id,
+      contentType: 'rfq',
+      title,
+      description,
+      sourceRoute: 'rfq_create'
+    });
+    if (moderationResult.decision === 'review') {
+      return res.status(422).json({
+        success: false,
+        code: 'MODERATION_REVIEW',
+        message: 'İçeriğiniz incelemeye alındı. Kurallarımıza uygunluğundan emin olun.'
+      });
+    }
+    if (moderationResult.blocked) {
+      return res.status(422).json({
+        success: false,
+        code: 'MODERATION_BLOCKED',
+        message: 'İçeriğiniz topluluk kurallarına uygun olmadığı için yayınlanamadı.'
+      });
+    }
+
+    const quotaSettings = await getListingQuotaSettings();
+    const quotaResult = await consumeListingQuota({ userId: req.user.id, settings: quotaSettings });
+    if (!quotaResult.ok) {
+      const currentUser = await User.findById(req.user.id).select(
+        'listingQuotaWindowStart listingQuotaWindowEnd listingQuotaUsedFree paidListingCredits'
+      );
+      const snapshot = getListingQuotaSnapshot(currentUser, quotaSettings);
+      return res.status(402).json({
+        success: false,
+        code: 'LISTING_QUOTA_REACHED',
+        message: 'Bu dönem için ücretsiz ilan hakkınız doldu. Ek ilan için ödeme yapmanız gerekiyor.',
+        data: snapshot
+      });
+    }
+    quotaConsumption = quotaResult;
+
     const imagePaths = req.files?.map((file) => `/uploads/${file.filename}`) || [];
     let selectedDistrictId;
     if (resolvedLocationData.district) {
@@ -248,6 +290,9 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
     }
 
 
+    const listingExpiryDays = await getListingExpiryDays();
+    const computedExpiresAt = computeExpiresAt(new Date(), listingExpiryDays);
+
     const rfq = await RFQ.create({
       title: cleanText(title),
       description: cleanText(description),
@@ -255,7 +300,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       quantity: parsedQuantity,
       targetPrice: targetPrice ? Number(targetPrice) : undefined,
       deadline: parsedDeadline,
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      expiresAt: computedExpiresAt,
       isAuction: toBoolean(isAuction),
       currentBestOffer: toBoolean(isAuction) && targetPrice ? Number(targetPrice) : undefined,
       location: resolvedLocation
@@ -312,7 +357,39 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       success: true,
       data: populatedRFQ || rfq
     });
+
+    if (quotaConsumption?.mode === 'paid') {
+      try {
+        await AdminAuditLog.create({
+          adminId: null,
+          role: 'system',
+          action: 'listing_paid_create_success',
+          meta: { userId: req.user.id, rfqId: rfq._id }
+        });
+      } catch (_error) {
+        // ignore audit
+      }
+    }
   } catch (error) {
+    if (quotaConsumption?.mode) {
+      await revertListingQuota({
+        userId: req.user?.id,
+        mode: quotaConsumption.mode,
+        windowStarted: quotaConsumption.windowStarted
+      });
+      if (quotaConsumption.mode === 'paid') {
+        try {
+          await AdminAuditLog.create({
+            adminId: null,
+            role: 'system',
+            action: 'listing_paid_create_failed',
+            meta: { userId: req.user?.id }
+          });
+        } catch (_error) {
+          // ignore audit
+        }
+      }
+    }
     console.error('RFQ CREATE ERROR:', error?.message || error);
     console.error(error?.stack);
     if (error?.name) {
@@ -403,13 +480,19 @@ rfqRoutes.get('/nearby', async (req, res) => {
       });
     }
 
-    const nearQuery = { status: 'open' };
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+
+    const nearQuery = { status: 'open', isDeleted: { $ne: true } };
     if (category && mongoose.isValidObjectId(category)) {
       nearQuery.category = new mongoose.Types.ObjectId(category);
     }
     if (city) {
       nearQuery['locationData.city'] = { $regex: `^${String(city).trim()}$`, $options: 'i' };
     }
+    applyExpiryFilter(nearQuery, now);
 
     const parsedRadiusKm = Number.parseFloat(radiusKm);
     const maxDistance = Number.isFinite(parsedRadiusKm)
@@ -487,6 +570,11 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
       });
     }
 
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+
     if (req.query.buyer === 'currentUser') {
       if (!req.user?.id) {
         return res.status(401).json({
@@ -495,6 +583,7 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
         });
       }
       query.buyer = req.user.id;
+      applyExpiryFilter(query, now);
     } else {
       query.status = 'open';
       if (cityId && mongoose.isValidObjectId(cityId)) {
@@ -503,6 +592,7 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
       if (districtId && mongoose.isValidObjectId(districtId)) {
         query.district = districtId;
       }
+      applyExpiryFilter(query, now);
     }
 
     const rfqs = await RFQ.find(query)
@@ -513,7 +603,6 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
-    const now = new Date();
     rfqs.forEach((item) => {
       const until = item.featuredUntil ? new Date(item.featuredUntil) : null;
       item.featuredActive = Boolean(item.isFeatured && until && until > now);
@@ -582,10 +671,18 @@ rfqRoutes.get('/by-city', async (req, res, next) => {
       });
     }
 
-    const rfqs = await RFQ.find({
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+
+    const query = {
       status: 'open',
       city: cityId
-    })
+    };
+    applyExpiryFilter(query, now);
+
+    const rfqs = await RFQ.find(query)
       .populate('buyer', 'name email')
       .populate('category', 'name slug parent icon order')
       .populate('city', 'name slug')
@@ -593,10 +690,7 @@ rfqRoutes.get('/by-city', async (req, res, next) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
-    const total = await RFQ.countDocuments({
-      status: 'open',
-      city: cityId
-    });
+    const total = await RFQ.countDocuments(query);
     const lastPage = Math.max(Math.ceil(total / limit), 1);
     const hasMore = page < lastPage;
 
@@ -622,6 +716,20 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
       return res.status(404).json({
         success: false,
         message: 'RFQ not found.'
+      });
+    }
+
+    const now = new Date();
+    if (rfq.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        message: 'RFQ not found.'
+      });
+    }
+    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= now)) {
+      return res.status(410).json({
+        success: false,
+        message: 'İlan süresi doldu.'
       });
     }
 
@@ -687,6 +795,16 @@ rfqRoutes.patch('/:id/close', authMiddleware, async (req, res, next) => {
       });
     }
 
+    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+      rfq.status = 'expired';
+      rfq.expiredAt = rfq.expiredAt || new Date();
+      await rfq.save();
+      return res.status(410).json({
+        success: false,
+        message: 'İlan süresi doldu.'
+      });
+    }
+
     rfq.status = 'closed';
     await rfq.save();
 
@@ -714,6 +832,16 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'Forbidden: only RFQ owner can update.'
+      });
+    }
+
+    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+      rfq.status = 'expired';
+      rfq.expiredAt = rfq.expiredAt || new Date();
+      await rfq.save();
+      return res.status(410).json({
+        success: false,
+        message: 'İlan süresi doldu.'
       });
     }
 

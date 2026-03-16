@@ -11,14 +11,20 @@ const MENU_SECTIONS = [
     items: [
       { label: 'Tüm RFQ’lar', to: '/admin/rfq/all' },
       { label: 'Moderasyon Kuyruğu', to: '/admin/rfq/moderation' },
-      { label: 'Sorunlu RFQ’lar', to: '/admin/rfq/flagged' }
+      { label: 'Sorunlu RFQ’lar', to: '/admin/rfq/flagged' },
+      { label: 'Süresi Dolanlar', to: '/admin/rfq/expired' }
     ]
   },
   {
     title: 'Moderasyon',
     items: [
       { label: 'Gelişmiş Kuyruk', to: '/admin/moderation/queue-advanced' },
-      { label: 'Risk İşaretleri', to: '/admin/moderation/risk-signals' }
+      { label: 'Risk İşaretleri', to: '/admin/moderation/risk-signals' },
+      { label: 'Moderasyon Kuralları', to: '/admin/moderation/rules' },
+      { label: 'Engellenen Denemeler', to: '/admin/moderation/attempts' },
+      { label: 'Riskli Kullanıcılar', to: '/admin/moderation/risk-users' },
+      { label: 'Gelişmiş Ayarlar', to: '/admin/moderation/settings' },
+      { label: 'Sorun Bildirimleri', to: '/admin/reports/issues' }
     ]
   },
   {
@@ -78,6 +84,9 @@ const MENU_SECTIONS = [
     items: [
       { label: 'SMS Logları', to: '/admin/notifications/sms-logs' },
       { label: 'OTP İşlemleri', to: '/admin/notifications/otp-logs' },
+      { label: 'Push Test', to: '/admin/notifications/push-test' },
+      { label: 'Push Logları', to: '/admin/notifications/push-logs' },
+      { label: 'Bildirim Tercihleri', to: '/admin/notifications/push-preferences' },
       { label: 'Bildirim Şablonları', to: '/admin/notifications/templates' }
     ]
   },
@@ -97,7 +106,10 @@ const MENU_SECTIONS = [
       { label: 'Sistem Sağlığı', to: '/admin/system/health' },
       { label: 'Hata Kayıtları', to: '/admin/system/errors' },
       { label: 'Feature Flags', to: '/admin/system/feature-flags' },
-      { label: 'Bakım Modu', to: '/admin/system/maintenance' }
+      { label: 'Bakım Modu', to: '/admin/system/maintenance' },
+      { label: 'İlan Yayın Süresi', to: '/admin/system/listing-expiry' },
+      { label: 'İlan Kotası & Ücret', to: '/admin/system/listing-quota' },
+      { label: 'İlan Paketleri & Ücret', to: '/admin/system/monetization-plans' }
     ]
   },
   {

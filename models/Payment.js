@@ -21,6 +21,18 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    planTitleSnapshot: {
+      type: String
+    },
+    billingModeSnapshot: {
+      type: String
+    },
+    currencySnapshot: {
+      type: String
+    },
+    priceSnapshot: {
+      type: Number
+    },
     amount: {
       type: Number,
       required: true
@@ -44,6 +56,26 @@ const paymentSchema = new mongoose.Schema(
     },
     rawLastEvent: {
       type: mongoose.Schema.Types.Mixed
+    },
+    cardSummary: {
+      type: mongoose.Schema.Types.Mixed
+    },
+    saveCardConsent: {
+      type: Boolean,
+      default: null
+    },
+    saveCardDecidedAt: {
+      type: Date
+    },
+    contextType: {
+      type: String,
+      trim: true
+    },
+    contextId: {
+      type: mongoose.Schema.Types.ObjectId
+    },
+    paidAt: {
+      type: Date
     }
   },
   { timestamps: true }

@@ -42,6 +42,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    avatarUrl: {
+      type: String,
+      trim: true
+    },
     password: {
       type: String,
       required: true,
@@ -121,6 +125,35 @@ const userSchema = new mongoose.Schema(
     featuredCredits: {
       type: Number,
       default: 0
+    },
+    listingQuotaWindowStart: {
+      type: Date
+    },
+    listingQuotaWindowEnd: {
+      type: Date
+    },
+    listingQuotaUsedFree: {
+      type: Number,
+      default: 0
+    },
+    paidListingCredits: {
+      type: Number,
+      default: 0
+    },
+    paymentProvider: {
+      type: String,
+      trim: true
+    },
+    paymentCustomerId: {
+      type: String,
+      trim: true
+    },
+    paymentMethod: {
+      brand: { type: String, trim: true },
+      last4: { type: String, trim: true },
+      expMonth: { type: String, trim: true },
+      expYear: { type: String, trim: true },
+      holderName: { type: String, trim: true }
     },
     isOnboardingCompleted: {
       type: Boolean,

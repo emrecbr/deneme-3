@@ -21,6 +21,9 @@ export default function AdminUserDetail() {
   const [notes, setNotes] = useState([]);
   const [otpLogs, setOtpLogs] = useState([]);
   const [smsLogs, setSmsLogs] = useState([]);
+  const [quota, setQuota] = useState(null);
+  const [paymentSummary, setPaymentSummary] = useState(null);
+  const [paymentProvider, setPaymentProvider] = useState('');
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
   const [noteText, setNoteText] = useState('');
@@ -35,6 +38,9 @@ export default function AdminUserDetail() {
       setUser(data);
       setRfqs(response.data?.rfqs || []);
       setNotes(response.data?.notes || []);
+      setQuota(response.data?.quota || null);
+      setPaymentSummary(data?.paymentMethod || null);
+      setPaymentProvider(data?.paymentProvider || '');
       setStatus(data?.isDeleted ? 'blocked' : data?.isActive ? 'active' : 'passive');
       setRole(data?.role || 'buyer');
       if (data?.email) {
@@ -178,6 +184,50 @@ export default function AdminUserDetail() {
           </button>
           {actionMessage ? <span className="admin-muted">{actionMessage}</span> : null}
         </div>
+
+        <div className="admin-divider"></div>
+
+        <div className="admin-panel-subtitle">İlan Kotası</div>
+        {quota ? (
+          <div className="admin-detail-grid">
+            <div>
+              <div className="admin-muted">Kalan Ücretsiz</div>
+              <div>{quota.remainingFree}/{quota.maxFree}</div>
+            </div>
+            <div>
+              <div className="admin-muted">Dönem Bitiş</div>
+              <div>{quota.windowEnd ? formatDate(quota.windowEnd) : 'Henüz başlamadı'}</div>
+            </div>
+            <div>
+              <div className="admin-muted">Ücretli Hak</div>
+              <div>{quota.paidListingCredits || 0}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="admin-empty">Kota bilgisi yok.</div>
+        )}
+
+        <div className="admin-divider"></div>
+
+        <div className="admin-panel-subtitle">Ödeme Yöntemi</div>
+        {paymentSummary?.last4 ? (
+          <div className="admin-detail-grid">
+            <div>
+              <div className="admin-muted">Kart</div>
+              <div>{paymentSummary.brand || 'Kart'} •••• {paymentSummary.last4}</div>
+            </div>
+            <div>
+              <div className="admin-muted">Son kullanma</div>
+              <div>{paymentSummary.expMonth || '--'}/{paymentSummary.expYear || '--'}</div>
+            </div>
+            <div>
+              <div className="admin-muted">Sağlayıcı</div>
+              <div>{paymentProvider || '—'}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="admin-empty">Kayıtlı ödeme yöntemi yok.</div>
+        )}
 
         <div className="admin-divider"></div>
 

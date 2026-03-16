@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import Notification from '../models/Notification.js';
 import { emitToRoom } from '../config/socket.js';
+import NotificationPreference from '../models/NotificationPreference.js';
+import { saveNotificationPreferences, upsertNotificationDevice } from '../src/services/pushNotificationService.js';
 
 const notificationRoutes = Router();
 
@@ -99,6 +101,54 @@ notificationRoutes.patch('/read-all', authMiddleware, async (req, res, next) => 
     return res.status(200).json({
       success: true
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+notificationRoutes.get('/preferences', authMiddleware, async (req, res, next) => {
+  try {
+    const prefs = await NotificationPreference.findOne({ user: req.user.id }).lean();
+    return res.status(200).json({
+      success: true,
+      data: prefs || {
+        pushEnabled: true,
+        offerNotifications: true,
+        messageNotifications: true,
+        systemNotifications: true,
+        marketingNotifications: false,
+        paymentNotifications: true,
+        listingNotifications: true
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+notificationRoutes.patch('/preferences', authMiddleware, async (req, res, next) => {
+  try {
+    const prefs = await saveNotificationPreferences(req.user.id, req.body || {});
+    return res.status(200).json({ success: true, data: prefs });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+notificationRoutes.post('/device', authMiddleware, async (req, res, next) => {
+  try {
+    const { externalId, subscriptionId, platform, appVersion } = req.body || {};
+    if (!externalId) {
+      return res.status(400).json({ success: false, message: 'externalId zorunludur.' });
+    }
+    await upsertNotificationDevice({
+      userId: req.user.id,
+      externalId: String(externalId),
+      subscriptionId: subscriptionId ? String(subscriptionId) : undefined,
+      platform,
+      appVersion
+    });
+    return res.status(200).json({ success: true });
   } catch (error) {
     return next(error);
   }

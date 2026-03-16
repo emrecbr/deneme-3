@@ -29,6 +29,8 @@ import searchRoutes from '../routes/searchRoutes.js';
 import contentRoutes from '../routes/contentRoutes.js';
 import rfqFlowRoutes from '../routes/rfqFlowRoutes.js';
 import mapRoutes from '../routes/mapRoutes.js';
+import reportRoutes from '../routes/reportRoutes.js';
+import monetizationRoutes from '../routes/monetizationRoutes.js';
 import City from '../models/City.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
@@ -110,7 +112,9 @@ const ROUTE_MOUNTS = [
   ['/api/search', searchRoutes],
   ['/api/content', contentRoutes],
   ['/api/rfq-flow', rfqFlowRoutes],
-  ['/api/map', mapRoutes]
+  ['/api/map', mapRoutes],
+  ['/api/reports', reportRoutes],
+  ['/api', monetizationRoutes]
 ];
 const onlineUsers = new Set();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();

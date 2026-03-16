@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import ReportIssueSheet from '../components/ReportIssueSheet';
 
 function Profile() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [rfqs, setRfqs] = useState([]);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +104,15 @@ function Profile() {
 
   const displayName = user?.name || user?.email || 'Kullanici';
   const avatarLetter = displayName.trim().charAt(0).toUpperCase() || '?';
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editError, setEditError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const approvedCount = approvedRequests.length;
   const pendingCount = pendingRequests.length;
   const unreadCount = 0;
@@ -145,15 +155,36 @@ function Profile() {
             <section className="profile-hero-card profile-header-card">
               <div className="profile-hero-header" />
               <div className="profile-hero-content">
-                <div className="profile-avatar-lg">{avatarLetter}</div>
+                <div className="profile-avatar-lg">
+                  {user?.avatarUrl && !avatarFailed ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={displayName}
+                      onError={() => setAvatarFailed(true)}
+                    />
+                  ) : (
+                    avatarLetter
+                  )}
+                </div>
                 <div className="profile-identity">
                   <h2>{displayName}</h2>
                   <span className="role-badge">{user?.email || '-'}</span>
                   {user?.isPremium ? <span className="premium-mini-badge">Premium</span> : null}
                 </div>
-                <button type="button" className="icon-btn profile-edit-btn" aria-label="Duzenle">
-                  ✎
-                </button>
+                <div className="profile-actions">
+                  <button type="button" className="secondary-btn profile-report-btn" onClick={() => setReportOpen(true)}>
+                    Sorun Bildir
+                  </button>
+                  <button type="button" className="icon-btn profile-edit-btn" aria-label="Duzenle" onClick={() => {
+                    setEditName(user?.name || '');
+                    setAvatarPreview('');
+                    setAvatarFile(null);
+                    setEditError('');
+                    setEditOpen(true);
+                  }}>
+                    ✎
+                  </button>
+                </div>
               </div>
               <div className="profile-score-row">
                 <span>Guven Skoru</span>
@@ -339,6 +370,138 @@ function Profile() {
           </>
         ) : null}
       </div>
+
+      {editOpen ? (
+        <div className="profile-edit-overlay" role="dialog" aria-modal="true">
+          <div className="profile-edit-card">
+            <div className="profile-edit-header">
+              <h2>Profili Düzenle</h2>
+              <button type="button" className="icon-btn" onClick={() => setEditOpen(false)} aria-label="Kapat">
+                ✕
+              </button>
+            </div>
+            <div className="profile-edit-body">
+              <div className="profile-edit-avatar">
+                <div className="profile-avatar-lg">
+                  {avatarPreview || user?.avatarUrl ? (
+                    <img src={avatarPreview || user?.avatarUrl} alt={displayName} />
+                  ) : (
+                    avatarLetter
+                  )}
+                </div>
+                <div className="profile-edit-actions">
+                  <label className="secondary-btn">
+                    Fotoğraf Seç
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 3 * 1024 * 1024) {
+                          setEditError('Dosya boyutu en fazla 3MB olmalı.');
+                          return;
+                        }
+                        setEditError('');
+                        setAvatarFile(file);
+                        setAvatarPreview(URL.createObjectURL(file));
+                      }}
+                      hidden
+                    />
+                  </label>
+                  {user?.avatarUrl ? (
+                    <button
+                      type="button"
+                      className="link-btn"
+                      onClick={async () => {
+                        try {
+                          setAvatarLoading(true);
+                          await api.delete('/users/me/avatar');
+                          updateUser({ avatarUrl: '' });
+                        } catch (_error) {
+                          setEditError('Avatar kaldırılamadı.');
+                        } finally {
+                          setAvatarLoading(false);
+                        }
+                      }}
+                      disabled={avatarLoading}
+                    >
+                      {avatarLoading ? 'Siliniyor...' : 'Fotoğrafı kaldır'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="auth-field">
+                <label>İsim</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  placeholder="Ad Soyad"
+                />
+              </div>
+              {editError ? <div className="auth-alert">{editError}</div> : null}
+            </div>
+            <div className="profile-edit-footer">
+              <button type="button" className="secondary-btn" onClick={() => setEditOpen(false)}>
+                İptal
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                disabled={editLoading}
+                onClick={async () => {
+                  setEditError('');
+                  const trimmed = String(editName || '').trim();
+                  if (!trimmed || trimmed.length < 2) {
+                    setEditError('İsim en az 2 karakter olmalı.');
+                    return;
+                  }
+                  if (trimmed.length > 60) {
+                    setEditError('İsim 60 karakteri geçemez.');
+                    return;
+                  }
+                  try {
+                    setEditLoading(true);
+                    if (avatarFile) {
+                      const formData = new FormData();
+                      formData.append('avatar', avatarFile);
+                      const uploadRes = await api.post('/users/me/avatar', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                      });
+                      updateUser({ avatarUrl: uploadRes?.data?.data?.avatarUrl || '' });
+                    }
+                    const profileRes = await api.patch('/users/me', { name: trimmed });
+                    updateUser({
+                      name: profileRes?.data?.data?.name || trimmed,
+                      avatarUrl: profileRes?.data?.data?.avatarUrl || user?.avatarUrl || ''
+                    });
+                    setEditOpen(false);
+                  } catch (err) {
+                    setEditError(err?.response?.data?.message || 'Profil güncellenemedi.');
+                  } finally {
+                    setEditLoading(false);
+                  }
+                }}
+              >
+                {editLoading ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <ReportIssueSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        sourceType="profile"
+        sourceId={user?.id || user?._id}
+        relatedRfqId={null}
+        reportedUserId={null}
+        reportedUserLabel={null}
+        defaultRoleRelation="self"
+      />
     </div>
   );
 }

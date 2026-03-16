@@ -6,6 +6,7 @@ const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
 const AdminRfqList = lazy(() => import('./admin/AdminRfqList'));
 const AdminRfqDetail = lazy(() => import('./admin/AdminRfqDetail'));
+const AdminRfqExpired = lazy(() => import('./admin/AdminRfqExpired'));
 const AdminUserList = lazy(() => import('./admin/AdminUserList'));
 const AdminUserDetail = lazy(() => import('./admin/AdminUserDetail'));
 const AdminAuditLog = lazy(() => import('./admin/AdminAuditLog'));
@@ -19,9 +20,15 @@ const AdminLocationIssues = lazy(() => import('./admin/AdminLocationIssues'));
 const AdminRadiusSettings = lazy(() => import('./admin/AdminRadiusSettings'));
 const AdminOtpLogs = lazy(() => import('./admin/AdminOtpLogs'));
 const AdminSmsLogs = lazy(() => import('./admin/AdminSmsLogs'));
+const AdminPushTest = lazy(() => import('./admin/AdminPushTest'));
+const AdminPushLogs = lazy(() => import('./admin/AdminPushLogs'));
+const AdminPushPreferences = lazy(() => import('./admin/AdminPushPreferences'));
 const AdminSystemHealth = lazy(() => import('./admin/AdminSystemHealth'));
 const AdminFeatureFlags = lazy(() => import('./admin/AdminFeatureFlags'));
 const AdminMaintenance = lazy(() => import('./admin/AdminMaintenance'));
+const AdminListingExpiry = lazy(() => import('./admin/AdminListingExpiry'));
+const AdminListingQuota = lazy(() => import('./admin/AdminListingQuota'));
+const AdminMonetizationPlans = lazy(() => import('./admin/AdminMonetizationPlans'));
 const AdminMapSettings = lazy(() => import('./admin/AdminMapSettings'));
 const AdminMapTest = lazy(() => import('./admin/AdminMapTest'));
 const AdminSearchAnalytics = lazy(() => import('./admin/AdminSearchAnalytics'));
@@ -32,8 +39,15 @@ const AdminRfqFlowSteps = lazy(() => import('./admin/AdminRfqFlowSteps'));
 const AdminRfqValidationAnalytics = lazy(() => import('./admin/AdminRfqValidationAnalytics'));
 const AdminModerationQueueAdvanced = lazy(() => import('./admin/AdminModerationQueueAdvanced'));
 const AdminRiskSignals = lazy(() => import('./admin/AdminRiskSignals'));
+const AdminModerationRules = lazy(() => import('./admin/AdminModerationRules'));
+const AdminModerationAttempts = lazy(() => import('./admin/AdminModerationAttempts'));
+const AdminModerationAttemptDetail = lazy(() => import('./admin/AdminModerationAttemptDetail'));
+const AdminModerationSettings = lazy(() => import('./admin/AdminModerationSettings'));
+const AdminModerationRiskUsers = lazy(() => import('./admin/AdminModerationRiskUsers'));
 const AdminReportsOverview = lazy(() => import('./admin/AdminReportsOverview'));
 const AdminReportsExports = lazy(() => import('./admin/AdminReportsExports'));
+const AdminIssueReports = lazy(() => import('./admin/AdminIssueReports'));
+const AdminIssueReportDetail = lazy(() => import('./admin/AdminIssueReportDetail'));
 const AdminPermissions = lazy(() => import('./admin/AdminPermissions'));
 const AdminAdmins = lazy(() => import('./admin/AdminAdmins'));
 const AdminChangePassword = lazy(() => import('./admin/AdminChangePassword'));
@@ -192,9 +206,15 @@ function App() {
         <Route path="rfq/all" element={<AdminRfqList />} />
         <Route path="rfq/moderation" element={<AdminRfqList defaultStatus="pending" />} />
         <Route path="rfq/flagged" element={<AdminRfqList defaultStatus="flagged" />} />
+        <Route path="rfq/expired" element={<AdminRfqExpired />} />
         <Route path="rfq/:id" element={<AdminRfqDetail />} />
         <Route path="moderation/queue-advanced" element={<AdminModerationQueueAdvanced />} />
         <Route path="moderation/risk-signals" element={<AdminRiskSignals />} />
+        <Route path="moderation/rules" element={<AdminModerationRules />} />
+        <Route path="moderation/attempts" element={<AdminModerationAttempts />} />
+        <Route path="moderation/attempts/:id" element={<AdminModerationAttemptDetail />} />
+        <Route path="moderation/settings" element={<AdminModerationSettings />} />
+        <Route path="moderation/risk-users" element={<AdminModerationRiskUsers />} />
         <Route path="rfq-flow/steps" element={<AdminRfqFlowSteps />} />
         <Route path="rfq-flow/validation" element={<Navigate to="/admin/rfq-flow/validation-analytics" replace />} />
         <Route path="rfq-flow/validation-analytics" element={<AdminRfqValidationAnalytics />} />
@@ -224,6 +244,9 @@ function App() {
         <Route path="notifications/otp" element={<Navigate to="/admin/notifications/otp-logs" replace />} />
         <Route path="notifications/sms-logs" element={<AdminSmsLogs />} />
         <Route path="notifications/otp-logs" element={<AdminOtpLogs />} />
+        <Route path="notifications/push-test" element={<AdminPushTest />} />
+        <Route path="notifications/push-logs" element={<AdminPushLogs />} />
+        <Route path="notifications/push-preferences" element={<AdminPushPreferences />} />
         <Route path="notifications/templates" element={<AdminPlaceholder title="Bildirim Şablonları" />} />
         <Route path="content/home" element={<AdminContentHome />} />
         <Route path="content/onboarding" element={<AdminContentOnboarding />} />
@@ -234,11 +257,16 @@ function App() {
         <Route path="system/flags" element={<Navigate to="/admin/system/feature-flags" replace />} />
         <Route path="system/feature-flags" element={<AdminFeatureFlags />} />
         <Route path="system/maintenance" element={<AdminMaintenance />} />
+        <Route path="system/listing-expiry" element={<AdminListingExpiry />} />
+        <Route path="system/listing-quota" element={<AdminListingQuota />} />
+        <Route path="system/monetization-plans" element={<AdminMonetizationPlans />} />
         <Route path="admins" element={<AdminAdmins />} />
         <Route path="roles" element={<AdminPermissions />} />
         <Route path="account/password" element={<AdminChangePassword />} />
         <Route path="reports/overview" element={<AdminReportsOverview />} />
         <Route path="reports/exports" element={<AdminReportsExports />} />
+        <Route path="reports/issues" element={<AdminIssueReports />} />
+        <Route path="reports/issues/:id" element={<AdminIssueReportDetail />} />
         <Route path="audit" element={<AdminAuditLog />} />
       </Route>
       <Route

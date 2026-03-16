@@ -13,12 +13,15 @@ function Premium() {
   const [processing, setProcessing] = useState('');
   const [billing, setBilling] = useState(null);
 
+  const formatPrice = (value, currency) =>
+    `${Number.isFinite(Number(value)) ? Number(value) : 0} ${currency || 'TRY'}`;
+
   const fetchPlans = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/billing/plans');
-      const items = response.data?.data || [];
-      setPlans(items.filter((plan) => plan.code === 'premium_monthly' || plan.code === 'premium_yearly'));
+      const response = await api.get('/app/monetization/plans');
+      const items = response.data?.items || [];
+      setPlans(items.filter((plan) => plan.key === 'premium_listing' || plan.key === 'featured_listing'));
       setError('');
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Planlar alinamadi.');
@@ -106,51 +109,100 @@ function Premium() {
       </section>
 
       <section className="card premium-plans">
-        <h2>Planlar</h2>
+        <h2>Premium Paket</h2>
         {loading ? <div>Yukleniyor...</div> : null}
         {!loading && plans.length ? (
           <div className="premium-plan-grid">
-            {plans.map((plan) => (
-              <article key={plan.code} className="premium-plan-card">
-                <div className="premium-plan-title">{plan.name}</div>
-                <div className="premium-plan-price">
-                  {plan.price} {plan.currency || 'TRY'}
-                </div>
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => handleCheckout(plan.code)}
-                  disabled={processing === plan.code}
-                >
-                  Satin Al
-                </button>
-              </article>
-            ))}
+            {plans
+              .filter((plan) => plan.key === 'premium_listing')
+              .map((plan) => (
+                <article key={plan._id} className="premium-plan-card">
+                  <div className="premium-plan-title">{plan.title}</div>
+                  <div className="premium-plan-desc">{plan.shortDescription}</div>
+                  {plan.billingModes?.includes('monthly') ? (
+                    <div className="premium-plan-price">{formatPrice(plan.monthlyPrice, plan.currency)} / ay</div>
+                  ) : null}
+                  {plan.billingModes?.includes('yearly') ? (
+                    <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yil</div>
+                  ) : null}
+                  <div className="premium-cta-actions">
+                    {plan.billingModes?.includes('monthly') ? (
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        onClick={() => handleCheckout(plan.metadata?.planCodes?.monthly || 'premium_monthly')}
+                        disabled={processing === (plan.metadata?.planCodes?.monthly || 'premium_monthly')}
+                      >
+                        {processing === (plan.metadata?.planCodes?.monthly || 'premium_monthly')
+                          ? 'Yonlendiriliyor...'
+                          : 'Aylik Satin Al'}
+                      </button>
+                    ) : null}
+                    {plan.billingModes?.includes('yearly') ? (
+                      <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => handleCheckout(plan.metadata?.planCodes?.yearly || 'premium_yearly')}
+                        disabled={processing === (plan.metadata?.planCodes?.yearly || 'premium_yearly')}
+                      >
+                        {processing === (plan.metadata?.planCodes?.yearly || 'premium_yearly')
+                          ? 'Yonlendiriliyor...'
+                          : 'Yillik Satin Al'}
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
           </div>
         ) : null}
       </section>
 
       <section className="card premium-plans">
-        <h2>Öne Çıkar</h2>
-        <p>Tek seferlik satın alırsın, 1 kredi = 1 ilanı 7 gün öne çıkarma.</p>
-        <div className="premium-subscription-box">
-          <div>Kredi: {featuredCredits}</div>
-          <div className="premium-cta-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() => handleCheckout('featured_one_time')}
-              disabled={processing === 'featured_one_time'}
-            >
-              {processing === 'featured_one_time' ? 'Yonlendiriliyor...' : 'Öne Çıkar Satın Al'}
-            </button>
-            {featuredCredits > 0 ? (
-              <button type="button" className="secondary-btn" onClick={() => navigate('/profile/requests')}>
-                İlanları Yönet
-              </button>
-            ) : null}
-          </div>
-        </div>
+        <h2>Öne Çıkarılan İlan</h2>
+        {plans
+          .filter((plan) => plan.key === 'featured_listing')
+          .map((plan) => (
+            <div key={plan._id} className="premium-subscription-box">
+              <p>{plan.shortDescription}</p>
+              {plan.billingModes?.includes('monthly') ? (
+                <div className="premium-plan-price">{formatPrice(plan.monthlyPrice, plan.currency)} / ay</div>
+              ) : null}
+              {plan.billingModes?.includes('yearly') ? (
+                <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yil</div>
+              ) : null}
+              <div className="premium-cta-actions">
+                {plan.billingModes?.includes('monthly') ? (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => handleCheckout(plan.metadata?.planCodes?.monthly || 'featured_monthly')}
+                    disabled={processing === (plan.metadata?.planCodes?.monthly || 'featured_monthly')}
+                  >
+                    {processing === (plan.metadata?.planCodes?.monthly || 'featured_monthly')
+                      ? 'Yonlendiriliyor...'
+                      : 'Aylik Öne Çıkar'}
+                  </button>
+                ) : null}
+                {plan.billingModes?.includes('yearly') ? (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => handleCheckout(plan.metadata?.planCodes?.yearly || 'featured_yearly')}
+                    disabled={processing === (plan.metadata?.planCodes?.yearly || 'featured_yearly')}
+                  >
+                    {processing === (plan.metadata?.planCodes?.yearly || 'featured_yearly')
+                      ? 'Yonlendiriliyor...'
+                      : 'Yillik Öne Çıkar'}
+                  </button>
+                ) : null}
+                {featuredCredits > 0 ? (
+                  <button type="button" className="secondary-btn" onClick={() => navigate('/profile/requests')}>
+                    İlanları Yönet
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ))}
       </section>
     </div>
   );

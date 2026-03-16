@@ -20,7 +20,7 @@ const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 const passwordPolicy = (value) => {
   const text = String(value || '');
-  return text.length >= 3 && /[A-Z]/.test(text) && /[0-9]/.test(text) && /[^A-Za-z0-9]/.test(text);
+  return text.length >= 8;
 };
 
 function ResetPassword() {
@@ -28,12 +28,14 @@ function ResetPassword() {
   const location = useLocation();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const methodFromQuery = params.get('method') || '';
-  const tokenFromQuery = params.get('token') || '';
   const emailFromQuery = params.get('email') || '';
+  const phoneFromQuery = params.get('phone') || '';
 
   const [method, setMethod] = useState(methodFromQuery === 'sms' ? 'sms' : 'email');
   const [email, setEmail] = useState(emailFromQuery);
-  const [phoneDigits, setPhoneDigits] = useState('');
+  const [phoneDigits, setPhoneDigits] = useState(
+    phoneFromQuery.replace('+90', '').replace(/\D/g, '').slice(0, 10)
+  );
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [resetSessionToken, setResetSessionToken] = useState('');
@@ -42,61 +44,89 @@ function ResetPassword() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldownLeft, setCooldownLeft] = useState(0);
 
   useEffect(() => {
-    if (method !== 'email' || !tokenFromQuery || !emailFromQuery) {
-      return;
-    }
-    const verifyEmailToken = async () => {
-      setError('');
-      setInfo('');
-      setVerifying(true);
-      try {
-        const em = normalizeEmail(emailFromQuery);
-        const res = await api.post('/auth/password/verify', {
-          method: 'email',
-          email: em,
-          token: tokenFromQuery
-        });
-        const data = res?.data;
-        setResetSessionToken(data?.resetSessionToken || '');
-        setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
-      } catch (requestError) {
-        setError(requestError?.response?.data?.message || requestError?.message || 'Doğrulama başarısız.');
-      } finally {
-        setVerifying(false);
-      }
-    };
-    verifyEmailToken();
-  }, [method, tokenFromQuery, emailFromQuery]);
+    if (cooldownLeft <= 0) return;
+    const timer = window.setInterval(() => {
+      setCooldownLeft((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownLeft]);
 
-  const handleVerifySms = async (event) => {
+  const handleVerify = async (event) => {
     event.preventDefault();
     setError('');
     setInfo('');
-    const e164 = toE164TR(phoneDigits);
-    if (!e164) {
-      setError('Telefon 10 hane olmalı (5xx...).');
-      return;
-    }
     if (!/^\d{6}$/.test(code.trim())) {
       setError('Kod 6 haneli olmalı.');
       return;
     }
     try {
       setVerifying(true);
-      const res = await api.post('/auth/password/verify', {
-        method: 'sms',
-        phone: e164,
-        code: code.trim()
-      });
-      const data = res?.data;
-      setResetSessionToken(data?.resetSessionToken || '');
-      setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
+      if (method === 'email') {
+        const em = normalizeEmail(email);
+        if (!isValidEmail(em)) {
+          setError('Geçerli bir e-posta gir.');
+          return;
+        }
+        const res = await api.post('/auth/password/verify', {
+          method: 'email',
+          email: em,
+          code: code.trim()
+        });
+        const data = res?.data;
+        setResetSessionToken(data?.resetSessionToken || '');
+        setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
+      } else {
+        const e164 = toE164TR(phoneDigits);
+        if (!e164) {
+          setError('Telefon 10 hane olmalı (5xx...).');
+          return;
+        }
+        const res = await api.post('/auth/password/verify', {
+          method: 'sms',
+          phone: e164,
+          code: code.trim()
+        });
+        const data = res?.data;
+        setResetSessionToken(data?.resetSessionToken || '');
+        setInfo('Doğrulama başarılı. Yeni şifre oluştur.');
+      }
     } catch (requestError) {
       setError(requestError?.response?.data?.message || requestError?.message || 'Doğrulama başarısız.');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setInfo('');
+    try {
+      setResending(true);
+      if (method === 'email') {
+        const em = normalizeEmail(email);
+        if (!isValidEmail(em)) {
+          setError('Geçerli bir e-posta gir.');
+          return;
+        }
+        await api.post('/auth/password/forgot', { method: 'email', email: em });
+      } else {
+        const e164 = toE164TR(phoneDigits);
+        if (!e164) {
+          setError('Telefon 10 hane olmalı (5xx...).');
+          return;
+        }
+        await api.post('/auth/password/forgot', { method: 'sms', phone: e164 });
+      }
+      setInfo('Eğer hesap varsa doğrulama kodu gönderildi.');
+      setCooldownLeft(60);
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || requestError?.message || 'Kod gönderilemedi.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -117,7 +147,7 @@ function ResetPassword() {
       return;
     }
     if (!passwordPolicy(newPassword)) {
-      setError('Şifre en az 3 karakter, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli.');
+      setError('Şifre en az 8 karakter olmalı.');
       return;
     }
     try {
@@ -147,13 +177,10 @@ function ResetPassword() {
             type="button"
             className={`auth-tab ${method === 'email' ? 'active' : ''}`}
             onClick={() => {
-              if (!tokenFromQuery) {
-                setMethod('email');
-                setError('');
-                setInfo('');
-              }
+              setMethod('email');
+              setError('');
+              setInfo('');
             }}
-            disabled={Boolean(tokenFromQuery)}
           >
             E-posta
           </button>
@@ -161,37 +188,27 @@ function ResetPassword() {
             type="button"
             className={`auth-tab ${method === 'sms' ? 'active' : ''}`}
             onClick={() => {
-              if (!tokenFromQuery) {
-                setMethod('sms');
-                setError('');
-                setInfo('');
-              }
+              setMethod('sms');
+              setError('');
+              setInfo('');
             }}
-            disabled={Boolean(tokenFromQuery)}
           >
             Telefon
           </button>
         </div>
 
-        {method === 'email' ? (
-          <div className="auth-form">
+        <form className="auth-form" onSubmit={handleVerify}>
+          {method === 'email' ? (
             <div className="auth-field">
               <label>E-posta</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                disabled={Boolean(tokenFromQuery)}
                 placeholder="ornek@mail.com"
               />
             </div>
-            {!tokenFromQuery ? (
-              <div className="muted small">E-posta linkiyle bu sayfayı açmalısın.</div>
-            ) : null}
-            {verifying ? <div className="muted small">Doğrulanıyor...</div> : null}
-          </div>
-        ) : (
-          <form className="auth-form" onSubmit={handleVerifySms}>
+          ) : (
             <div className="auth-field">
               <label>Telefon</label>
               <div className="auth-phone-wrap">
@@ -206,22 +223,32 @@ function ResetPassword() {
                 />
               </div>
             </div>
-            <div className="auth-field">
-              <label>Kod</label>
-              <input
-                type="text"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="000000"
-                inputMode="numeric"
-                maxLength={6}
-              />
-            </div>
+          )}
+          <div className="auth-field">
+            <label>Kod</label>
+            <input
+              type="text"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="000000"
+              inputMode="numeric"
+              maxLength={6}
+            />
+          </div>
+          <div className="auth-footer-links">
             <button type="submit" className="secondary-btn" disabled={verifying}>
               {verifying ? 'Doğrulanıyor...' : 'Kodu Doğrula'}
             </button>
-          </form>
-        )}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={handleResend}
+              disabled={resending || cooldownLeft > 0}
+            >
+              {cooldownLeft > 0 ? `Tekrar gönder (${cooldownLeft}s)` : resending ? 'Gönderiliyor...' : 'Kodu tekrar gönder'}
+            </button>
+          </div>
+        </form>
 
         {resetSessionToken ? (
           <form className="auth-form" onSubmit={handleReset}>

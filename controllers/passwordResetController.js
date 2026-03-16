@@ -1,14 +1,14 @@
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import PasswordReset from '../models/PasswordReset.js';
-import { sendPasswordResetEmail } from '../src/services/email.js';
+import { sendOtpEmail, sendPasswordResetOtpEmail } from '../src/services/email.js';
 import { sendOtpSms } from '../src/services/sms.js';
 import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
+import { logAuthEvent } from '../src/utils/authLog.js';
 
 const RESET_SESSION_EXPIRES_IN = '10m';
-const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
 
 const getResetSecret = () =>
   (process.env.SIGNUP_TOKEN_SECRET || process.env.JWT_SECRET || '').trim();
@@ -23,25 +23,29 @@ const normalizePhone = (value) => normalizeTrPhoneE164(value);
 
 const generateCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
-const buildResetLink = ({ token, method, target }) => {
-  const base = (process.env.APP_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
-  const params = new URLSearchParams();
-  params.set('token', token);
-  params.set('method', method);
-  if (method === 'email') {
-    params.set('email', target);
-  }
-  return `${base}/reset-password?${params.toString()}`;
-};
-
-const hashToken = (token) =>
-  crypto.createHash('sha256').update(String(token)).digest('hex');
-
 const isExpired = (record) => !record?.expiresAt || record.expiresAt.getTime() < Date.now();
 
 const passwordPolicy = (value) => {
   const text = String(value || '');
-  return text.length >= 3 && /[A-Z]/.test(text) && /[0-9]/.test(text) && /[^A-Za-z0-9]/.test(text);
+  return text.length >= 8;
+};
+
+const getOtpTtlMs = () => {
+  const minutes = Number(process.env.OTP_TTL_MINUTES || 0);
+  const seconds = Number(process.env.OTP_TTL_SECONDS || 0);
+  if (minutes > 0) return minutes * 60 * 1000;
+  if (seconds > 0) return seconds * 1000;
+  return RESET_TOKEN_TTL_MS;
+};
+
+const getOtpMaxAttempts = () => {
+  const val = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+  return Number.isFinite(val) && val > 0 ? val : 5;
+};
+
+const getCooldownSeconds = () => {
+  const val = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60);
+  return Number.isFinite(val) && val > 0 ? val : 60;
 };
 
 export const forgotPassword = async (req, res) => {
@@ -60,47 +64,59 @@ export const forgotPassword = async (req, res) => {
       : await User.findOne({ phoneE164: phone });
 
     if (!user) {
-      return res.json({ ok: true, message: 'Eğer hesap varsa talimatlar gönderildi.' });
+      return res.json({ ok: true, message: 'Eğer hesap varsa doğrulama kodu gönderildi.' });
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = hashToken(token);
-    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+    const last = await PasswordReset.findOne({ channel: method, target }).sort({ lastSentAt: -1 });
+    const cooldownSeconds = getCooldownSeconds();
+    if (last?.lastSentAt) {
+      const elapsedSeconds = (Date.now() - last.lastSentAt.getTime()) / 1000;
+      if (elapsedSeconds < cooldownSeconds) {
+        return res.status(429).json({
+          ok: false,
+          message: 'Çok sık deneme. Lütfen biraz sonra tekrar dene.'
+        });
+      }
+    }
 
-    await PasswordReset.deleteMany({ userId: user._id });
+    const code = generateCode();
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + getOtpTtlMs());
 
     if (method === 'email') {
-      await PasswordReset.create({
-        userId: user._id,
-        channel: 'email',
-        target: email,
-        tokenHash,
-        expiresAt
-      });
-
-      const resetLink = buildResetLink({ token, method: 'email', target: email });
-      await sendPasswordResetEmail({ to: email, resetLink });
+      await (sendPasswordResetOtpEmail
+        ? sendPasswordResetOtpEmail({ to: email, code })
+        : sendOtpEmail({ to: email, code }));
+      await logAuthEvent({ channel: 'email', event: 'password_reset_request', status: 'success', target: email });
     } else {
-      const code = generateCode();
-      const codeHash = await bcrypt.hash(code, 10);
-      await PasswordReset.create({
-        userId: user._id,
-        channel: 'sms',
-        target: phone,
-        codeHash,
-        expiresAt
-      });
-
       await sendOtpSms({ phone, code });
+      await logAuthEvent({ channel: 'sms', event: 'password_reset_request', status: 'success', target: phone });
     }
 
-    return res.json({ ok: true, message: 'Eğer hesap varsa talimatlar gönderildi.' });
+    await PasswordReset.deleteMany({ userId: user._id, channel: method });
+    await PasswordReset.create({
+      userId: user._id,
+      channel: method,
+      target,
+      codeHash,
+      expiresAt,
+      lastSentAt: new Date()
+    });
+
+    return res.json({ ok: true, message: 'Eğer hesap varsa doğrulama kodu gönderildi.' });
   } catch (error) {
     console.error('PASSWORD_FORGOT_FAIL', error);
     if (String(error?.code || '').startsWith('EMAIL')) {
       console.error('OTP_EMAIL_SEND_FAIL', { message: error?.message, detail: error?.detail });
       return res.status(502).json({ ok: false, message: 'Email gönderilemedi' });
     }
+    await logAuthEvent({
+      channel: String(req.body?.method || '') === 'sms' ? 'sms' : 'email',
+      event: 'password_reset_request',
+      status: 'fail',
+      target: String(req.body?.email || req.body?.phone || ''),
+      errorMessage: error?.message || 'PASSWORD_FORGOT_FAIL'
+    });
     if (error?.code === 'TWILIO_TRIAL_UNVERIFIED') {
       return res.status(403).json({
         ok: false,
@@ -134,7 +150,6 @@ export const verifyPasswordReset = async (req, res) => {
     const method = String(req.body?.method || '').trim();
     const email = normalizeEmail(req.body?.email);
     const phone = normalizePhone(req.body?.phone);
-    const token = String(req.body?.token || '').trim();
     const code = String(req.body?.code || '').trim();
 
     const target = method === 'email' ? email : method === 'sms' ? phone : '';
@@ -144,40 +159,28 @@ export const verifyPasswordReset = async (req, res) => {
 
     const record = await PasswordReset.findOne({ channel: method, target }).sort({ createdAt: -1 });
     if (!record) {
-      return res.status(400).json({ ok: false, message: 'Talep bulunamadı.' });
+      return res.status(400).json({ ok: false, message: 'Kod doğrulanamadı.' });
     }
     if (record.usedAt) {
-      return res.status(400).json({ ok: false, message: 'Kod zaten kullanıldı.' });
+      return res.status(400).json({ ok: false, message: 'Kod doğrulanamadı.' });
     }
     if (isExpired(record)) {
       await PasswordReset.deleteMany({ channel: method, target });
       return res.status(400).json({ ok: false, message: 'Kodun süresi doldu.' });
     }
-    if (record.attempts >= 5) {
+    if (record.attempts >= getOtpMaxAttempts()) {
       await PasswordReset.deleteMany({ channel: method, target });
       return res.status(429).json({ ok: false, message: 'Çok fazla deneme.' });
     }
 
-    if (method === 'email') {
-      if (!token) {
-        return res.status(400).json({ ok: false, message: 'Token zorunlu.' });
-      }
-      const tokenHash = hashToken(token);
-      if (tokenHash !== record.tokenHash) {
-        record.attempts += 1;
-        await record.save();
-        return res.status(400).json({ ok: false, message: 'Token geçersiz.' });
-      }
-    } else {
-      if (!/^\d{6}$/.test(code)) {
-        return res.status(400).json({ ok: false, message: 'Kod 6 haneli olmalı.' });
-      }
-      const matches = await bcrypt.compare(code, record.codeHash || '');
-      if (!matches) {
-        record.attempts += 1;
-        await record.save();
-        return res.status(400).json({ ok: false, message: 'Kod hatalı.' });
-      }
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ ok: false, message: 'Kod 6 haneli olmalı.' });
+    }
+    const matches = await bcrypt.compare(code, record.codeHash || '');
+    if (!matches) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({ ok: false, message: 'Kod doğrulanamadı.' });
     }
 
     const resetSecret = getResetSecret();
@@ -189,9 +192,17 @@ export const verifyPasswordReset = async (req, res) => {
       resetSecret,
       { expiresIn: RESET_SESSION_EXPIRES_IN }
     );
+    await logAuthEvent({ channel: method, event: 'password_reset_verify', status: 'success', target });
     return res.json({ ok: true, resetSessionToken });
   } catch (error) {
     console.error('PASSWORD_VERIFY_FAIL', error);
+    await logAuthEvent({
+      channel: String(req.body?.method || '') === 'sms' ? 'sms' : 'email',
+      event: 'password_reset_verify',
+      status: 'fail',
+      target: String(req.body?.email || req.body?.phone || ''),
+      errorMessage: error?.message || 'PASSWORD_VERIFY_FAIL'
+    });
     return res.status(500).json({ ok: false, message: 'Doğrulama başarısız.' });
   }
 };
@@ -235,6 +246,12 @@ export const resetPassword = async (req, res) => {
       { userId: user._id, usedAt: null },
       { usedAt: new Date() }
     );
+    await logAuthEvent({
+      channel: user.email ? 'email' : 'sms',
+      event: 'password_reset_complete',
+      status: 'success',
+      target: user.email || user.phoneE164
+    });
 
     return res.json({ ok: true, message: 'Şifre güncellendi' });
   } catch (error) {

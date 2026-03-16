@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
 
-const statusOptions = ['open', 'closed', 'awarded'];
+const statusOptions = ['open', 'closed', 'awarded', 'expired'];
 
 export default function AdminRfqDetail() {
   const { id } = useParams();

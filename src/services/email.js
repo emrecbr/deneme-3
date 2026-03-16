@@ -125,27 +125,21 @@ export const makeMailer = () => {
   return transport;
 };
 
-export const sendOtpEmail = async ({ to, code }) => {
+const sendEmailWithProvider = async ({ to, subject, text, html }) => {
   try {
     const provider = getEnv('EMAIL_PROVIDER');
     if (provider === 'mock' || getEnv('DRY_RUN') === 'true') {
       if (process.env.NODE_ENV !== 'production') {
-        console.log('EMAIL_OTP_MOCK', to, code);
+        console.log('EMAIL_MOCK', to);
       }
       return { id: 'mock', status: 'mocked' };
     }
 
     const fromRaw = getEnv('MAIL_FROM', getEnv('EMAIL_FROM', 'Talepet <noreply@talepet.net.tr>'));
     const from = parseFrom(fromRaw);
-    const text = `Doğrulama kodun: ${code}\nKod 5 dakika geçerlidir.`;
-    const html = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
-        <h2>Talepet Doğrulama Kodu</h2>
-        <p>Doğrulama kodun:</p>
-        <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px;">${code}</div>
-        <p>Bu kod 5 dakika geçerlidir.</p>
-      </div>
-    `;
+    const safeSubject = subject || 'Talepet bildirimi';
+    const textContent = text || '';
+    const htmlContent = html || '';
 
     const apiConfig = resolveApiProvider();
     if (apiConfig.provider === 'brevo_api') {
@@ -169,22 +163,32 @@ export const sendOtpEmail = async ({ to, code }) => {
           body: JSON.stringify({
             sender: { name: from.name || 'Talepet', email: from.email },
             to: [{ email: to }],
-            subject: 'Talepet doğrulama kodun',
-            textContent: text,
-            htmlContent: html
+            subject: safeSubject,
+            textContent,
+            htmlContent
           }),
           signal: controller.signal
         });
         const rawText = await response.text();
+        let parsed = null;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch (_err) {
+          parsed = null;
+        }
         if (!response.ok) {
           console.error('EMAIL_SEND_FAIL', {
             provider: 'brevo_api',
             httpStatus: response.status,
-            bodyPreview: maskSensitive(rawText, [apiConfig.apiKey]).slice(0, 1200)
+            errorCode: parsed?.code || parsed?.error?.code,
+            errorMessage: parsed?.message || parsed?.error?.message || parsed?.error?.reason,
+            sender: from.email,
+            bodyPreview: maskSensitive(rawText, [apiConfig.apiKey, to, from.email]).slice(0, 1200)
           });
           const error = new Error('Email gönderilemedi.');
           error.code = 'EMAIL_SEND_FAIL';
           error.statusCode = 502;
+          error.detail = parsed?.message || parsed?.error?.message || rawText?.slice?.(0, 200);
           throw error;
         }
       } finally {
@@ -214,10 +218,10 @@ export const sendOtpEmail = async ({ to, code }) => {
           body: JSON.stringify({
             personalizations: [{ to: [{ email: to }] }],
             from: { email: from.email, name: from.name || 'Talepet' },
-            subject: 'Talepet doğrulama kodun',
+            subject: safeSubject,
             content: [
-              { type: 'text/plain', value: text },
-              { type: 'text/html', value: html }
+              { type: 'text/plain', value: textContent },
+              { type: 'text/html', value: htmlContent }
             ]
           }),
           signal: controller.signal
@@ -245,10 +249,11 @@ export const sendOtpEmail = async ({ to, code }) => {
     await mailer.sendMail({
       from: `${from.name || 'Talepet'} <${from.email}>`,
       to,
-      subject: 'Talepet doğrulama kodun',
-      text,
-      html
+      subject: safeSubject,
+      text: textContent,
+      html: htmlContent
     });
+    return { provider: mailerConfig.provider, status: 'sent' };
   } catch (error) {
     const apiConfig = resolveApiProvider();
     if (apiConfig.provider) {
@@ -263,6 +268,42 @@ export const sendOtpEmail = async ({ to, code }) => {
     err.detail = error?.message;
     throw err;
   }
+};
+
+export const sendOtpEmail = async ({ to, code }) => {
+  const text = `Doğrulama kodun: ${code}\nKod 5 dakika geçerlidir.`;
+  const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <h2>Talepet Doğrulama Kodu</h2>
+        <p>Doğrulama kodun:</p>
+        <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px;">${code}</div>
+        <p>Bu kod 5 dakika geçerlidir.</p>
+      </div>
+    `;
+  return sendEmailWithProvider({
+    to,
+    subject: 'Talepet doğrulama kodun',
+    text,
+    html
+  });
+};
+
+export const sendPasswordResetOtpEmail = async ({ to, code }) => {
+  const text = `Şifre sıfırlama kodun: ${code}\nKod 10 dakika geçerlidir.`;
+  const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+        <h2>Talepet Şifre Sıfırlama</h2>
+        <p>Şifre sıfırlama kodun:</p>
+        <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px;">${code}</div>
+        <p>Bu kod 10 dakika geçerlidir.</p>
+      </div>
+    `;
+  return sendEmailWithProvider({
+    to,
+    subject: 'Talepet şifre sıfırlama kodun',
+    text,
+    html
+  });
 };
 
 export const sendPasswordResetEmail = async ({ to, resetLink }) => {
