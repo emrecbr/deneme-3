@@ -16,6 +16,7 @@ import { emitToRoom } from '../config/socket.js';
 import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
 import { checkModeration } from '../src/utils/moderation.js';
+import { triggerMatchingAlertsForRfq } from '../src/services/alertSubscriptionService.js';
 
 const rfqRoutes = Router();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
@@ -357,6 +358,12 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       success: true,
       data: populatedRFQ || rfq
     });
+
+    setTimeout(() => {
+      triggerMatchingAlertsForRfq(populatedRFQ || rfq).catch((notifyError) => {
+        console.error('ALERT MATCH ERROR:', notifyError?.message || notifyError);
+      });
+    }, 0);
 
     if (quotaConsumption?.mode === 'paid') {
       try {

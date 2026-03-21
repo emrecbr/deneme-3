@@ -35,6 +35,12 @@ const templates = {
     title: 'Öne çıkarma aktif',
     body: 'İlanınız öne çıkarıldı.'
   }),
+  new_matching_rfq: ({ title, cityName, categoryName } = {}) => ({
+    title: title || 'Yeni ilan var',
+    body: categoryName || cityName
+      ? `${categoryName || 'Takip ettiğin kategori'}${cityName ? ` - ${cityName}` : ''} için yeni ilan yayınlandı.`
+      : 'Takip ettiğin kriter için yeni ilan yayınlandı.'
+  }),
   admin_test_push: ({ title, body } = {}) => ({
     title: title || 'Test bildirimi',
     body: body || 'Bu bir test bildirimidir.'
@@ -60,5 +66,6 @@ export const notificationPreferenceMap = {
   payment_success: 'paymentNotifications',
   premium_activated: 'paymentNotifications',
   featured_activated: 'paymentNotifications',
+  new_matching_rfq: 'listingNotifications',
   admin_test_push: 'systemNotifications'
 };

@@ -79,6 +79,7 @@ import {
   updateModerationAttempt,
   listModerationRiskUsers
 } from '../controllers/adminModerationAttemptsController.js';
+import { listAdminAlerts, getAdminAlertStats } from '../controllers/adminAlertController.js';
 import { exportData } from '../controllers/adminExportController.js';
 import { getReportOverview } from '../controllers/adminReportController.js';
 import {
@@ -177,6 +178,9 @@ router.patch('/moderation/attempts/:id', adminRoleMiddleware, updateModerationAt
 router.get('/moderation/risk-users', adminRoleMiddleware, listModerationRiskUsers);
 
 router.get('/reports/overview', adminRoleMiddleware, getReportOverview);
+
+router.get('/alerts', adminRoleMiddleware, listAdminAlerts);
+router.get('/alerts/stats', adminRoleMiddleware, getAdminAlertStats);
 router.get('/reports/export', adminRoleMiddleware, exportData);
 router.get('/reports/issues', adminRoleMiddleware, listAdminIssueReports);
 router.get('/reports/issues/:id', adminRoleMiddleware, getAdminIssueReport);

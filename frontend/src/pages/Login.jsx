@@ -33,6 +33,7 @@ function Login() {
     navigate('/');
   }, [isAuthenticated, navigate, user?.role]);
 
+
   useEffect(() => {
     if (!sheetOpen) {
       return;
@@ -223,7 +224,6 @@ function Login() {
   return (
     <div className="page auth-page">
       <div className="card auth-card">
-        <div className="auth-logo">Talepet</div>
         <h1 className="auth-title">Talepet</h1>
         <p className="auth-subtitle">Giriş yap veya yeni hesap oluştur.</p>
 

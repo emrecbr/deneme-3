@@ -31,6 +31,7 @@ import rfqFlowRoutes from '../routes/rfqFlowRoutes.js';
 import mapRoutes from '../routes/mapRoutes.js';
 import reportRoutes from '../routes/reportRoutes.js';
 import monetizationRoutes from '../routes/monetizationRoutes.js';
+import alertRoutes from '../routes/alertRoutes.js';
 import City from '../models/City.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
@@ -70,6 +71,7 @@ const logEnvPresence = () => {
 };
 logEnvPresence();
 const PORT = Number(process.env.PORT) || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
@@ -114,7 +116,8 @@ const ROUTE_MOUNTS = [
   ['/api/rfq-flow', rfqFlowRoutes],
   ['/api/map', mapRoutes],
   ['/api/reports', reportRoutes],
-  ['/api', monetizationRoutes]
+  ['/api', monetizationRoutes],
+  ['/api', alertRoutes]
 ];
 const onlineUsers = new Set();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
@@ -341,8 +344,8 @@ const startServer = async () => {
     process.exit(1);
   }
 
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  server.listen(PORT, HOST, () => {
+    console.log(`Server running on ${HOST}:${PORT}`);
     Promise.all([City.countDocuments(), RFQ.countDocuments()])
       .then(([cityCount, rfqCount]) => {
         console.log('Total cities count:', cityCount);

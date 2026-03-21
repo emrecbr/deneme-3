@@ -87,7 +87,8 @@ const MENU_SECTIONS = [
       { label: 'Push Test', to: '/admin/notifications/push-test' },
       { label: 'Push Logları', to: '/admin/notifications/push-logs' },
       { label: 'Bildirim Tercihleri', to: '/admin/notifications/push-preferences' },
-      { label: 'Bildirim Şablonları', to: '/admin/notifications/templates' }
+      { label: 'Bildirim Şablonları', to: '/admin/notifications/templates' },
+      { label: 'Takip Bildirimleri', to: '/admin/alerts' }
     ]
   },
   {

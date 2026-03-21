@@ -23,6 +23,7 @@ const AdminSmsLogs = lazy(() => import('./admin/AdminSmsLogs'));
 const AdminPushTest = lazy(() => import('./admin/AdminPushTest'));
 const AdminPushLogs = lazy(() => import('./admin/AdminPushLogs'));
 const AdminPushPreferences = lazy(() => import('./admin/AdminPushPreferences'));
+const AdminAlerts = lazy(() => import('./admin/AdminAlerts'));
 const AdminSystemHealth = lazy(() => import('./admin/AdminSystemHealth'));
 const AdminFeatureFlags = lazy(() => import('./admin/AdminFeatureFlags'));
 const AdminMaintenance = lazy(() => import('./admin/AdminMaintenance'));
@@ -248,6 +249,7 @@ function App() {
         <Route path="notifications/push-logs" element={<AdminPushLogs />} />
         <Route path="notifications/push-preferences" element={<AdminPushPreferences />} />
         <Route path="notifications/templates" element={<AdminPlaceholder title="Bildirim Şablonları" />} />
+        <Route path="alerts" element={<AdminAlerts />} />
         <Route path="content/home" element={<AdminContentHome />} />
         <Route path="content/onboarding" element={<AdminContentOnboarding />} />
         <Route path="content/ui" element={<Navigate to="/admin/content/ui-texts" replace />} />

@@ -185,6 +185,7 @@ function RFQList() {
   const [mapRadiusKm, setMapRadiusKm] = useState(() => Number(filters.radius) || DEFAULT_RADIUS_SETTINGS.default);
   const [isMapFilterOpen, setIsMapFilterOpen] = useState(false);
   const [isSearchTriggerOpen, setIsSearchTriggerOpen] = useState(false);
+  const [alertSubmitting, setAlertSubmitting] = useState(false);
   const searchAreaRef = useRef(null);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const deferredFilters = useDeferredValue(filters);
@@ -1120,6 +1121,50 @@ function RFQList() {
       [key]: value
     }));
   }, [filters]);
+
+  const buildAlertPayload = useCallback(() => {
+    const base = draftFilters || filters;
+    const keyword = String(searchQuery || '').trim();
+    if (keyword) {
+      return { type: 'keyword', keyword };
+    }
+    if (base.category && base.cityId && base.districtId) {
+      return { type: 'category_city_district', categoryId: base.category, cityId: base.cityId, districtId: base.districtId };
+    }
+    if (base.category && base.cityId) {
+      return { type: 'category_city', categoryId: base.category, cityId: base.cityId };
+    }
+    if (base.category) {
+      return { type: 'category', categoryId: base.category };
+    }
+    return null;
+  }, [draftFilters, filters, searchQuery]);
+
+  const handleCreateAlert = useCallback(async () => {
+    if (!currentUserId) {
+      navigate('/login');
+      return;
+    }
+    const payload = buildAlertPayload();
+    if (!payload) {
+      setToast('Takip icin once kategori veya arama sec.');
+      return;
+    }
+    try {
+      setAlertSubmitting(true);
+      await api.post('/me/alerts', payload);
+      setToast('Takip olusturuldu. Yeni ilanlarda bildirim alacaksin.');
+    } catch (requestError) {
+      const status = requestError.response?.status;
+      if (status === 409) {
+        setToast('Bu takip zaten var.');
+      } else {
+        setToast(requestError.response?.data?.message || 'Takip olusturulamadi.');
+      }
+    } finally {
+      setAlertSubmitting(false);
+    }
+  }, [buildAlertPayload, currentUserId, navigate, setToast]);
 
   const mapRadiusInputRef = useRef(null);
 
@@ -3345,6 +3390,22 @@ function RFQList() {
             <option value="date_desc">Tarihe göre (yeni ilan)</option>
             <option value="date_asc">Tarihe göre (eski ilan)</option>
           </select>
+        </div>
+        <div className="home-sheet-filters alert-follow-card">
+          <div>
+            <div className="alert-follow-title">Bu aramayı takip et</div>
+            <div className="alert-follow-sub">
+              Yeni ilanlar olduğunda bildirim al.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleCreateAlert}
+            disabled={alertSubmitting}
+          >
+            {alertSubmitting ? 'Kaydediliyor…' : 'Takip Et'}
+          </button>
         </div>
       </ReusableBottomSheet>
 

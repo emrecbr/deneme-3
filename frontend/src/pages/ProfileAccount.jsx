@@ -84,6 +84,22 @@ function ProfileAccount() {
     cvv: ''
   });
   const [paymentFormError, setPaymentFormError] = useState('');
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsError, setAlertsError] = useState('');
+  const [alertsSheetOpen, setAlertsSheetOpen] = useState(false);
+  const [alertForm, setAlertForm] = useState({
+    type: 'category',
+    categoryId: '',
+    cityId: '',
+    districtId: '',
+    keyword: ''
+  });
+  const [alertFormLoading, setAlertFormLoading] = useState(false);
+  const [alertFormError, setAlertFormError] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [districts, setDistricts] = useState([]);
 
   const showToast = (message) => {
     if (!message) {
@@ -97,6 +113,9 @@ function ProfileAccount() {
   useEffect(() => {
     if (location.state?.openPassword) {
       setPasswordOpen(true);
+    }
+    if (location.state?.openAlerts) {
+      setAlertsSheetOpen(true);
     }
   }, [location.state]);
 
@@ -153,6 +172,70 @@ function ProfileAccount() {
 
     fetchMe();
   }, []);
+
+  useEffect(() => {
+    if (!alertsSheetOpen) {
+      return;
+    }
+    let active = true;
+    const fetchAlerts = async () => {
+      try {
+        setAlertsLoading(true);
+        const response = await api.get('/me/alerts');
+        if (!active) return;
+        setAlerts(response.data?.items || []);
+        setAlertsError('');
+      } catch (requestError) {
+        if (!active) return;
+        setAlertsError(requestError.response?.data?.message || 'Takip listesi alinamadi.');
+      } finally {
+        if (active) setAlertsLoading(false);
+      }
+    };
+    const fetchMeta = async () => {
+      try {
+        const [categoryRes, cityRes] = await Promise.all([
+          api.get('/categories'),
+          api.get('/location/cities?limit=200')
+        ]);
+        if (!active) return;
+        setCategories(categoryRes.data?.data || []);
+        setCities(cityRes.data?.items || []);
+      } catch (_error) {
+        // ignore
+      }
+    };
+    fetchAlerts();
+    fetchMeta();
+    return () => {
+      active = false;
+    };
+  }, [alertsSheetOpen]);
+
+  useEffect(() => {
+    if (!alertsSheetOpen) {
+      return;
+    }
+    if (!alertForm.cityId) {
+      setDistricts([]);
+      return;
+    }
+    let active = true;
+    const fetchDistricts = async () => {
+      try {
+        const response = await api.get(`/location/districts?cityId=${alertForm.cityId}&limit=200`);
+        if (!active) return;
+        setDistricts(response.data?.data || []);
+      } catch (_error) {
+        if (!active) return;
+        setDistricts([]);
+      }
+    };
+    fetchDistricts();
+    return () => {
+      active = false;
+    };
+  }, [alertForm.cityId, alertsSheetOpen]);
 
   const phoneDisplay = useMemo(() => formatPhone(form.phoneDigits), [form.phoneDigits]);
   const phoneError =
@@ -348,12 +431,122 @@ function ProfileAccount() {
     }
   };
 
+  const buildAlertLabel = (item) => {
+    if (item.type === 'keyword') {
+      return item.keyword ? `"${item.keyword}" geçen ilanlar` : 'Anahtar kelime';
+    }
+    const parts = [];
+    if (item.categoryName) parts.push(item.categoryName);
+    if (item.cityName) parts.push(item.cityName);
+    if (item.districtName) parts.push(item.districtName);
+    return parts.length ? parts.join(' / ') : 'Kategori takibi';
+  };
+
+  const toggleAlert = async (alertId, isActive) => {
+    try {
+      const response = await api.patch(`/me/alerts/${alertId}`, { isActive: !isActive });
+      const updated = response.data?.data;
+      setAlerts((prev) => prev.map((item) => (item._id === alertId ? updated : item)));
+      showToast(!isActive ? 'Takip aktif edildi' : 'Takip pasif edildi');
+    } catch (requestError) {
+      showToast(requestError.response?.data?.message || 'Takip güncellenemedi.');
+    }
+  };
+
+  const deleteAlert = async (alertId) => {
+    const confirmed = window.confirm('Bu takibi silmek istediğine emin misin?');
+    if (!confirmed) return;
+    try {
+      await api.delete(`/me/alerts/${alertId}`);
+      setAlerts((prev) => prev.filter((item) => item._id !== alertId));
+      showToast('Takip silindi');
+    } catch (requestError) {
+      showToast(requestError.response?.data?.message || 'Takip silinemedi.');
+    }
+  };
+
+  const handleOpenMatch = async (match) => {
+    if (!match?.rfqId) {
+      return;
+    }
+    if (!match.isSeen) {
+      try {
+        await api.patch(`/me/alert-matches/${match._id}/seen`);
+        setAlerts((prev) => prev.map((alert) => {
+          if (String(alert._id) !== String(match.subscriptionId || alert._id)) {
+            return alert;
+          }
+          const nextMatches = (alert.matches || []).map((m) => (m._id === match._id ? { ...m, isSeen: true } : m));
+          const nextUnread = Math.max((alert.unreadCount || 0) - 1, 0);
+          return { ...alert, matches: nextMatches, unreadCount: nextUnread };
+        }));
+      } catch (_error) {
+        // ignore
+      }
+    }
+    navigate(`/rfq/${match.rfqId}`);
+  };
+
+  const resetAlertForm = () => {
+    setAlertForm({
+      type: 'category',
+      categoryId: '',
+      cityId: '',
+      districtId: '',
+      keyword: ''
+    });
+    setAlertFormError('');
+  };
+
+  const handleCreateAlert = async () => {
+    try {
+      setAlertFormError('');
+      setAlertFormLoading(true);
+      const payload = {
+        type: alertForm.type,
+        categoryId: alertForm.categoryId || undefined,
+        cityId: alertForm.cityId || undefined,
+        districtId: alertForm.districtId || undefined,
+        keyword: alertForm.keyword || undefined
+      };
+      const response = await api.post('/me/alerts', payload);
+      if (response.data?.data) {
+        setAlerts((prev) => [response.data.data, ...prev]);
+      }
+      showToast('Takip eklendi');
+      resetAlertForm();
+    } catch (requestError) {
+      const status = requestError.response?.status;
+      if (status === 409) {
+        setAlertFormError('Bu takip zaten mevcut.');
+      } else {
+        setAlertFormError(requestError.response?.data?.message || 'Takip eklenemedi.');
+      }
+    } finally {
+      setAlertFormLoading(false);
+    }
+  };
+
   return (
     <div className="account-page">
       <div className="account-header">
         <BackIconButton />
         <h1>Hesabım</h1>
       </div>
+
+      <section className="card account-card">
+        <div className="account-highlight">
+          <div>
+            <h2>Takiplerim</h2>
+            <div className="account-muted">
+              İlgilendiğin kategori ve aramalar için yeni ilan bildirimlerini yönet.
+            </div>
+          </div>
+          <button type="button" className="primary-btn account-entry-btn" onClick={() => setAlertsSheetOpen(true)}>
+            Takiplerimi Aç
+          </button>
+        </div>
+      </section>
 
       <section className="card account-card">
         <h2>Bilgilerim</h2>
@@ -478,6 +671,156 @@ function ProfileAccount() {
           </button>
         </div>
       </section>
+
+      <ReusableBottomSheet
+        open={alertsSheetOpen}
+        onClose={() => setAlertsSheetOpen(false)}
+        title="Takiplerim"
+        contentClassName="alerts-sheet"
+        headerRight={
+          <button type="button" className="offer-sheet-close" onClick={() => setAlertsSheetOpen(false)} aria-label="Kapat">
+            ✕
+          </button>
+        }
+        initialSnap="mid"
+      >
+        <div className="alert-form">
+          <div className="alert-form-title">Yeni takip ekle</div>
+          <div className="alert-form-grid">
+            <label className="account-field">
+              <span>Takip tipi</span>
+              <select
+                value={alertForm.type}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setAlertForm((prev) => ({
+                    ...prev,
+                    type: value,
+                    cityId: value === 'category' ? '' : prev.cityId,
+                    districtId: value !== 'category_city_district' ? '' : prev.districtId
+                  }));
+                }}
+              >
+                <option value="category">Kategori</option>
+                <option value="category_city">Kategori + Şehir</option>
+                <option value="category_city_district">Kategori + Şehir + İlçe</option>
+                <option value="keyword">Anahtar Kelime</option>
+              </select>
+            </label>
+
+            {alertForm.type !== 'keyword' ? (
+              <label className="account-field">
+                <span>Kategori</span>
+                <select
+                  value={alertForm.categoryId}
+                  onChange={(event) => setAlertForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                >
+                  <option value="">Kategori seç</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>{cat.name}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="account-field">
+                <span>Anahtar kelime</span>
+                <input
+                  value={alertForm.keyword}
+                  placeholder="Örn: iPhone"
+                  onChange={(event) => setAlertForm((prev) => ({ ...prev, keyword: event.target.value }))}
+                />
+              </label>
+            )}
+
+            {alertForm.type === 'category_city' || alertForm.type === 'category_city_district' ? (
+              <label className="account-field">
+                <span>Şehir</span>
+                <select
+                  value={alertForm.cityId}
+                  onChange={(event) => setAlertForm((prev) => ({ ...prev, cityId: event.target.value, districtId: '' }))}
+                >
+                  <option value="">Şehir seç</option>
+                  {cities.map((city) => (
+                    <option key={city._id || city.id} value={city._id || city.id}>{city.name || city}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {alertForm.type === 'category_city_district' ? (
+              <label className="account-field">
+                <span>İlçe</span>
+                <select
+                  value={alertForm.districtId}
+                  onChange={(event) => setAlertForm((prev) => ({ ...prev, districtId: event.target.value }))}
+                >
+                  <option value="">İlçe seç</option>
+                  {districts.map((district) => (
+                    <option key={district._id || district.id} value={district._id || district.id}>{district.name || district}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+          {alertFormError ? <div className="error">{alertFormError}</div> : null}
+          <button type="button" className="primary-btn" onClick={handleCreateAlert} disabled={alertFormLoading}>
+            {alertFormLoading ? 'Ekleniyor…' : 'Takip Ekle'}
+          </button>
+        </div>
+
+        {alertsLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {alertsError ? <div className="error">{alertsError}</div> : null}
+        {!alertsLoading && !alertsError ? (
+          alerts.length ? (
+            <div className="alert-list">
+              {alerts.map((item) => (
+                <div key={item._id} className="alert-item">
+                  <div>
+                    <div className="alert-title">
+                      {buildAlertLabel(item)}
+                      {item.unreadCount ? <span className="alert-badge">{item.unreadCount} yeni</span> : null}
+                    </div>
+                    <div className="alert-meta">
+                      {item.type === 'keyword' ? 'Anahtar Kelime' : 'Kategori'}
+                      {item.lastTriggeredAt ? ` • Son tetiklenme: ${new Date(item.lastTriggeredAt).toLocaleDateString('tr-TR')}` : ''}
+                    </div>
+                    {item.matches?.length ? (
+                      <div className="alert-matches">
+                        {item.matches.map((match) => (
+                          <button
+                            key={match._id}
+                            type="button"
+                            className={`alert-match ${match.isSeen ? '' : 'is-unseen'}`}
+                            onClick={() => handleOpenMatch(match)}
+                          >
+                            <div className="alert-match-title">{match.title}</div>
+                            <div className="alert-match-meta">
+                              {match.cityName || match.districtName ? `${match.cityName}${match.districtName ? ` / ${match.districtName}` : ''}` : ''}
+                              {match.createdAt ? ` • ${new Date(match.createdAt).toLocaleDateString('tr-TR')}` : ''}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="alert-empty">Henüz bu takip için yeni talep yok.</div>
+                    )}
+                  </div>
+                  <div className="alert-actions">
+                    <button type="button" className="secondary-btn" onClick={() => toggleAlert(item._id, item.isActive)}>
+                      {item.isActive ? 'Pasif Yap' : 'Aktif Et'}
+                    </button>
+                    <button type="button" className="link-btn" onClick={() => deleteAlert(item._id)}>
+                      Sil
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="account-muted">Henüz takip kaydın yok.</div>
+          )
+        ) : null}
+      </ReusableBottomSheet>
 
       <ReusableBottomSheet
         open={paymentSheetOpen}

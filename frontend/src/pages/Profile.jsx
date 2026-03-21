@@ -320,6 +320,25 @@ function Profile() {
               </div>
             </section>
 
+            <section className="profile-big-card" onClick={() => navigate('/profile/account', { state: { openAlerts: true } })}>
+              <div className="profile-card-header">
+                <h2>Takiplerim</h2>
+                <span className="chevron">›</span>
+              </div>
+              <div className="profile-card-items">
+                <button type="button" className="profile-sub-item" onClick={(event) => {
+                  event.stopPropagation();
+                  navigate('/profile/account', { state: { openAlerts: true } });
+                }}>
+                  <span>Yeni İlan Takiplerim</span>
+                  <span className="sub-item-right">
+                    <span className="chevron">›</span>
+                  </span>
+                </button>
+                <div className="profile-sub-preview">İlgilendiğin kategoriler için bildirimleri yönet.</div>
+              </div>
+            </section>
+
             <section className="profile-big-card">
               <div className="profile-card-header">
                 <h2>Ayarlar</h2>
