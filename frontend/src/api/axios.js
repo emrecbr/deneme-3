@@ -33,6 +33,12 @@ export const buildProviderAuthUrl = (provider) => {
   return `/api/auth/${normalizedProvider}`;
 };
 
+export const buildProtectedRequestConfig = (overrides = {}) => ({
+  withCredentials: true,
+  skipUnauthorizedRedirect: true,
+  ...overrides
+});
+
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
 } else if (!ENV_API_BASE) {
@@ -61,7 +67,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401 && unauthorizedHandler) {
+    if (error?.response?.status === 401 && unauthorizedHandler && !error?.config?.skipUnauthorizedRedirect) {
       unauthorizedHandler();
     }
     return Promise.reject(error);

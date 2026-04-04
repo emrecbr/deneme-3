@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProtectedRequestConfig } from '../api/axios';
 import { getSocket } from '../lib/socket';
 import { getProductSchema } from '../lib/rfqProductSchemas';
 import { triggerHaptic } from '../utils/haptic';
@@ -767,13 +767,58 @@ function RFQDetail() {
         window.setTimeout(() => setChatToast(''), 3000);
         return;
       }
-      const response = await api.post('/billing/checkout', { planCode: featuredPlanCode });
+      const hasStoredToken = Boolean(localStorage.getItem('token'));
+      console.info('PREMIUM_CHECKOUT_START', {
+        source: 'rfq_detail_featured',
+        planCode: featuredPlanCode,
+        hasUser: Boolean(currentUser),
+        hasStoredToken
+      });
+      console.info('PREMIUM_CHECKOUT_REQUEST', {
+        source: 'rfq_detail_featured',
+        endpoint: '/billing/checkout',
+        planCode: featuredPlanCode
+      });
+      const response = await api.post(
+        '/billing/checkout',
+        { planCode: featuredPlanCode },
+        buildProtectedRequestConfig()
+      );
       const url = response.data?.checkoutUrl;
+      console.info('PREMIUM_CHECKOUT_RESPONSE', {
+        source: 'rfq_detail_featured',
+        planCode: featuredPlanCode,
+        status: response.status,
+        hasCheckoutUrl: Boolean(url)
+      });
       if (url) {
         window.location.href = url;
       }
     } catch (requestError) {
-      setChatToast(requestError.response?.data?.message || 'Checkout baslatilamadi.');
+      const status = requestError?.response?.status;
+      const hasStoredToken = Boolean(localStorage.getItem('token'));
+      if (status === 401 || status === 403) {
+        console.warn('PREMIUM_AUTH_MISSING', {
+          source: 'rfq_detail_featured',
+          planCode: featuredPlanCode,
+          status,
+          hasUser: Boolean(currentUser),
+          hasStoredToken
+        });
+      }
+      console.warn('PREMIUM_CHECKOUT_FAILURE', {
+        source: 'rfq_detail_featured',
+        planCode: featuredPlanCode,
+        status: status || null,
+        reason: status === 401 || status === 403 ? 'auth_failed' : 'payment_init_failed',
+        hasUser: Boolean(currentUser),
+        hasStoredToken
+      });
+      setChatToast(
+        status === 401 || status === 403
+          ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
+          : requestError.response?.data?.message || 'Checkout baslatilamadi.'
+      );
       window.setTimeout(() => setChatToast(''), 3000);
     }
   };

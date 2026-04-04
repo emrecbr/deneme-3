@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProtectedRequestConfig } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
@@ -150,7 +150,7 @@ function ProfileAccount() {
         setLoading(true);
         const [response, billingRes] = await Promise.all([
           api.get('/users/me'),
-          api.get('/billing/me')
+          api.get('/billing/me', buildProtectedRequestConfig())
         ]);
         const payload = response.data?.data || {};
         const billingPayload = billingRes.data?.data || {};
@@ -356,7 +356,7 @@ function ProfileAccount() {
   const handleExtraListingPayment = async () => {
     try {
       setPaymentLoading(true);
-      const response = await api.post('/billing/listing-extra/checkout');
+      const response = await api.post('/billing/listing-extra/checkout', {}, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
       if (url) {
         window.location.href = url;
@@ -395,7 +395,7 @@ function ProfileAccount() {
     }
     try {
       setPaymentLoading(true);
-      const response = await api.post('/billing/payment-method/checkout');
+      const response = await api.post('/billing/payment-method/checkout', {}, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
       if (url) {
         window.location.href = url;

@@ -1,6 +1,6 @@
 ﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProtectedRequestConfig } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
@@ -1117,20 +1117,59 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   };
 
   const handleCheckout = async (planCode) => {
+    const hasStoredToken = Boolean(localStorage.getItem('token'));
     try {
+      console.info('PREMIUM_CHECKOUT_START', {
+        source: 'rfq_create_paywall',
+        planCode,
+        hasUser: Boolean(user),
+        hasStoredToken
+      });
       logFlowEvent({
         step: 4,
         event: 'plan_checkout_started',
         planCode
       });
       setCheckoutLoading(planCode);
-      const response = await api.post('/billing/checkout', { planCode });
+      console.info('PREMIUM_CHECKOUT_REQUEST', {
+        source: 'rfq_create_paywall',
+        endpoint: '/billing/checkout',
+        planCode
+      });
+      const response = await api.post('/billing/checkout', { planCode }, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
+      console.info('PREMIUM_CHECKOUT_RESPONSE', {
+        source: 'rfq_create_paywall',
+        planCode,
+        status: response.status,
+        hasCheckoutUrl: Boolean(url)
+      });
       if (url) {
         window.location.href = url;
       }
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+      const status = requestError?.response?.status;
+      const message =
+        status === 401 || status === 403
+          ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
+          : requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+      if (status === 401 || status === 403) {
+        console.warn('PREMIUM_AUTH_MISSING', {
+          source: 'rfq_create_paywall',
+          planCode,
+          status,
+          hasUser: Boolean(user),
+          hasStoredToken
+        });
+      }
+      console.warn('PREMIUM_CHECKOUT_FAILURE', {
+        source: 'rfq_create_paywall',
+        planCode,
+        status: status || null,
+        reason: status === 401 || status === 403 ? 'auth_failed' : 'payment_init_failed',
+        hasUser: Boolean(user),
+        hasStoredToken
+      });
       setError(message);
       showToast(message);
     } finally {
@@ -1145,13 +1184,17 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         event: 'listing_extra_checkout_started'
       });
       setExtraPaymentLoading(true);
-      const response = await api.post('/billing/listing-extra/checkout');
+      const response = await api.post('/billing/listing-extra/checkout', {}, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
       if (url) {
         window.location.href = url;
       }
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+      const status = requestError?.response?.status;
+      const message =
+        status === 401 || status === 403
+          ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
+          : requestError.response?.data?.message || 'Ödeme başlatılamadı.';
       setError(message);
       showToast(message);
     } finally {

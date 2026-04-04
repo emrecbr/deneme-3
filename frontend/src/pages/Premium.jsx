@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProtectedRequestConfig } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import BackIconButton from '../components/BackIconButton';
 
@@ -32,9 +32,17 @@ function Premium() {
 
   const fetchBilling = async () => {
     try {
-      const response = await api.get('/billing/me');
+      const response = await api.get('/billing/me', buildProtectedRequestConfig());
       setBilling(response.data?.data || null);
-    } catch (_error) {
+    } catch (requestError) {
+      if (requestError?.response?.status === 401 || requestError?.response?.status === 403) {
+        console.warn('PREMIUM_AUTH_MISSING', {
+          source: 'premium_page_fetch',
+          status: requestError?.response?.status,
+          hasUser: Boolean(user),
+          hasStoredToken: Boolean(localStorage.getItem('token'))
+        });
+      }
       setBilling(null);
     }
   };
@@ -45,15 +53,64 @@ function Premium() {
   }, []);
 
   const handleCheckout = async (planCode) => {
+    const hasStoredToken = Boolean(localStorage.getItem('token'));
+    console.info('PREMIUM_CHECKOUT_START', {
+      source: 'premium_page',
+      planCode,
+      hasUser: Boolean(user),
+      hasStoredToken
+    });
+
+    if (!hasStoredToken && !user) {
+      console.warn('PREMIUM_AUTH_MISSING', {
+        source: 'premium_page',
+        planCode,
+        hasUser: false,
+        hasStoredToken: false
+      });
+      console.info('PREMIUM_REDIRECT_TO_LOGIN', {
+        source: 'premium_page',
+        planCode,
+        reason: 'missing_local_auth'
+      });
+      navigate('/login');
+      return;
+    }
+
     try {
       setProcessing(planCode);
-      const response = await api.post('/billing/checkout', { planCode });
+      console.info('PREMIUM_CHECKOUT_REQUEST', {
+        source: 'premium_page',
+        endpoint: '/billing/checkout',
+        planCode
+      });
+      const response = await api.post('/billing/checkout', { planCode }, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
+      console.info('PREMIUM_CHECKOUT_RESPONSE', {
+        source: 'premium_page',
+        planCode,
+        status: response.status,
+        hasCheckoutUrl: Boolean(url)
+      });
       if (url) {
         window.location.href = url;
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Ödeme başlatılamadı.');
+      const status = requestError?.response?.status;
+      const message =
+        status === 401 || status === 403
+          ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
+          : requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+
+      console.warn('PREMIUM_CHECKOUT_FAILURE', {
+        source: 'premium_page',
+        planCode,
+        status: status || null,
+        reason: status === 401 || status === 403 ? 'auth_failed' : 'payment_init_failed',
+        hasUser: Boolean(user),
+        hasStoredToken
+      });
+      setError(message);
     } finally {
       setProcessing('');
     }
@@ -64,11 +121,11 @@ function Premium() {
       return;
     }
     try {
-      await api.post('/billing/subscription/cancel', { subscriptionId: billing.subscription._id });
+      await api.post('/billing/subscription/cancel', { subscriptionId: billing.subscription._id }, buildProtectedRequestConfig());
       await fetchBilling();
       await checkAuth();
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'İptal isteği alınmadı.');
+      setError(requestError.response?.data?.message || 'İptal isteği alınamadı.');
     }
   };
 
@@ -95,7 +152,10 @@ function Premium() {
           <div className="premium-subscription-box">
             <div>Plan: {billing.subscription.planCode}</div>
             <div>
-              Dönem sonu: {billing.subscription.currentPeriodEnd ? new Date(billing.subscription.currentPeriodEnd).toLocaleDateString('tr-TR') : '-'}
+              Dönem sonu:{' '}
+              {billing.subscription.currentPeriodEnd
+                ? new Date(billing.subscription.currentPeriodEnd).toLocaleDateString('tr-TR')
+                : '-'}
             </div>
             {billing.subscription.cancelAtPeriodEnd ? (
               <div className="status-pill pending">Dönem sonunda iptal</div>
