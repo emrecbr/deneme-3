@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 
+const sectionMeta = {
+  freeQuota: {
+    title: 'Ücretsiz İlan Kotası',
+    help: 'Kullanıcının ödeme görmeden açabileceği ilan adedini ve bu hakkın kaç günde yenileneceğini belirler.'
+  },
+  paidListing: {
+    title: 'Ek İlan Ücreti',
+    help: 'Ücretsiz hak bittiğinde kullanıcıya gösterilecek ücretli ilan akışını ve fiyatını yönetir.'
+  },
+  paymentMethod: {
+    title: 'Kart Ekleme Hazırlığı',
+    help: 'Kart ekleme veya ödeme yöntemi doğrulama akışında alınacak küçük hazırlık ücretini kontrol eder.'
+  }
+};
+
 export default function AdminListingQuota() {
   const [form, setForm] = useState({
     periodDays: 30,
@@ -70,85 +85,113 @@ export default function AdminListingQuota() {
       <div className="admin-panel-title">İlan Kotası & Ücret</div>
       <div className="admin-panel-body">
         {loading ? (
-          <div className="admin-empty">Yükleniyor…</div>
+          <div className="admin-empty">Yükleniyor...</div>
         ) : (
           <form className="admin-form" onSubmit={handleSave}>
-            <div className="admin-field">
-              <label className="admin-label">Dönem süresi (gün)</label>
-              <input
-                className="admin-input"
-                type="number"
-                min={1}
-                value={form.periodDays}
-                onChange={(event) => handleChange('periodDays', event.target.value)}
-              />
+            <div className="admin-card admin-plan-card">
+              <div className="admin-card-title">{sectionMeta.freeQuota.title}</div>
+              <div className="admin-muted">{sectionMeta.freeQuota.help}</div>
+
+              <div className="admin-field">
+                <label className="admin-label">Dönem süresi (gün)</label>
+                <input
+                  className="admin-input"
+                  type="number"
+                  min={1}
+                  value={form.periodDays}
+                  onChange={(event) => handleChange('periodDays', event.target.value)}
+                />
+                <div className="admin-muted">Önerilen başlangıç ayarı: 30 gün.</div>
+              </div>
+
+              <div className="admin-field">
+                <label className="admin-label">Ücretsiz ilan hakkı</label>
+                <input
+                  className="admin-input"
+                  type="number"
+                  min={1}
+                  value={form.maxFree}
+                  onChange={(event) => handleChange('maxFree', event.target.value)}
+                />
+                <div className="admin-muted">Bu limit aşıldığında kullanıcı ücretli ilan ya da paket akışına düşer.</div>
+              </div>
             </div>
-            <div className="admin-field">
-              <label className="admin-label">Ücretsiz ilan hakkı</label>
-              <input
-                className="admin-input"
-                type="number"
-                min={1}
-                value={form.maxFree}
-                onChange={(event) => handleChange('maxFree', event.target.value)}
-              />
+
+            <div className="admin-card admin-plan-card">
+              <div className="admin-card-title">{sectionMeta.paidListing.title}</div>
+              <div className="admin-muted">{sectionMeta.paidListing.help}</div>
+
+              <div className="admin-field">
+                <label className="admin-label">Ek ilan ücreti</label>
+                <input
+                  className="admin-input"
+                  type="number"
+                  min={0}
+                  value={form.extraPrice}
+                  onChange={(event) => handleChange('extraPrice', event.target.value)}
+                />
+              </div>
+
+              <div className="admin-field">
+                <label className="admin-label">Para birimi</label>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={form.currency}
+                  onChange={(event) => handleChange('currency', event.target.value)}
+                />
+              </div>
+
+              <div className="admin-field">
+                <label className="admin-label">Ek ilan aktif</label>
+                <select
+                  className="admin-input"
+                  value={form.extraEnabled ? 'true' : 'false'}
+                  onChange={(event) => handleChange('extraEnabled', event.target.value === 'true')}
+                >
+                  <option value="true">Aktif</option>
+                  <option value="false">Pasif</option>
+                </select>
+                <div className="admin-muted">Kapalı olduğunda kullanıcı ücretli ek ilan checkout akışına giremez.</div>
+              </div>
             </div>
-            <div className="admin-field">
-              <label className="admin-label">Ek ilan ücreti</label>
-              <input
-                className="admin-input"
-                type="number"
-                min={0}
-                value={form.extraPrice}
-                onChange={(event) => handleChange('extraPrice', event.target.value)}
-              />
+
+            <div className="admin-card admin-plan-card">
+              <div className="admin-card-title">{sectionMeta.paymentMethod.title}</div>
+              <div className="admin-muted">{sectionMeta.paymentMethod.help}</div>
+
+              <div className="admin-field">
+                <label className="admin-label">Kart ekleme aktif</label>
+                <select
+                  className="admin-input"
+                  value={form.paymentMethodSetupEnabled ? 'true' : 'false'}
+                  onChange={(event) => handleChange('paymentMethodSetupEnabled', event.target.value === 'true')}
+                >
+                  <option value="true">Aktif</option>
+                  <option value="false">Pasif</option>
+                </select>
+              </div>
+
+              <div className="admin-field">
+                <label className="admin-label">Kart ekleme ücreti</label>
+                <input
+                  className="admin-input"
+                  type="number"
+                  min={0}
+                  value={form.paymentMethodSetupPrice}
+                  onChange={(event) => handleChange('paymentMethodSetupPrice', event.target.value)}
+                />
+                <div className="admin-muted">
+                  Kart doğrulaması için küçük ücret belirleyebilirsin. Ödeme başarılı olmadan kart kayıtlı sayılmaz.
+                </div>
+              </div>
             </div>
-            <div className="admin-field">
-              <label className="admin-label">Para birimi</label>
-              <input
-                className="admin-input"
-                type="text"
-                value={form.currency}
-                onChange={(event) => handleChange('currency', event.target.value)}
-              />
-            </div>
-            <div className="admin-field">
-              <label className="admin-label">Ek ilan aktif</label>
-              <select
-                className="admin-input"
-                value={form.extraEnabled ? 'true' : 'false'}
-                onChange={(event) => handleChange('extraEnabled', event.target.value === 'true')}
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
-            <div className="admin-field">
-              <label className="admin-label">Kart ekleme aktif</label>
-              <select
-                className="admin-input"
-                value={form.paymentMethodSetupEnabled ? 'true' : 'false'}
-                onChange={(event) => handleChange('paymentMethodSetupEnabled', event.target.value === 'true')}
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
-            <div className="admin-field">
-              <label className="admin-label">Kart ekleme ücreti</label>
-              <input
-                className="admin-input"
-                type="number"
-                min={0}
-                value={form.paymentMethodSetupPrice}
-                onChange={(event) => handleChange('paymentMethodSetupPrice', event.target.value)}
-              />
-              <div className="admin-muted">Kart doğrulaması için küçük ücret belirleyebilirsin.</div>
-            </div>
+
             {error ? <div className="admin-error">{error}</div> : null}
             {message ? <div className="admin-muted">{message}</div> : null}
+
             <button type="submit" className="admin-btn" disabled={saving}>
-              {saving ? 'Kaydediliyor…' : 'Kaydet'}
+              {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </button>
           </form>
         )}

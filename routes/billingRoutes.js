@@ -15,7 +15,19 @@ import { ensureMonetizationPlans } from '../controllers/monetizationController.j
 import { sendPushToUser } from '../src/services/pushNotificationService.js';
 
 const billingRoutes = Router();
-const isDev = process.env.NODE_ENV !== 'production';
+
+const logBillingLifecycle = (event, meta = {}) => {
+  const payload = {
+    event,
+    at: new Date().toISOString(),
+    ...meta
+  };
+  if (event.includes('FAIL') || event.includes('ERROR')) {
+    console.warn('[BILLING]', payload);
+    return;
+  }
+  console.info('[BILLING]', payload);
+};
 
 const ensurePlans = async () => {
   const plans = [
@@ -185,6 +197,37 @@ const upsertPaymentMethod = async ({ user, providerMethodId, cardSummary }) => {
   };
 };
 
+const buildPaymentDebugSummary = (payment) => {
+  if (!payment) return null;
+  return {
+    paymentId: payment._id?.toString?.() || null,
+    planCode: payment.planCode,
+    status: payment.status,
+    lifecycleStatus: payment.lifecycleStatus || payment.status,
+    fulfillmentStatus: payment.fulfillmentStatus || 'pending',
+    webhookReceivedAt: payment.webhookReceivedAt || null,
+    fulfillmentDoneAt: payment.fulfillmentDoneAt || null,
+    lastWebhookEventId: payment.lastWebhookEventId || null,
+    lastErrorCode: payment.lastErrorCode || null
+  };
+};
+
+const claimPaymentFulfillment = async (paymentId, eventId) =>
+  Payment.findOneAndUpdate(
+    {
+      _id: paymentId,
+      fulfillmentStatus: { $in: ['pending', 'failed'] }
+    },
+    {
+      $set: {
+        fulfillmentStatus: 'processing',
+        lastWebhookEventId: eventId || null
+      },
+      $inc: { fulfillmentAttempts: 1 }
+    },
+    { new: true }
+  );
+
 billingRoutes.get('/plans', authMiddleware, async (_req, res, next) => {
   try {
     await ensurePlans();
@@ -202,6 +245,7 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user?.id;
     const planCode = String(req.body?.planCode || '').trim();
+    logBillingLifecycle('CHECKOUT_INITIATED', { userId, planCode, route: 'billing/checkout' });
     if (!planCode) {
       return res.status(400).json({
         success: false,
@@ -272,6 +316,7 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
       currencySnapshot: snapshotCurrency,
       priceSnapshot: snapshotPrice,
       status: 'pending',
+      lifecycleStatus: 'initiated',
       contextType: plan.code === 'listing_extra' ? 'listing_extra' : undefined
     });
 
@@ -279,7 +324,15 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;
+    payment.lifecycleStatus = 'pending';
+    payment.lastErrorCode = '';
     await payment.save();
+    logBillingLifecycle('CHECKOUT_PENDING', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      mode: payment.mode
+    });
 
     return res.status(200).json({
       success: true,
@@ -287,6 +340,12 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
       paymentId: payment._id
     });
   } catch (error) {
+    logBillingLifecycle('CHECKOUT_ERROR', {
+      route: 'billing/checkout',
+      planCode: String(req.body?.planCode || '').trim(),
+      status: error?.status || error?.response?.status || null,
+      message: error?.message || 'checkout_error'
+    });
     return next(error);
   }
 });
@@ -294,6 +353,7 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
 billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user?.id;
+    logBillingLifecycle('CHECKOUT_INITIATED', { userId, planCode: 'listing_extra', route: 'billing/listing-extra/checkout' });
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanici bulunamadi.' });
@@ -325,6 +385,7 @@ billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, n
       currencySnapshot: plan.currency,
       priceSnapshot: plan.price,
       status: 'pending',
+      lifecycleStatus: 'initiated',
       contextType: 'listing_extra'
     });
 
@@ -334,7 +395,15 @@ billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, n
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;
+    payment.lifecycleStatus = 'pending';
+    payment.lastErrorCode = '';
     await payment.save();
+    logBillingLifecycle('CHECKOUT_PENDING', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      mode: payment.mode
+    });
 
     return res.status(200).json({
       success: true,
@@ -342,6 +411,12 @@ billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, n
       paymentId: payment._id
     });
   } catch (error) {
+    logBillingLifecycle('CHECKOUT_ERROR', {
+      route: 'billing/listing-extra/checkout',
+      planCode: 'listing_extra',
+      status: error?.status || error?.response?.status || null,
+      message: error?.message || 'checkout_error'
+    });
     return next(error);
   }
 });
@@ -349,6 +424,7 @@ billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, n
 billingRoutes.post('/payment-method/checkout', authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user?.id;
+    logBillingLifecycle('CHECKOUT_INITIATED', { userId, planCode: 'payment_method_setup', route: 'billing/payment-method/checkout' });
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Kullanici bulunamadi.' });
@@ -382,6 +458,7 @@ billingRoutes.post('/payment-method/checkout', authMiddleware, async (req, res, 
       currencySnapshot: plan.currency,
       priceSnapshot: plan.price,
       status: 'pending',
+      lifecycleStatus: 'initiated',
       contextType: 'payment_method_setup'
     });
 
@@ -391,7 +468,15 @@ billingRoutes.post('/payment-method/checkout', authMiddleware, async (req, res, 
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;
+    payment.lifecycleStatus = 'pending';
+    payment.lastErrorCode = '';
     await payment.save();
+    logBillingLifecycle('CHECKOUT_PENDING', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      mode: payment.mode
+    });
 
     return res.status(200).json({
       success: true,
@@ -399,6 +484,12 @@ billingRoutes.post('/payment-method/checkout', authMiddleware, async (req, res, 
       paymentId: payment._id
     });
   } catch (error) {
+    logBillingLifecycle('CHECKOUT_ERROR', {
+      route: 'billing/payment-method/checkout',
+      planCode: 'payment_method_setup',
+      status: error?.status || error?.response?.status || null,
+      message: error?.message || 'checkout_error'
+    });
     return next(error);
   }
 });
@@ -429,9 +520,15 @@ billingRoutes.get('/payment/:paymentId', authMiddleware, async (req, res, next) 
       success: true,
       data: {
         status: payment.status,
+        lifecycleStatus: payment.lifecycleStatus || payment.status,
+        fulfillmentStatus: payment.fulfillmentStatus || 'pending',
         planCode: payment.planCode,
         mode: payment.mode,
-        saveCardConsent: payment.saveCardConsent ?? null
+        saveCardConsent: payment.saveCardConsent ?? null,
+        webhookReceivedAt: payment.webhookReceivedAt || null,
+        fulfillmentDoneAt: payment.fulfillmentDoneAt || null,
+        lastWebhookEventId: payment.lastWebhookEventId || null,
+        lastErrorCode: payment.lastErrorCode || null
       }
     });
   } catch (error) {
@@ -557,14 +654,16 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
   try {
     iyzico.verifyWebhook(req);
     const event = iyzico.parseWebhook(req);
-    if (isDev) {
-      console.log('[BILLING_WEBHOOK]', {
-        eventType: event.eventType,
-        eventId: event.eventId,
-        planCode: event.planCode,
-        userId: event.userId
-      });
-    }
+    logBillingLifecycle('WEBHOOK_RECEIVED', {
+      provider: 'iyzico',
+      eventType: event.eventType,
+      eventId: event.eventId,
+      planCode: event.planCode,
+      userId: event.userId,
+      providerPaymentId: event.providerPaymentId || null,
+      providerSubId: event.providerSubId || null,
+      status: event.status || null
+    });
 
     try {
       await WebhookEvent.create({
@@ -574,6 +673,11 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
       });
     } catch (error) {
       if (error?.code === 11000) {
+        logBillingLifecycle('WEBHOOK_DUPLICATE_EVENT', {
+          provider: 'iyzico',
+          eventId: event.eventId,
+          eventType: event.eventType
+        });
         return res.status(200).json({ success: true, duplicate: true });
       }
       throw error;
@@ -589,8 +693,12 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
           },
           {
             status: 'paid',
+            lifecycleStatus: 'webhook_received',
             rawLastEvent: event.raw,
-            paidAt: new Date()
+            paidAt: new Date(),
+            webhookReceivedAt: new Date(),
+            lastWebhookEventId: event.eventId,
+            lastErrorCode: ''
           },
           { new: true }
         );
@@ -604,86 +712,153 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
             planCode: event.planCode,
             status: 'pending'
           },
-          { status: 'paid', rawLastEvent: event.raw, paidAt: new Date() },
+          {
+            status: 'paid',
+            lifecycleStatus: 'webhook_received',
+            rawLastEvent: event.raw,
+            paidAt: new Date(),
+            webhookReceivedAt: new Date(),
+            lastWebhookEventId: event.eventId,
+            lastErrorCode: ''
+          },
           { new: true }
         );
       }
 
-      const userId = payment?.user || event.userId;
-      if (userId) {
-        const user = await User.findById(userId);
-        if (user) {
-          const cardSummary = extractCardSummary(event.raw);
-          const planCode = payment?.planCode || event.planCode;
-          const providerMethodId = payment?.providerPaymentId || event.providerPaymentId || payment?._id?.toString();
-          if (cardSummary && planCode === 'payment_method_setup') {
-            payment.cardSummary = cardSummary;
-            if (payment.saveCardConsent === true) {
+      if (!payment) {
+        logBillingLifecycle('WEBHOOK_PAYMENT_NOT_FOUND', {
+          provider: 'iyzico',
+          eventId: event.eventId,
+          eventType: event.eventType,
+          planCode: event.planCode,
+          userId: event.userId,
+          providerPaymentId: event.providerPaymentId || null
+        });
+      }
+
+      const claimedPayment = payment ? await claimPaymentFulfillment(payment._id, event.eventId) : null;
+      if (payment && !claimedPayment) {
+        logBillingLifecycle('FULFILLMENT_DUPLICATE_SKIPPED', {
+          paymentId: payment._id.toString(),
+          eventId: event.eventId,
+          payment: buildPaymentDebugSummary(payment)
+        });
+      }
+
+      const userId = claimedPayment?.user || payment?.user || event.userId;
+      if (claimedPayment && userId) {
+        try {
+          const user = await User.findById(userId);
+          if (!user) {
+            await Payment.findByIdAndUpdate(claimedPayment._id, {
+              fulfillmentStatus: 'failed',
+              lastErrorCode: 'user_not_found'
+            });
+            logBillingLifecycle('FULFILLMENT_ERROR', {
+              paymentId: claimedPayment._id.toString(),
+              userId: String(userId),
+              planCode: claimedPayment.planCode,
+              message: 'user_not_found'
+            });
+          } else {
+            const cardSummary = extractCardSummary(event.raw);
+            const planCode = claimedPayment?.planCode || event.planCode;
+            const providerMethodId =
+              claimedPayment?.providerPaymentId || event.providerPaymentId || claimedPayment?._id?.toString();
+            if (cardSummary && planCode === 'payment_method_setup') {
+              claimedPayment.cardSummary = cardSummary;
+              if (claimedPayment.saveCardConsent === true) {
+                await upsertPaymentMethod({ user, providerMethodId, cardSummary });
+                await user.save();
+              }
+              await claimedPayment.save();
+            } else if (cardSummary && planCode !== 'payment_method_setup') {
               await upsertPaymentMethod({ user, providerMethodId, cardSummary });
               await user.save();
             }
-            await payment.save();
-          } else if (cardSummary && planCode !== 'payment_method_setup') {
-            await upsertPaymentMethod({ user, providerMethodId, cardSummary });
-            await user.save();
-          }
-          const oneTimeDurationDays = 30;
-          if (payment?.planCode === 'payment_method_setup') {
-            await logAudit('payment_method_add', { userId, paymentId: payment?._id });
-          } else if (payment?.planCode === 'listing_extra') {
-            user.paidListingCredits = Number(user.paidListingCredits || 0) + 1;
-            await user.save();
-            await logAudit('listing_paid_create_success', { userId, paymentId: payment?._id });
-            await sendPushToUser({
-              userId,
-              type: 'payment_success',
-              payload: { planCode: payment?.planCode }
-            });
-          } else if (payment?.planCode && payment.planCode.startsWith('featured')) {
-            user.featuredCredits = Number(user.featuredCredits || 0) + 1;
-            await user.save();
-            await sendPushToUser({
-              userId,
-              type: 'featured_activated',
-              payload: { planCode: payment?.planCode }
-            });
-          } else if (payment?.mode === 'subscription') {
-            const periodEnd = event.periodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            user.isPremium = true;
-            user.premiumUntil = periodEnd;
-            user.premiumSource = 'payment';
-            await user.save();
-            await sendPushToUser({
-              userId,
-              type: 'premium_activated',
-              payload: { planCode: payment?.planCode }
-            });
 
-            await Subscription.findOneAndUpdate(
-              { user: user._id, providerSubId: event.providerSubId || payment?.providerPaymentId },
-              {
-                user: user._id,
-                provider: 'iyzico',
-                planCode: payment?.planCode || event.planCode || 'premium_monthly',
-                status: 'active',
-                providerSubId: event.providerSubId || payment?.providerPaymentId,
-                currentPeriodStart: event.periodStart || new Date(),
-                currentPeriodEnd: periodEnd
-              },
-              { upsert: true, new: true }
-            );
-          } else {
-            const premiumUntil = new Date(Date.now() + oneTimeDurationDays * 24 * 60 * 60 * 1000);
-            user.isPremium = true;
-            user.premiumUntil = premiumUntil;
-            user.premiumSource = 'payment';
-            await user.save();
-            await sendPushToUser({
-              userId,
-              type: 'premium_activated',
-              payload: { planCode: payment?.planCode }
+            const oneTimeDurationDays = 30;
+            if (claimedPayment?.planCode === 'payment_method_setup') {
+              await logAudit('payment_method_add', { userId, paymentId: claimedPayment?._id });
+            } else if (claimedPayment?.planCode === 'listing_extra') {
+              user.paidListingCredits = Number(user.paidListingCredits || 0) + 1;
+              await user.save();
+              await logAudit('listing_paid_create_success', { userId, paymentId: claimedPayment?._id });
+              await sendPushToUser({
+                userId,
+                type: 'payment_success',
+                payload: { planCode: claimedPayment?.planCode }
+              });
+            } else if (claimedPayment?.planCode && claimedPayment.planCode.startsWith('featured')) {
+              user.featuredCredits = Number(user.featuredCredits || 0) + 1;
+              await user.save();
+              await sendPushToUser({
+                userId,
+                type: 'featured_activated',
+                payload: { planCode: claimedPayment?.planCode }
+              });
+            } else if (claimedPayment?.mode === 'subscription') {
+              const periodEnd = event.periodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+              user.isPremium = true;
+              user.premiumUntil = periodEnd;
+              user.premiumSource = 'payment';
+              await user.save();
+              await sendPushToUser({
+                userId,
+                type: 'premium_activated',
+                payload: { planCode: claimedPayment?.planCode }
+              });
+
+              await Subscription.findOneAndUpdate(
+                { user: user._id, providerSubId: event.providerSubId || claimedPayment?.providerPaymentId },
+                {
+                  user: user._id,
+                  provider: 'iyzico',
+                  planCode: claimedPayment?.planCode || event.planCode || 'premium_monthly',
+                  status: 'active',
+                  providerSubId: event.providerSubId || claimedPayment?.providerPaymentId,
+                  currentPeriodStart: event.periodStart || new Date(),
+                  currentPeriodEnd: periodEnd
+                },
+                { upsert: true, new: true }
+              );
+            } else {
+              const premiumUntil = new Date(Date.now() + oneTimeDurationDays * 24 * 60 * 60 * 1000);
+              user.isPremium = true;
+              user.premiumUntil = premiumUntil;
+              user.premiumSource = 'payment';
+              await user.save();
+              await sendPushToUser({
+                userId,
+                type: 'premium_activated',
+                payload: { planCode: claimedPayment?.planCode }
+              });
+            }
+
+            claimedPayment.fulfillmentStatus = 'done';
+            claimedPayment.fulfillmentDoneAt = new Date();
+            claimedPayment.lifecycleStatus = 'succeeded';
+            claimedPayment.lastErrorCode = '';
+            await claimedPayment.save();
+            logBillingLifecycle('FULFILLMENT_DONE', {
+              paymentId: claimedPayment._id.toString(),
+              userId: String(userId),
+              planCode: claimedPayment.planCode,
+              payment: buildPaymentDebugSummary(claimedPayment)
             });
           }
+        } catch (fulfillmentError) {
+          await Payment.findByIdAndUpdate(claimedPayment._id, {
+            fulfillmentStatus: 'failed',
+            lastErrorCode: 'fulfillment_failed'
+          });
+          logBillingLifecycle('FULFILLMENT_ERROR', {
+            paymentId: claimedPayment._id.toString(),
+            userId: String(userId),
+            planCode: claimedPayment.planCode,
+            message: fulfillmentError?.message || 'fulfillment_failed'
+          });
+          throw fulfillmentError;
         }
       }
     }
@@ -692,9 +867,23 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
       if (event.providerPaymentId) {
         await Payment.findOneAndUpdate(
           { providerPaymentId: event.providerPaymentId },
-          { status: 'failed', rawLastEvent: event.raw }
+          {
+            status: 'failed',
+            lifecycleStatus: 'failed',
+            rawLastEvent: event.raw,
+            webhookReceivedAt: new Date(),
+            lastWebhookEventId: event.eventId,
+            lastErrorCode: 'provider_failed'
+          }
         );
       }
+      logBillingLifecycle('PAYMENT_FAILED', {
+        provider: 'iyzico',
+        eventId: event.eventId,
+        planCode: event.planCode,
+        userId: event.userId,
+        providerPaymentId: event.providerPaymentId || null
+      });
       if (event.planCode === 'listing_extra' && event.userId) {
         await logAudit('listing_paid_create_failed', { userId: event.userId });
       }
@@ -703,7 +892,38 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
       }
     }
 
+    if (event.eventType === 'payment.refunded' || event.eventType === 'payment.canceled') {
+      if (event.providerPaymentId) {
+        await Payment.findOneAndUpdate(
+          { providerPaymentId: event.providerPaymentId },
+          {
+            status: event.eventType === 'payment.refunded' ? 'refunded' : 'failed',
+            lifecycleStatus: event.eventType === 'payment.refunded' ? 'refunded' : 'cancelled',
+            rawLastEvent: event.raw,
+            webhookReceivedAt: new Date(),
+            lastWebhookEventId: event.eventId,
+            lastErrorCode: event.eventType === 'payment.refunded' ? 'provider_refunded' : 'provider_cancelled'
+          }
+        );
+      }
+      logBillingLifecycle(
+        event.eventType === 'payment.refunded' ? 'PAYMENT_REFUNDED' : 'PAYMENT_CANCELLED',
+        {
+          provider: 'iyzico',
+          eventId: event.eventId,
+          planCode: event.planCode,
+          userId: event.userId,
+          providerPaymentId: event.providerPaymentId || null
+        }
+      );
+    }
+
     if (event.eventType === 'subscription.renewed') {
+      logBillingLifecycle('SUBSCRIPTION_RENEWED', {
+        provider: 'iyzico',
+        eventId: event.eventId,
+        providerSubId: event.providerSubId || null
+      });
       const subscription = await Subscription.findOneAndUpdate(
         { providerSubId: event.providerSubId },
         {
@@ -723,6 +943,11 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
     }
 
     if (event.eventType === 'subscription.canceled') {
+      logBillingLifecycle('SUBSCRIPTION_CANCELED', {
+        provider: 'iyzico',
+        eventId: event.eventId,
+        providerSubId: event.providerSubId || null
+      });
       const subscription = await Subscription.findOneAndUpdate(
         { providerSubId: event.providerSubId },
         { status: 'canceled', canceledAt: new Date() },
@@ -738,11 +963,22 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
       }
     }
 
+    if (event.eventType === 'unknown') {
+      logBillingLifecycle('WEBHOOK_UNKNOWN_STATUS', {
+        provider: 'iyzico',
+        eventId: event.eventId,
+        rawStatus: event.status || null,
+        providerPaymentId: event.providerPaymentId || null,
+        providerSubId: event.providerSubId || null
+      });
+    }
+
     return res.status(200).json({ success: true });
   } catch (error) {
-    if (isDev) {
-      console.warn('[BILLING_WEBHOOK_ERROR]', error?.message || error);
-    }
+    logBillingLifecycle('WEBHOOK_ERROR', {
+      provider: 'iyzico',
+      message: error?.message || 'webhook_error'
+    });
     return res.status(200).json({ success: true });
   }
 });

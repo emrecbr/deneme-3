@@ -74,6 +74,7 @@ function ProfileAccount() {
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState('');
   const [paymentMethods, setPaymentMethods] = useState([]);
+  const [billingSummary, setBillingSummary] = useState(null);
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -147,8 +148,12 @@ function ProfileAccount() {
     const fetchMe = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/users/me');
+        const [response, billingRes] = await Promise.all([
+          api.get('/users/me'),
+          api.get('/billing/me')
+        ]);
         const payload = response.data?.data || {};
+        const billingPayload = billingRes.data?.data || {};
         const phoneValue = String(payload.phone || '');
         const phoneDigits = phoneValue.startsWith('+90') ? phoneValue.slice(3) : normalizePhoneInput(phoneValue);
         setForm({
@@ -160,6 +165,7 @@ function ProfileAccount() {
         setListingQuota(payload.listingQuota || null);
         setPaymentMethod(payload.paymentMethod || null);
         setPaymentProvider(payload.paymentProvider || '');
+        setBillingSummary(billingPayload);
         setError('');
         const methodsRes = await api.get('/users/me/payment-methods');
         setPaymentMethods(methodsRes.data?.items || []);
@@ -588,6 +594,40 @@ function ProfileAccount() {
       </section>
 
       <section className="card account-card">
+        <h2>Paket Durumum</h2>
+        {billingSummary ? (
+          <div className="account-rows">
+            <div className="account-row">
+              <span>Premium durumu</span>
+              <strong>{billingSummary.premiumActive ? 'Aktif' : 'Pasif'}</strong>
+            </div>
+            <div className="account-row">
+              <span>Premium bitiş</span>
+              <strong>
+                {billingSummary.premiumUntil
+                  ? new Date(billingSummary.premiumUntil).toLocaleDateString('tr-TR')
+                  : 'Aktif paket yok'}
+              </strong>
+            </div>
+            <div className="account-row">
+              <span>Öne çıkarma kredisi</span>
+              <strong>{Number(billingSummary.featuredCredits || 0)}</strong>
+            </div>
+            {billingSummary.subscription?.cancelAtPeriodEnd ? (
+              <div className="account-muted">
+                Abonelik dönem sonunda iptal olacak. Bitiş tarihi:{' '}
+                {billingSummary.subscription.currentPeriodEnd
+                  ? new Date(billingSummary.subscription.currentPeriodEnd).toLocaleDateString('tr-TR')
+                  : 'Belirtilmedi'}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="refresh-text">Paket bilgisi alınamadı.</div>
+        )}
+      </section>
+
+      <section className="card account-card">
         <h2>İlan Hakkım</h2>
         {listingQuota ? (
           <div className="account-rows">
@@ -622,6 +662,11 @@ function ProfileAccount() {
 
       <section className="card account-card">
         <h2>Ödeme Yöntemi</h2>
+        {paymentMethod && !paymentMethods.length ? (
+          <div className="account-muted">
+            Kayıtlı ödeme özeti: {paymentMethod.brand || 'Kart'} •••• {paymentMethod.last4 || '----'}
+          </div>
+        ) : null}
         {paymentMethods.length ? (
           <div className="payment-method-list">
             {paymentMethods.map((method) => (

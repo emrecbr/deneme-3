@@ -16,6 +16,8 @@ const TOKEN_EXPIRES_IN = '7d';
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const GOOGLE_OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
 const GOOGLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
+const APPLE_OAUTH_STATE_COOKIE_NAME = 'apple_oauth_state';
+const APPLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 
 const signToken = (payload) => {
   if (!process.env.JWT_SECRET) {
@@ -148,6 +150,33 @@ const getGoogleCallbackConfig = (req) => {
 
 const getGoogleCallbackUrl = (req) => getGoogleCallbackConfig(req).value;
 
+const getAppleCallbackConfig = (req) => {
+  const configured = String(process.env.APPLE_CALLBACK_URL || '').trim();
+  if (configured && configured.includes('/api/auth/apple/callback')) {
+    return {
+      value: configured,
+      source: 'APPLE_CALLBACK_URL'
+    };
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    const requestBase = getRequestBaseUrl(req);
+    if (requestBase) {
+      return {
+        value: `${requestBase}/api/auth/apple/callback`,
+        source: 'request_fallback'
+      };
+    }
+  }
+
+  return {
+    value: '',
+    source: configured ? 'invalid_env_value' : 'missing'
+  };
+};
+
+const getAppleCallbackUrl = (req) => getAppleCallbackConfig(req).value;
+
 const buildGoogleAuthEnvSnapshot = (req) => {
   const frontendConfig = getFrontendBaseConfig();
   const callbackConfig = getGoogleCallbackConfig(req);
@@ -161,6 +190,26 @@ const buildGoogleAuthEnvSnapshot = (req) => {
     googleClientSecretConfigured: Boolean(String(process.env.GOOGLE_CLIENT_SECRET || '').trim()),
     googleCallbackUrl: callbackConfig.value,
     googleCallbackUrlSource: callbackConfig.source,
+    frontendBaseUrl: frontendConfig.value,
+    frontendBaseUrlSource: frontendConfig.source
+  };
+};
+
+const buildAppleAuthEnvSnapshot = (req) => {
+  const frontendConfig = getFrontendBaseConfig();
+  const callbackConfig = getAppleCallbackConfig(req);
+
+  return {
+    nodeEnv: process.env.NODE_ENV || 'undefined',
+    requestBaseUrl: getRequestBaseUrl(req),
+    requestHost: req.get('host') || '',
+    forwardedProto: String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || '',
+    appleClientIdConfigured: Boolean(String(process.env.APPLE_CLIENT_ID || '').trim()),
+    appleTeamIdConfigured: Boolean(String(process.env.APPLE_TEAM_ID || '').trim()),
+    appleKeyIdConfigured: Boolean(String(process.env.APPLE_KEY_ID || '').trim()),
+    applePrivateKeyConfigured: Boolean(String(process.env.APPLE_PRIVATE_KEY || '').trim()),
+    appleCallbackUrl: callbackConfig.value,
+    appleCallbackUrlSource: callbackConfig.source,
     frontendBaseUrl: frontendConfig.value,
     frontendBaseUrlSource: frontendConfig.source
   };
@@ -248,6 +297,22 @@ const getGoogleStateCookieOptions = (req) => {
   };
 };
 
+const getAppleStateCookieOptions = (req) => {
+  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
+  const callbackHost = getHostFromUrl(envSnapshot.appleCallbackUrl);
+  const frontendHost = getHostFromUrl(envSnapshot.frontendBaseUrl);
+  const cookieDomain = buildSharedCookieDomain(requestHost, callbackHost, frontendHost);
+
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: APPLE_OAUTH_STATE_MAX_AGE,
+    ...(cookieDomain ? { domain: cookieDomain } : {})
+  };
+};
+
 const mapGoogleCallbackErrorToReason = (error) => {
   const code = String(error?.code || '').trim();
   const message = String(error?.message || '').trim();
@@ -319,6 +384,116 @@ const fetchGoogleUserInfo = async (accessToken) => {
     throw error;
   }
   return response.json();
+};
+
+const normalizeMultilineSecret = (value) => String(value || '').trim().replace(/\\n/g, '\n');
+
+const createAppleClientSecret = () => {
+  const privateKey = normalizeMultilineSecret(process.env.APPLE_PRIVATE_KEY);
+  if (!privateKey) {
+    const error = new Error('APPLE_PRIVATE_KEY_MISSING');
+    error.code = 'APPLE_PRIVATE_KEY_MISSING';
+    throw error;
+  }
+
+  return jwt.sign(
+    {},
+    privateKey,
+    {
+      algorithm: 'ES256',
+      issuer: String(process.env.APPLE_TEAM_ID || '').trim(),
+      audience: 'https://appleid.apple.com',
+      subject: String(process.env.APPLE_CLIENT_ID || '').trim(),
+      keyid: String(process.env.APPLE_KEY_ID || '').trim(),
+      expiresIn: '5m'
+    }
+  );
+};
+
+const getApplePublicKey = async (keyId) => {
+  const response = await fetch('https://appleid.apple.com/auth/keys');
+  if (!response.ok) {
+    const error = new Error('APPLE_JWKS_FETCH_FAILED');
+    error.code = 'APPLE_JWKS_FETCH_FAILED';
+    throw error;
+  }
+
+  const payload = await response.json();
+  const jwk = Array.isArray(payload?.keys)
+    ? payload.keys.find((candidate) => String(candidate?.kid || '').trim() === String(keyId || '').trim())
+    : null;
+
+  if (!jwk) {
+    const error = new Error('APPLE_JWK_NOT_FOUND');
+    error.code = 'APPLE_JWK_NOT_FOUND';
+    throw error;
+  }
+
+  return crypto.createPublicKey({ key: jwk, format: 'jwk' });
+};
+
+const verifyAppleIdToken = async (idToken) => {
+  const decoded = jwt.decode(idToken, { complete: true });
+  const keyId = String(decoded?.header?.kid || '').trim();
+  if (!keyId) {
+    const error = new Error('APPLE_ID_TOKEN_INVALID');
+    error.code = 'APPLE_ID_TOKEN_INVALID';
+    throw error;
+  }
+
+  const publicKey = await getApplePublicKey(keyId);
+  try {
+    return jwt.verify(idToken, publicKey, {
+      algorithms: ['RS256'],
+      issuer: 'https://appleid.apple.com',
+      audience: String(process.env.APPLE_CLIENT_ID || '').trim()
+    });
+  } catch (verifyError) {
+    const message = String(verifyError?.message || '');
+    let code = 'APPLE_ID_TOKEN_INVALID';
+    if (message.toLowerCase().includes('audience')) code = 'APPLE_ID_TOKEN_AUDIENCE_MISMATCH';
+    if (message.toLowerCase().includes('issuer')) code = 'APPLE_ID_TOKEN_ISSUER_MISMATCH';
+    const error = new Error(code);
+    error.code = code;
+    throw error;
+  }
+};
+
+const parseAppleUserProfile = (rawUser) => {
+  if (!rawUser) {
+    return {};
+  }
+
+  try {
+    const parsed = typeof rawUser === 'string' ? JSON.parse(rawUser) : rawUser;
+    const firstName = String(parsed?.name?.firstName || '').trim();
+    const lastName = String(parsed?.name?.lastName || '').trim();
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return {
+      firstName,
+      lastName,
+      name: fullName
+    };
+  } catch (_error) {
+    return {};
+  }
+};
+
+const mapAppleCallbackErrorToReason = (error) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').trim();
+
+  if (code === 'APPLE_TOKEN_EXCHANGE_FAILED') return 'token_exchange_failed';
+  if (code === 'APPLE_ID_TOKEN_INVALID') return 'invalid_id_token';
+  if (code === 'APPLE_ID_TOKEN_AUDIENCE_MISMATCH') return 'invalid_audience';
+  if (code === 'APPLE_ID_TOKEN_ISSUER_MISMATCH') return 'invalid_issuer';
+  if (code === 'APPLE_USER_CREATE_FAILED') return 'user_create_failed';
+  if (code === 'FRONTEND_REDIRECT_RESOLUTION_FAILED') return 'frontend_redirect_resolution_failed';
+  if (message === 'missing_email') return 'missing_email';
+  if (message === 'email_not_verified') return 'email_not_verified';
+
+  return 'unknown_callback_error';
 };
 
 const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -1208,17 +1383,271 @@ export const oauthGoogleCallback = async (req, res) => {
 };
 
 export const oauthApple = async (_req, res) => {
+  const req = _req;
+  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
+  const callbackHost = getHostFromUrl(envSnapshot.appleCallbackUrl);
+  const stateCookieOptions = getAppleStateCookieOptions(req);
+
   if (!isOauthConfigured('apple')) {
+    console.warn('APPLE_AUTH_START_FAIL', {
+      reason: 'missing_apple_env',
+      env: envSnapshot
+    });
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
-  return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
+
+  const callbackUrl = envSnapshot.appleCallbackUrl;
+  if (!callbackUrl) {
+    console.warn('APPLE_AUTH_START_FAIL', {
+      reason: 'invalid_callback_url',
+      env: envSnapshot
+    });
+    return res.status(500).json({ success: false, code: 'INVALID_CALLBACK_URL' });
+  }
+
+  if (requestHost && callbackHost && requestHost !== callbackHost) {
+    console.warn('APPLE_AUTH_CONFIG_MISMATCH', {
+      reason: 'request_host_callback_host_mismatch',
+      requestHost,
+      callbackHost,
+      env: envSnapshot
+    });
+  }
+
+  const state = crypto.randomBytes(24).toString('hex');
+  res.cookie(APPLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
+
+  const authUrl = new URL('https://appleid.apple.com/auth/authorize');
+  authUrl.searchParams.set('client_id', String(process.env.APPLE_CLIENT_ID || '').trim());
+  authUrl.searchParams.set('redirect_uri', callbackUrl);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('response_mode', 'form_post');
+  authUrl.searchParams.set('scope', 'name email');
+  authUrl.searchParams.set('state', state);
+
+  console.info('APPLE_AUTH_START', {
+    callbackUrl,
+    frontendBaseUrl: envSnapshot.frontendBaseUrl,
+    callbackUrlSource: envSnapshot.appleCallbackUrlSource,
+    frontendBaseUrlSource: envSnapshot.frontendBaseUrlSource,
+    requestBaseUrl: envSnapshot.requestBaseUrl,
+    nodeEnv: envSnapshot.nodeEnv,
+    stateCookieDomain: stateCookieOptions.domain || 'host_only'
+  });
+
+  return res.redirect(authUrl.toString());
 };
 
-export const oauthAppleCallback = async (_req, res) => {
+export const oauthAppleCallback = async (req, res) => {
+  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const stateCookieOptions = getAppleStateCookieOptions(req);
+  const fail = (reason, meta = {}) => {
+    console.error('APPLE_AUTH_FAILURE', {
+      reason,
+      ...meta,
+      env: envSnapshot
+    });
+    res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+
+    try {
+      return redirectToFrontend(res, '/login', {
+        error: 'apple_auth_failed',
+        reason
+      });
+    } catch (redirectError) {
+      console.error('APPLE_AUTH_FAILURE', {
+        reason: 'frontend_redirect_resolution_failed',
+        sourceReason: reason,
+        redirectError: redirectError?.message || 'unknown_redirect_error',
+        env: envSnapshot
+      });
+      return res.status(500).json({
+        success: false,
+        code: 'APPLE_AUTH_FAILED',
+        reason
+      });
+    }
+  };
+
   if (!isOauthConfigured('apple')) {
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
-  return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
+
+  console.info('APPLE_AUTH_CALLBACK_HIT', envSnapshot);
+
+  const callbackUrl = envSnapshot.appleCallbackUrl;
+  if (!callbackUrl) {
+    return fail('invalid_redirect_uri', {
+      stage: 'callback_url_resolution'
+    });
+  }
+
+  const body = req.body || {};
+  const query = req.query || {};
+  const providerError = String(body.error || query.error || '').trim();
+  const code = String(body.code || query.code || '').trim();
+  const state = String(body.state || query.state || '').trim();
+  const expectedState = String(req.cookies?.[APPLE_OAUTH_STATE_COOKIE_NAME] || '').trim();
+
+  if (providerError) {
+    return fail(`provider_${providerError}`, {
+      stage: 'provider_redirect'
+    });
+  }
+  if (!code) {
+    return fail('missing_code', {
+      stage: 'callback_query_validation'
+    });
+  }
+  if (!state || !expectedState || state !== expectedState) {
+    return fail('invalid_state', {
+      stage: 'state_validation',
+      hasState: Boolean(state),
+      hasExpectedState: Boolean(expectedState)
+    });
+  }
+
+  console.info('APPLE_AUTH_STATE_VALIDATED', {
+    callbackUrl,
+    callbackUrlSource: envSnapshot.appleCallbackUrlSource
+  });
+  res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+
+  try {
+    const clientSecret = createAppleClientSecret();
+    console.info('APPLE_AUTH_TOKEN_EXCHANGE_START', {
+      redirectUri: callbackUrl
+    });
+
+    const tokenResponse = await fetch('https://appleid.apple.com/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: callbackUrl,
+        client_id: String(process.env.APPLE_CLIENT_ID || '').trim(),
+        client_secret: clientSecret
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorBody = await readSafeResponseBody(tokenResponse);
+      const lowerCombined = `${errorBody.error} ${errorBody.error_description}`.toLowerCase();
+      const reason = lowerCombined.includes('redirect_uri')
+        ? 'invalid_redirect_uri'
+        : 'token_exchange_failed';
+
+      return fail(reason, {
+        stage: 'token_exchange',
+        status: tokenResponse.status,
+        appleError: errorBody.error || '',
+        appleErrorDescription: errorBody.error_description || '',
+        redirectUri: callbackUrl
+      });
+    }
+
+    console.info('APPLE_AUTH_TOKEN_EXCHANGE_OK', {
+      redirectUri: callbackUrl
+    });
+
+    const tokenData = await tokenResponse.json();
+    const idToken = String(tokenData.id_token || '').trim();
+    if (!idToken) {
+      return fail('token_exchange_failed', {
+        stage: 'token_exchange',
+        missingIdToken: true
+      });
+    }
+
+    console.info('APPLE_AUTH_ID_TOKEN_VALIDATION_START');
+    const idTokenPayload = await verifyAppleIdToken(idToken);
+    console.info('APPLE_AUTH_ID_TOKEN_VALIDATION_OK', {
+      emailPresent: Boolean(idTokenPayload?.email)
+    });
+
+    const email = normalizeEmail(idTokenPayload.email);
+    const emailVerified = String(idTokenPayload.email_verified || '').toLowerCase() === 'true';
+    const appleUserProfile = parseAppleUserProfile(body.user);
+
+    if (!email) {
+      return fail('missing_email', {
+        stage: 'id_token_validation'
+      });
+    }
+    if (!emailVerified) {
+      return fail('email_not_verified', {
+        stage: 'id_token_validation',
+        email: maskEmailForLog(email)
+      });
+    }
+
+    let user = await User.findOne({ email });
+    let created = false;
+
+    if (user) {
+      const nextName =
+        String(
+          appleUserProfile.name ||
+            user.name ||
+            email.split('@')[0] ||
+            'Kullanici'
+        ).trim() || user.name;
+      user.name = nextName;
+      if (appleUserProfile.firstName && !user.firstName) {
+        user.firstName = appleUserProfile.firstName;
+      }
+      if (appleUserProfile.lastName && !user.lastName) {
+        user.lastName = appleUserProfile.lastName;
+      }
+      user.emailVerified = true;
+      user.lastLoginAt = new Date();
+      await user.save();
+      console.info('APPLE_AUTH_USER_MATCHED', {
+        userId: String(user._id),
+        email: maskEmailForLog(email)
+      });
+    } else {
+      try {
+        const generatedPassword = crypto.randomBytes(32).toString('hex');
+        user = await User.create({
+          name: String(appleUserProfile.name || email.split('@')[0] || 'Kullanici').trim() || 'Kullanici',
+          firstName: appleUserProfile.firstName || undefined,
+          lastName: appleUserProfile.lastName || undefined,
+          email,
+          emailVerified: true,
+          password: generatedPassword,
+          lastLoginAt: new Date()
+        });
+      } catch (createError) {
+        createError.code = 'APPLE_USER_CREATE_FAILED';
+        throw createError;
+      }
+      created = true;
+      console.info('APPLE_AUTH_USER_CREATED', {
+        userId: String(user._id),
+        email: maskEmailForLog(email)
+      });
+    }
+
+    const token = issueAuthToken(res, user);
+    console.info('APPLE_AUTH_TOKEN_ISSUED', {
+      userId: String(user._id),
+      created
+    });
+
+    return redirectToFrontend(res, '/auth/callback', { token });
+  } catch (error) {
+    const reason = mapAppleCallbackErrorToReason(error);
+    return fail(reason, {
+      stage: 'callback_exception',
+      errorCode: String(error?.code || '').trim(),
+      errorMessage: String(error?.message || 'unknown_error').trim()
+    });
+  }
 };
 
 export const getMe = async (req, res, next) => {

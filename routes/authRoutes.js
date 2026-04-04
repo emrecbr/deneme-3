@@ -67,6 +67,7 @@ router.get('/google', oauthGoogle);
 router.get('/google/callback', oauthGoogleCallback);
 router.get('/apple', oauthApple);
 router.get('/apple/callback', oauthAppleCallback);
+router.post('/apple/callback', oauthAppleCallback);
 router.get('/me', authMiddleware, getMe);
 
 export default router;

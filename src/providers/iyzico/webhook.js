@@ -37,11 +37,15 @@ export const parseWebhook = (req) => {
   const rawType = payload?.eventType || payload?.event || payload?.type || '';
   const type = String(rawType).toLowerCase();
 
-  let eventType = 'payment.failed';
+  let eventType = 'unknown';
   if (type.includes('payment') && type.includes('success')) {
     eventType = 'payment.succeeded';
   } else if (type.includes('payment') && type.includes('fail')) {
     eventType = 'payment.failed';
+  } else if (type.includes('refund')) {
+    eventType = 'payment.refunded';
+  } else if (type.includes('cancel')) {
+    eventType = 'payment.canceled';
   } else if (type.includes('subscription') && type.includes('renew')) {
     eventType = 'subscription.renewed';
   } else if (type.includes('subscription') && (type.includes('cancel') || type.includes('canceled'))) {

@@ -46,6 +46,11 @@ const paymentSchema = new mongoose.Schema(
       enum: ['pending', 'paid', 'failed', 'refunded'],
       default: 'pending'
     },
+    lifecycleStatus: {
+      type: String,
+      enum: ['initiated', 'pending', 'webhook_received', 'succeeded', 'failed', 'cancelled', 'refunded'],
+      default: 'initiated'
+    },
     providerPaymentId: {
       type: String,
       index: true
@@ -76,6 +81,27 @@ const paymentSchema = new mongoose.Schema(
     },
     paidAt: {
       type: Date
+    },
+    webhookReceivedAt: {
+      type: Date
+    },
+    lastWebhookEventId: {
+      type: String
+    },
+    fulfillmentStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'done', 'failed', 'skipped'],
+      default: 'pending'
+    },
+    fulfillmentDoneAt: {
+      type: Date
+    },
+    fulfillmentAttempts: {
+      type: Number,
+      default: 0
+    },
+    lastErrorCode: {
+      type: String
     }
   },
   { timestamps: true }

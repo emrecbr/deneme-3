@@ -1013,6 +1013,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setError('Sunucuya bağlanılamadı');
         showToast('Sunucuya bağlanılamadı');
       } else if (status === 402 && code === 'LISTING_QUOTA_REACHED') {
+        logFlowEvent({
+          step: 4,
+          event: 'paywall_shown',
+          reason: 'listing_quota_reached'
+        });
         setError(message || 'Ücretsiz ilan hakkınız doldu.');
         showToast(message || 'Ücretsiz ilan hakkınız doldu.');
         if (submitError?.response?.data?.data) {
@@ -1113,6 +1118,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
 
   const handleCheckout = async (planCode) => {
     try {
+      logFlowEvent({
+        step: 4,
+        event: 'plan_checkout_started',
+        planCode
+      });
       setCheckoutLoading(planCode);
       const response = await api.post('/billing/checkout', { planCode });
       const url = response.data?.checkoutUrl;
@@ -1130,6 +1140,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
 
   const handleExtraListingPayment = async () => {
     try {
+      logFlowEvent({
+        step: 4,
+        event: 'listing_extra_checkout_started'
+      });
       setExtraPaymentLoading(true);
       const response = await api.post('/billing/listing-extra/checkout');
       const url = response.data?.checkoutUrl;
