@@ -80,7 +80,7 @@ function CitySearch() {
         <input
           className="city-search-input"
           type="text"
-          placeholder="Sehir ara..."
+          placeholder="Şehir ara..."
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -103,7 +103,7 @@ function CitySearch() {
               setOptions([]);
               setOpen(false);
             }}
-            aria-label="Sehir filtresini temizle"
+            aria-label="Şehir filtresini temizle"
           >
             ×
           </button>
@@ -114,7 +114,7 @@ function CitySearch() {
 
       {open ? (
         <div className="city-dropdown">
-          {loading ? <div className="city-dropdown-item muted">Yukleniyor...</div> : null}
+          {loading ? <div className="city-dropdown-item muted">Yükleniyor...</div> : null}
           {!loading && options.length === 0 ? <div className="city-dropdown-item muted">Sonuc yok</div> : null}
           {!loading
             ? options.map((city) => (

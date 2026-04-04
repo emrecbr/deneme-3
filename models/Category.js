@@ -14,6 +14,18 @@ const categorySchema = new mongoose.Schema(
       lowercase: true,
       unique: true
     },
+    segment: {
+      type: String,
+      enum: ['goods', 'service', 'auto', 'jobseeker'],
+      required: false,
+      index: true
+    },
+    kind: {
+      type: String,
+      enum: ['root', 'branch', 'leaf'],
+      required: false,
+      index: true
+    },
     parent: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Category',
@@ -44,6 +56,8 @@ const categorySchema = new mongoose.Schema(
 
 categorySchema.index({ parent: 1, order: 1, name: 1 });
 categorySchema.index({ level: 1, order: 1 });
+categorySchema.index({ segment: 1, parent: 1, order: 1 });
+categorySchema.index({ segment: 1, kind: 1, parent: 1 });
 
 const Category = mongoose.model('Category', categorySchema);
 

@@ -1,27 +1,20 @@
-import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
 import api, { API_BASE_URL } from '../api/axios';
 import CategorySelector from '../components/CategorySelector';
 import EmptyStateCard from '../components/EmptyStateCard';
 import ErrorStateCard from '../components/ErrorStateCard';
 import FilterBar from '../components/FilterBar';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
-import LocationPermissionModal from '../components/LocationPermissionModal';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
 import LoadingOverlay from '../components/LoadingOverlay';
 import RFQCreate from './RFQCreate';
 import { useAuth } from '../context/AuthContext';
-import { useLiveLocation } from '../context/LocationContext';
 import { getSocket, normalizeSocketCity } from '../lib/socket';
 import { triggerHaptic } from '../utils/haptic';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
-import { haversineKm, reverseGeocode } from '../utils/geo';
 import { FavoriteIcon } from '../components/ui/AppIcons';
-
-const RFQListMap = lazy(() => import('../components/RFQListMap'));
-const prefetchRFQListMap = () => import('../components/RFQListMap');
 
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
@@ -50,6 +43,65 @@ const DEFAULT_FEATURE_FLAGS = {
   liveLocationEnabled: true,
   cityFallbackEnabled: true
 };
+const SEGMENT_OPTIONS = [
+  { value: 'goods', label: 'Eşya' },
+  { value: 'service', label: 'Hizmet / Usta' },
+  { value: 'auto', label: 'Otomobil' },
+  { value: 'jobseeker', label: 'İş Arayan Kişi' }
+];
+
+function buildCategoryTree(items) {
+  const map = new Map();
+  const roots = [];
+
+  items.forEach((cat) => {
+    map.set(String(cat._id), { ...cat, children: [] });
+  });
+
+  items.forEach((cat) => {
+    const parentId = cat.parent ? String(typeof cat.parent === 'object' ? cat.parent._id : cat.parent) : null;
+    const node = map.get(String(cat._id));
+    if (!node) return;
+
+    if (parentId && map.has(parentId)) {
+      map.get(parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  return roots;
+}
+
+function normalizeCategoryTree(nodes, inheritedSegment = '') {
+  if (!Array.isArray(nodes)) {
+    return [];
+  }
+
+  return nodes.map((node) => ({
+    ...node,
+    segment: node.segment || inheritedSegment || '',
+    children: normalizeCategoryTree(node.children || [], node.segment || inheritedSegment || '')
+  }));
+}
+
+function flattenCategoryLeaves(nodes, parentTrail = []) {
+  if (!Array.isArray(nodes)) {
+    return [];
+  }
+
+  return nodes.flatMap((node) => {
+    const nextTrail = [...parentTrail, node];
+    if (!node.children?.length) {
+      return [{
+        ...node,
+        parentId: parentTrail[parentTrail.length - 1]?._id || null,
+        parentName: parentTrail[parentTrail.length - 1]?.name || ''
+      }];
+    }
+    return flattenCategoryLeaves(node.children, nextTrail);
+  });
+}
 
 function calculateDistance(fromLat, fromLng, toLat, toLng) {
   const earthRadius = 6371;
@@ -61,6 +113,10 @@ function calculateDistance(fromLat, fromLng, toLat, toLng) {
     Math.cos(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadius * c;
+}
+
+function getRFQIdentity(item) {
+  return String(item?._id || item?.id || '');
 }
 
 const escapeHtml = (value) => String(value || '')
@@ -131,7 +187,6 @@ function RFQList() {
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
   const [flatSubcategories, setFlatSubcategories] = useState([]);
   const [filterCompact, setFilterCompact] = useState(false);
-  const [viewMode, setViewMode] = useState('list');
   const [selectedRfq, setSelectedRfq] = useState(null);
   const [routeSummary, setRouteSummary] = useState(null);
   const [newRFQMarkers, setNewRFQMarkers] = useState({});
@@ -164,6 +219,7 @@ function RFQList() {
   const [featureFlags, setFeatureFlags] = useState(DEFAULT_FEATURE_FLAGS);
   const [filters, setFilters] = useState({
     radius: DEFAULT_RADIUS_SETTINGS.default,
+    segment: null,
     cityId: null,
     districtId: null,
     category: null,
@@ -173,12 +229,8 @@ function RFQList() {
     status: null
   });
   const [draftFilters, setDraftFilters] = useState(null);
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const [locationDenied, setLocationDenied] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationWarning, setLocationWarning] = useState('');
+  const selectedRfqId = getRFQIdentity(selectedRfq);
   const [locationSelection, setLocationSelection] = useState(null);
-  const [useCurrentLocationLoading, setUseCurrentLocationLoading] = useState(false);
   const [cityCenterCoords, setCityCenterCoords] = useState(null);
   const [showResultsToast, setShowResultsToast] = useState(false);
   const [resultsToastVisible, setResultsToastVisible] = useState(false);
@@ -190,13 +242,27 @@ function RFQList() {
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const deferredFilters = useDeferredValue(filters);
   const isFiltering = deferredFilters !== filters;
+  const appliedFilters = useMemo(
+    () => ({
+      ...deferredFilters,
+      city: deferredFilters.city || selectedCity?.name || null,
+      cityId: deferredFilters.cityId || selectedCity?._id || null,
+      district: deferredFilters.district || selectedDistrict?.name || null,
+      districtId: deferredFilters.districtId || selectedDistrict?._id || null
+    }),
+    [
+      deferredFilters,
+      selectedCity?._id,
+      selectedCity?.name,
+      selectedDistrict?._id,
+      selectedDistrict?.name
+    ]
+  );
   const minRadiusKm = Number.isFinite(Number(radiusConfig.min)) ? Number(radiusConfig.min) : DEFAULT_RADIUS_SETTINGS.min;
   const maxRadiusKm = Number.isFinite(Number(radiusConfig.max)) ? Number(radiusConfig.max) : DEFAULT_RADIUS_SETTINGS.max;
   const radiusStep = Number.isFinite(Number(radiusConfig.step)) ? Number(radiusConfig.step) : DEFAULT_RADIUS_SETTINGS.step;
   const mapViewEnabled = featureFlags.mapViewEnabled !== false && mapSettings.mapViewEnabled !== false;
   const searchPanelEnabled = featureFlags.searchPanelEnabled !== false;
-  const liveLocationEnabled =
-    radiusConfig.liveLocationEnabled !== false && featureFlags.liveLocationEnabled !== false;
   const cityFallbackEnabled =
     radiusConfig.cityFallbackEnabled !== false && featureFlags.cityFallbackEnabled !== false;
 
@@ -226,15 +292,26 @@ function RFQList() {
   const activeCity = useMemo(() => normalizeSocketCity(filters.city || currentUser?.city), [currentUser?.city, filters.city]);
   const isDarkMode = document.body.classList.contains('dark-mode');
   const showActiveOnly = Boolean(filters.status === 'active' || filters.activeOnly);
-  const {
-    liveLocation,
-    status: liveStatus,
-    errorMessage: liveError,
-    accuracy,
-    startLiveLocation,
-    stopLiveLocation
-  } = useLiveLocation();
   const shouldSuppressMapUpdates = Boolean(selectedRfq?._id);
+  const appliedCityKey = String(appliedFilters.city || '').trim().toLowerCase();
+  const appliedDistrictKey = String(appliedFilters.district || '').trim().toLowerCase();
+  const selectionCityKey = String(locationSelection?.city?.name || '').trim().toLowerCase();
+  const selectionDistrictKey = String(locationSelection?.district?.name || '').trim().toLowerCase();
+  const currentLocationMatchesFilters = useMemo(() => {
+    if (!userCoords) {
+      return false;
+    }
+    if (!appliedCityKey) {
+      return true;
+    }
+    if (!selectionCityKey || selectionCityKey !== appliedCityKey) {
+      return false;
+    }
+    if (!appliedDistrictKey) {
+      return true;
+    }
+    return Boolean(selectionDistrictKey) && selectionDistrictKey === appliedDistrictKey;
+  }, [appliedCityKey, appliedDistrictKey, selectionCityKey, selectionDistrictKey, userCoords]);
   useEffect(() => {
     let active = true;
     const loadRadiusSettings = async () => {
@@ -318,12 +395,6 @@ function RFQList() {
   }, []);
 
   useEffect(() => {
-    if (!mapViewEnabled && viewMode === 'map') {
-      setViewMode('list');
-    }
-  }, [mapViewEnabled, viewMode]);
-
-  useEffect(() => {
     if (!searchPanelEnabled && isSearchTriggerOpen) {
       setIsSearchTriggerOpen(false);
     }
@@ -338,7 +409,7 @@ function RFQList() {
     });
     setMapRadiusKm((prev) => Math.min(Math.max(prev, minRadiusKm), maxRadiusKm));
   }, [maxRadiusKm, minRadiusKm, radiusConfig.default]);
-  function getRFQCoords(rfq) {
+  const getRFQCoords = useCallback((rfq) => {
     if (!rfq) {
       return null;
     }
@@ -376,7 +447,7 @@ function RFQList() {
     }
 
     return null;
-  }
+  }, []);
   const getCityName = useCallback((item) => {
     if (!item) {
       return '';
@@ -478,6 +549,7 @@ function RFQList() {
           params: {
             page: nextPage,
             limit: PAGE_LIMIT,
+            segment: filters.segment || undefined,
             cityId: filters.cityId || undefined,
             districtId: filters.districtId || undefined
           }
@@ -510,7 +582,7 @@ function RFQList() {
         setRefreshing(false);
       }
     },
-    [cacheRFQs, filters.cityId, filters.districtId, handleAuthFailure, readCachedRFQs]
+    [cacheRFQs, filters.cityId, filters.districtId, filters.segment, handleAuthFailure, readCachedRFQs]
   );
 
   const fetchCurrentUser = useCallback(async () => {
@@ -621,6 +693,9 @@ function RFQList() {
         lat: String(coords.lat),
         radiusKm: String(filters.radius)
       });
+      if (filters.segment) {
+        query.set('segment', String(filters.segment));
+      }
       if (filters.category) {
         query.set('category', String(filters.category));
       }
@@ -640,7 +715,7 @@ function RFQList() {
         throw fetchError;
       }
     },
-    [filters.category, filters.city, filters.radius, handleAuthFailure]
+    [filters.category, filters.city, filters.radius, filters.segment, handleAuthFailure]
   );
 
   const fetchCityFallback = useCallback(async () => {
@@ -666,7 +741,7 @@ function RFQList() {
     if (cityFallbackAttemptedRef.current.failed) {
       try {
         const response = await api.get('/rfq', {
-          params: { page: 1, limit: 100 },
+          params: { page: 1, limit: 100, segment: filters.segment || undefined },
           headers: { 'Cache-Control': 'no-cache' }
         });
         setNearbyRFQs(response.data?.data || response.data?.items || []);
@@ -677,23 +752,24 @@ function RFQList() {
     }
 
     try {
-      const response = await api.get('/rfq', {
-        params: {
-          page: 1,
-          limit: 100,
-          cityId: fallbackCityId,
-          districtId: filters.districtId || undefined
-        },
+        const response = await api.get('/rfq', {
+          params: {
+            page: 1,
+            limit: 100,
+            segment: filters.segment || undefined,
+            cityId: fallbackCityId,
+            districtId: filters.districtId || undefined
+          },
         headers: { 'Cache-Control': 'no-cache' }
       });
       setNearbyRFQs(response.data?.data || response.data?.items || []);
     } catch (fallbackError) {
       cityFallbackAttemptedRef.current = { key: fallbackKey, failed: true };
-      setToast('Sehir filtreleme gecici olarak calismiyor, tum ilanlar gosteriliyor.');
+      setToast('Şehir filtreleme geçici olarak çalışmıyor, tüm ilanlar gösteriliyor.');
       window.setTimeout(() => setToast(null), 2000);
       try {
         const response = await api.get('/rfq', {
-          params: { page: 1, limit: 100 },
+          params: { page: 1, limit: 100, segment: filters.segment || undefined },
           headers: { 'Cache-Control': 'no-cache' }
         });
         setNearbyRFQs(response.data?.data || response.data?.items || []);
@@ -703,75 +779,7 @@ function RFQList() {
         setNearbyRFQs(cityOnly);
       }
     }
-  }, [filters.city, filters.cityId, filters.districtId, getCityName, rfqs, setToast]);
-
-  const resolveLocationPermission = useCallback(async () => {
-    if (!navigator.geolocation) {
-      setLocationDenied(true);
-      setLocationWarning('Bu cihazda konum servisi desteklenmiyor.');
-      setError('Konum alinmadi. Sehir bazli liste gosteriliyor.');
-      setShowLocationModal(true);
-      await fetchCityFallback();
-      return false;
-    }
-
-    if (navigator.permissions?.query) {
-      try {
-        const status = await navigator.permissions.query({ name: 'geolocation' });
-        if (status?.state === 'denied') {
-          setLocationDenied(true);
-          setLocationWarning('Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.');
-          setShowLocationModal(true);
-          return false;
-        }
-      } catch (_error) {
-        // ignore permission query errors
-      }
-    }
-
-    setLocationLoading(true);
-    setLocationWarning('');
-    startLiveLocation();
-    return true;
-  }, [fetchCityFallback, startLiveLocation]);
-
-  useEffect(() => {
-    if (liveStatus === 'active' && liveLocation) {
-      setUserPosition(liveLocation);
-      setUserCoords(liveLocation);
-      setShowLocationModal(false);
-      setLocationDenied(false);
-      setLocationWarning('');
-      setError('');
-      setLocationLoading(false);
-      fetchNearbyByCoords(liveLocation).catch(() => {});
-      return;
-    }
-
-    if (liveStatus === 'denied') {
-      setLocationDenied(true);
-      setLocationWarning('Konum izni reddedildi.');
-      setLocationLoading(false);
-      setShowLocationModal(true);
-      fetchCityFallback();
-      return;
-    }
-
-    if (liveStatus === 'error') {
-      setLocationDenied(true);
-      setLocationWarning(liveError || 'Konum alinamadi.');
-      setLocationLoading(false);
-      setShowLocationModal(true);
-      fetchCityFallback();
-    }
-  }, [fetchCityFallback, fetchNearbyByCoords, liveError, liveLocation, liveStatus]);
-
-  useEffect(() => {
-    if (liveLocation) {
-      setUserPosition(liveLocation);
-      setUserCoords(liveLocation);
-    }
-  }, [liveLocation]);
+  }, [filters.city, filters.cityId, filters.districtId, filters.segment, getCityName, rfqs, setToast]);
 
   useEffect(() => {
     if (userCoords) {
@@ -788,18 +796,6 @@ function RFQList() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
-  useEffect(() => {
-    if (viewMode !== 'map') {
-      setSelectedRfq(null);
-    }
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (viewMode === 'map') {
-      prefetchRFQListMap();
-    }
-  }, [viewMode]);
 
   useEffect(() => {
     if (clusterRef.current?.refreshClusters) {
@@ -888,6 +884,25 @@ function RFQList() {
   }, [previewDragging, previewHeights, previewTranslate]);
 
   useEffect(() => {
+    if (!previewDragging) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event) => onPreviewDragMove(event);
+    const handlePointerUp = () => endPreviewDrag();
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [endPreviewDrag, onPreviewDragMove, previewDragging]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => {
       setNowTs(Date.now());
     }, 30000);
@@ -895,16 +910,9 @@ function RFQList() {
   }, []);
 
   useEffect(() => {
-    if (viewMode !== 'map') {
-      setMapAreaFilterActive(false);
-      setMapAreaFilterIds(null);
-      setMapHasMoved(false);
-    }
-  }, [viewMode]);
-
-  useEffect(() => {
     setMapAreaFilterActive(false);
     setMapAreaFilterIds(null);
+    setMapHasMoved(false);
   }, [filters.city, filters.cityId, filters.district, filters.districtId, filters.radius]);
 
   useEffect(() => {
@@ -987,15 +995,6 @@ function RFQList() {
     setDraftFilters((prev) => (prev ? { ...prev, radius: next } : prev));
   }, [maxRadiusKm, minRadiusKm, radiusConfig.default, updateFilter]);
 
-  useEffect(() => {
-    if (liveStatus === 'active' || liveStatus === 'requesting') {
-      const currentRadius = Number(filters.radius) || 0;
-      if (currentRadius <= 0) {
-        updateFilter('radius', radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default);
-      }
-    }
-  }, [filters.radius, liveStatus, radiusConfig.default, updateFilter]);
-
   const fetchNearby = useCallback(async () => {
     if (!userCoords) {
       return;
@@ -1009,7 +1008,7 @@ function RFQList() {
         return;
       }
       setNearbyRFQs([]);
-      setError(fetchError.response?.data?.message || 'Yakin talepler alinamadi.');
+      setError(fetchError.response?.data?.message || 'Yakın talepler alınamadı.');
     } finally {
       setNearbyLoading(false);
     }
@@ -1064,13 +1063,29 @@ function RFQList() {
 
   const handleApplyFilters = useCallback(() => {
     const nextFilters = draftFilters || filters;
-    if (nextFilters.cityId || nextFilters.city) {
-      setSelectedCity(
-        nextFilters.cityId || nextFilters.city
-          ? { _id: nextFilters.cityId || '', name: nextFilters.city || '' }
-          : null
-      );
-    }
+    const nextSelectedCity =
+      nextFilters.cityId || nextFilters.city
+        ? { _id: nextFilters.cityId || '', name: nextFilters.city || '' }
+        : null;
+    const nextSelectedDistrict =
+      nextFilters.districtId || nextFilters.district
+        ? {
+            _id: nextFilters.districtId || '',
+            name: nextFilters.district || '',
+            cityId: nextFilters.cityId || ''
+          }
+        : null;
+
+    setSelectedCity(nextSelectedCity);
+    setSelectedDistrict(nextSelectedDistrict);
+    setLocationSelection(
+      nextSelectedCity
+        ? {
+            city: nextSelectedCity,
+            district: nextSelectedDistrict
+          }
+        : null
+    );
     localStorage.removeItem(RFQ_CACHE_KEY);
     setPage(1);
     setFilters((prev) => ({
@@ -1102,7 +1117,7 @@ function RFQList() {
       }, 300);
     }, 2500);
     fetchRFQs({ nextPage: 1, replace: true, isRefresh: true });
-  }, [draftFilters, fetchRFQs, filters, resultsToastTimerRef, resultsToastHideTimerRef]);
+  }, [draftFilters, fetchRFQs, filters, resultsToastTimerRef, resultsToastHideTimerRef, setSelectedCity, setSelectedDistrict]);
 
   useEffect(() => {
     if (!locationAutoApplyRef.current) {
@@ -1153,27 +1168,26 @@ function RFQList() {
     try {
       setAlertSubmitting(true);
       await api.post('/me/alerts', payload);
-      setToast('Takip olusturuldu. Yeni ilanlarda bildirim alacaksin.');
+      setToast('Takip oluşturuldu. Yeni ilanlarda bildirim alacaksın.');
     } catch (requestError) {
       const status = requestError.response?.status;
       if (status === 409) {
         setToast('Bu takip zaten var.');
       } else {
-        setToast(requestError.response?.data?.message || 'Takip olusturulamadi.');
+        setToast(requestError.response?.data?.message || 'Takip oluşturulamadı.');
       }
     } finally {
       setAlertSubmitting(false);
     }
   }, [buildAlertPayload, currentUserId, navigate, setToast]);
 
-  const mapRadiusInputRef = useRef(null);
-
   const handleIncreaseKm = useCallback(() => {
-    setViewMode('map');
-    window.setTimeout(() => {
-      mapRadiusInputRef.current?.focus();
-    }, 200);
-  }, []);
+    const nextRadius = Math.min(
+      (Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default) + 10,
+      maxRadiusKm
+    );
+    handleRadiusChange(nextRadius);
+  }, [filters.radius, handleRadiusChange, maxRadiusKm, radiusConfig.default]);
 
   const handleSelectCity = useCallback(() => {
     window.dispatchEvent(new Event('open-rfq-filter-sheet'));
@@ -1184,300 +1198,6 @@ function RFQList() {
       }
     }, 250);
   }, []);
-
-  const openManualSelection = useCallback(() => {
-    setShowLocationModal(false);
-    handleSelectCity();
-  }, [handleSelectCity]);
-
-  const handleUseCurrentLocation = useCallback(async () => {
-    if (useCurrentLocationLoading) {
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setLocationWarning('Konum servisi desteklenmiyor.');
-      setToast('Konum alinamadi. Lutfen manuel secin.');
-      openManualSelection();
-      return;
-    }
-
-    setUseCurrentLocationLoading(true);
-    setLocationWarning('');
-
-    if (navigator.permissions?.query) {
-      try {
-        const status = await navigator.permissions.query({ name: 'geolocation' });
-        if (status?.state === 'denied') {
-          setLocationDenied(true);
-          setLocationWarning('Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.');
-          setShowLocationModal(true);
-          setUseCurrentLocationLoading(false);
-          return;
-        }
-      } catch (_error) {
-        // ignore permission query errors
-      }
-    }
-
-    const getPosition = () => new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 60000
-      });
-    });
-
-    try {
-      const position = await getPosition();
-      const lat = position?.coords?.latitude;
-      const lng = position?.coords?.longitude;
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        throw new Error('Konum bilgisi alinamadi.');
-      }
-
-      const coords = { lat, lng };
-      setUserCoords(coords);
-      setUserPosition(coords);
-      setCityCenterCoords(null);
-
-      const latStr = Number(lat).toFixed(6);
-      const lngStr = Number(lng).toFixed(6);
-
-      const reverseTry = async () => {
-        try {
-          const response = await reverseGeocode({ lat, lng });
-          const payload = response.data || {};
-          if (payload?.success === false) {
-            return { status: 'not_found', message: payload?.message || 'not_found' };
-          }
-          const cityPayload = payload.city || {};
-          const districtPayload = payload.district || {};
-          const resolveName = (value) => {
-            if (!value) return '';
-            if (typeof value === 'string') return value;
-            return value.name || value.label || value.title || '';
-          };
-          const cityNameCandidates = [
-            resolveName(cityPayload),
-            resolveName(payload.province),
-            resolveName(payload.state),
-            resolveName(payload.region),
-            resolveName(payload.adminArea),
-            resolveName(payload.administrativeArea),
-            resolveName(payload.county),
-            payload.cityName,
-            payload.provinceName,
-            payload.stateName,
-            payload.regionName,
-            payload.il,
-            payload.sehir
-          ].filter(Boolean);
-          const cityName = cityNameCandidates[0];
-          const districtName = resolveName(districtPayload) || resolveName(payload.districtName) || resolveName(payload.ilce);
-
-          let resolvedCity = null;
-          if (cityName) {
-            if (cityPayload?._id || cityPayload?.id) {
-              resolvedCity = { _id: cityPayload._id || cityPayload.id, name: cityName };
-            } else {
-              const cityRes = await api.get('/location/search', { params: { q: cityName } });
-              const cityItems = Array.isArray(cityRes.data?.data)
-                ? cityRes.data.data
-                : Array.isArray(cityRes.data?.items)
-                  ? cityRes.data.items
-                  : Array.isArray(cityRes.data)
-                    ? cityRes.data
-                    : [];
-              const match = cityItems.find((item) => item?.name?.toLowerCase() === cityName.toLowerCase());
-              const fallback = match || cityItems[0];
-              if (fallback?._id && fallback?.name) {
-                resolvedCity = { _id: fallback._id, name: fallback.name };
-              }
-            }
-          }
-
-          let resolvedDistrict = null;
-          if (resolvedCity?._id && districtName) {
-            if (districtPayload?._id || districtPayload?.id) {
-              resolvedDistrict = {
-                _id: districtPayload._id || districtPayload.id,
-                name: districtName,
-                cityId: districtPayload.cityId || resolvedCity._id
-              };
-            } else {
-              const districtRes = await api.get('/location/districts', {
-                params: {
-                  cityId: resolvedCity._id,
-                  q: districtName,
-                  page: 1,
-                  limit: 200
-                }
-              });
-              const districtItems = (districtRes.data?.data || []).filter((item) => item?._id && item?.name);
-              const match = districtItems.find((item) => item.name.toLowerCase() === districtName.toLowerCase());
-              const fallback = match || districtItems[0];
-              if (fallback?._id && fallback?.name) {
-                resolvedDistrict = { _id: fallback._id, name: fallback.name, cityId: resolvedCity._id };
-              }
-            }
-          }
-
-          if (!resolvedCity?.name) {
-            return null;
-          }
-
-          let center = null;
-          const centerCoords = payload?.center?.coordinates;
-          if (Array.isArray(centerCoords) && centerCoords.length === 2) {
-            center = { lat: Number(centerCoords[1]), lng: Number(centerCoords[0]) };
-          }
-          return {
-            status: 'ok',
-            selection: {
-              city: resolvedCity,
-              district: resolvedDistrict || null,
-              radiusKm: Number(payload.radiusKm) || null,
-              center
-            }
-          };
-        } catch (_error) {
-          const err = _error;
-          return { status: 'error', error: err };
-        }
-      };
-
-      const fallbackNearestCity = async () => {
-        try {
-          let page = 1;
-          let allItems = [];
-          let hasMore = true;
-
-          while (hasMore && page <= 10) {
-            const response = await api.get('/location/cities', {
-              params: { page, limit: 200, includeCoords: true }
-            });
-            const items = response.data?.items || response.data?.data || [];
-            allItems = allItems.concat(items);
-            hasMore = Boolean(response.data?.hasMore);
-            page += 1;
-          }
-
-          let nearest = null;
-          let nearestDistance = Number.POSITIVE_INFINITY;
-          allItems.forEach((city) => {
-            const coords = city?.center?.coordinates || city?.location?.coordinates || null;
-            const latVal = Array.isArray(coords) ? Number(coords[1]) : Number(city?.lat);
-            const lngVal = Array.isArray(coords) ? Number(coords[0]) : Number(city?.lng);
-            if (!Number.isFinite(latVal) || !Number.isFinite(lngVal)) {
-              return;
-            }
-            const distance = haversineKm({ lat, lng }, { lat: latVal, lng: lngVal });
-            if (distance < nearestDistance) {
-              nearestDistance = distance;
-              nearest = { _id: city._id || city.id || null, name: city.name, center: { lat: latVal, lng: lngVal } };
-            }
-          });
-
-          if (!nearest?.name) {
-            return null;
-          }
-          return { city: nearest, district: null, center: nearest.center };
-        } catch (_error) {
-          return null;
-        }
-      };
-
-      const reverseResult = await reverseTry();
-      let selection = null;
-      if (reverseResult?.status === 'ok') {
-        selection = reverseResult.selection;
-      } else {
-        selection = await fallbackNearestCity();
-      }
-
-      if (!selection?.city?.name && reverseResult?.status === 'not_found') {
-        setLocationWarning('Konumdan sehir bulunamadi. Lutfen manuel secin.');
-        setToast('Konumdan sehir bulunamadi. Lutfen manuel secin.');
-        openManualSelection();
-        return;
-      }
-      if (!selection?.city?.name) {
-        setLocationWarning('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
-        setToast('Sehir bilgisi bulunamadi. Lutfen manuel secin.');
-        openManualSelection();
-        return;
-      }
-
-      const resolvedCity = selection.city;
-      const resolvedDistrict = selection.district;
-      const resolvedCenter = selection.center || null;
-
-      setSelectedCity(resolvedCity);
-      if (resolvedDistrict) {
-        setSelectedDistrict(resolvedDistrict);
-      } else {
-        setSelectedDistrict(null);
-      }
-      setLocationSelection({
-        city: resolvedCity,
-        district: resolvedDistrict || null
-      });
-      setCityCenterCoords(resolvedCenter || coords);
-
-      const baseRadius = radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
-      const nextRadiusKm = Math.max(
-        Number(selection.radiusKm) || Number(filters.radius) || baseRadius,
-        baseRadius
-      );
-
-      const nextDraft = {
-        ...(draftFilters || filters),
-        city: resolvedCity.name,
-        cityId: resolvedCity._id,
-        district: resolvedDistrict?.name || null,
-        districtId: resolvedDistrict?._id || null,
-        radius: Math.min(nextRadiusKm, maxRadiusKm)
-      };
-      setDraftFilters(nextDraft);
-      locationAutoApplyRef.current = true;
-      setToast('Konumdan sehir secildi.');
-      window.setTimeout(() => setToast(null), 1800);
-    } catch (error) {
-      const status = error?.response?.status;
-      let message = error?.response?.data?.message || error?.message || 'Konum alinamadi. Lutfen izin verin.';
-      if (error?.code === 1 || error?.name === 'PermissionDeniedError') {
-        message = 'Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyin.';
-        setLocationDenied(true);
-        setShowLocationModal(true);
-      } else if (error?.code === 2 || error?.code === 3) {
-        message = 'Konum alinamadi. Lutfen manuel secin.';
-        openManualSelection();
-      } else if (status === 404) {
-        message = 'Konumdan sehir bulunamadi. Lutfen manuel secin.';
-        openManualSelection();
-      }
-      setLocationWarning(message);
-      setToast(message);
-      window.setTimeout(() => setToast(null), 2000);
-    } finally {
-      setUseCurrentLocationLoading(false);
-    }
-  }, [
-    draftFilters,
-    filters,
-    maxRadiusKm,
-    openManualSelection,
-    radiusConfig.default,
-    setCityCenterCoords,
-    setSelectedCity,
-    setSelectedDistrict,
-    setToast,
-    setUserCoords,
-    setUserPosition,
-    useCurrentLocationLoading
-  ]);
 
   function getCreateSheetSnapPoints() {
     const vh = window.innerHeight || 0;
@@ -1921,13 +1641,23 @@ function RFQList() {
     delete imageTouchStartXRef.current[rfqId];
   }, []);
 
-  const radiusCenter = useMemo(
-    () => liveLocation || userCoords || cityCenterCoords || null,
-    [cityCenterCoords, liveLocation, userCoords]
+  const radiusCenter = useMemo(() => {
+    if (currentLocationMatchesFilters && userCoords) {
+      return userCoords;
+    }
+    if (!userCoords && appliedFilters.city && cityCenterCoords) {
+      return cityCenterCoords;
+    }
+    return null;
+  }, [appliedFilters.city, cityCenterCoords, currentLocationMatchesFilters, userCoords]);
+
+  const canonicalSourceRFQs = useMemo(
+    () => mergeUniqueRFQs(rfqs, nearbyRFQs),
+    [mergeUniqueRFQs, nearbyRFQs, rfqs]
   );
 
   const enrichedRFQs = useMemo(() => {
-    return rfqs.map((rfq) => {
+    return canonicalSourceRFQs.map((rfq) => {
       const isPremium = isPremiumRFQ(rfq);
       const rfqCoords = getRFQCoords(rfq);
       const distanceKm =
@@ -1936,8 +1666,8 @@ function RFQList() {
           : radiusCenter && rfqCoords
             ? distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(rfqCoords.lat), Number(rfqCoords.lng))
             : null;
-      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
-      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
+      const radiusLimit = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(appliedFilters.city);
       const isNearby = typeof distanceKm === 'number' ? (isCityWide ? true : distanceKm <= radiusLimit) : false;
 
       return {
@@ -1947,19 +1677,19 @@ function RFQList() {
         isNearby
       };
     });
-  }, [cityFallbackEnabled, deferredFilters.city, deferredFilters.radius, distanceInKm, getRFQCoords, isPremiumRFQ, maxRadiusKm, radiusCenter, radiusConfig.default, rfqs, selectedCity?.name]);
+  }, [appliedFilters.city, appliedFilters.radius, canonicalSourceRFQs, cityFallbackEnabled, distanceInKm, getRFQCoords, isPremiumRFQ, maxRadiusKm, radiusCenter, radiusConfig.default]);
 
   const filteredEnrichedRFQs = useMemo(() => {
     return enrichedRFQs.filter((item) => {
-      const cityMatch = deferredFilters.city
-        ? String(getCityName(item)).toLowerCase() === String(deferredFilters.city).toLowerCase()
+      const cityMatch = appliedFilters.city
+        ? String(getCityName(item)).toLowerCase() === String(appliedFilters.city).toLowerCase()
         : true;
-      const districtMatch = deferredFilters.district
-        ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
+      const districtMatch = appliedFilters.district
+        ? String(getDistrictName(item)).toLowerCase() === String(appliedFilters.district).toLowerCase()
         : true;
-      const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
-      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
-      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
+      const categoryMatch = appliedFilters.category ? getCategoryKey(item) === String(appliedFilters.category) : true;
+      const radiusLimit = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(appliedFilters.city);
       const radiusMatch = radiusCenter
         ? typeof item.distanceKm === 'number'
           ? (isCityWide ? true : item.distanceKm <= radiusLimit)
@@ -1967,46 +1697,12 @@ function RFQList() {
         : true;
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [cityFallbackEnabled, deferredFilters.category, deferredFilters.city, deferredFilters.district, deferredFilters.radius, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, maxRadiusKm, radiusCenter, radiusConfig.default, selectedCity?.name]);
+  }, [appliedFilters.category, appliedFilters.city, appliedFilters.district, appliedFilters.radius, cityFallbackEnabled, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, maxRadiusKm, radiusCenter, radiusConfig.default]);
 
-  const filteredNearbyRFQs = useMemo(() => {
-    return nearbyRFQs.filter((item) => {
-      const cityMatch = deferredFilters.city
-        ? String(getCityName(item)).toLowerCase() === String(deferredFilters.city).toLowerCase()
-        : true;
-      const districtMatch = deferredFilters.district
-        ? String(getDistrictName(item)).toLowerCase() === String(deferredFilters.district).toLowerCase()
-        : true;
-      const categoryMatch = deferredFilters.category ? getCategoryKey(item) === String(deferredFilters.category) : true;
-      const radiusLimit = Number(deferredFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
-      const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(deferredFilters.city || selectedCity?.name);
-      const radiusMatch = radiusCenter
-        ? (() => {
-            const coords = getRFQCoords(item);
-            if (!coords) return true;
-            const dist = distanceInKm(radiusCenter.lat, radiusCenter.lng, Number(coords.lat), Number(coords.lng));
-            return Number.isFinite(dist) ? (isCityWide ? true : dist <= radiusLimit) : true;
-          })()
-        : true;
-      return cityMatch && districtMatch && categoryMatch && radiusMatch;
-    });
-  }, [
-    cityFallbackEnabled,
-    deferredFilters.category,
-    deferredFilters.city,
-    deferredFilters.district,
-    deferredFilters.radius,
-    distanceInKm,
-    getCategoryKey,
-    getCityName,
-    getDistrictName,
-    getRFQCoords,
-    maxRadiusKm,
-    nearbyRFQs,
-    radiusCenter,
-    radiusConfig.default,
-    selectedCity?.name
-  ]);
+  const canonicalNearbyRFQs = useMemo(
+    () => filteredEnrichedRFQs.filter((item) => item.isNearby),
+    [filteredEnrichedRFQs]
+  );
 
   const applySort = useCallback(
     (items = []) => {
@@ -2059,12 +1755,8 @@ function RFQList() {
       return favoriteCategories.has(getCategoryKey(item)) ? 1 : 0;
     };
 
-    if (filteredNearbyRFQs.length) {
-      const nearbyEnriched = filteredNearbyRFQs.map((rfq) => {
-        const existing = filteredEnrichedRFQs.find((item) => item._id === rfq._id);
-        return existing || rfq;
-      });
-      const sortedByRecommendation = [...nearbyEnriched].sort((a, b) => scoreByCategory(b) - scoreByCategory(a));
+    if (canonicalNearbyRFQs.length) {
+      const sortedByRecommendation = [...canonicalNearbyRFQs].sort((a, b) => scoreByCategory(b) - scoreByCategory(a));
       return applySort(sortedByRecommendation).slice(0, 5);
     }
 
@@ -2104,7 +1796,7 @@ function RFQList() {
     }
 
     return applySort(highlighted).slice(0, 5);
-  }, [applySort, favoriteItems, filteredEnrichedRFQs, filteredNearbyRFQs, getCategoryKey]);
+  }, [applySort, canonicalNearbyRFQs, favoriteItems, filteredEnrichedRFQs, getCategoryKey]);
 
   const sortPremiumFirst = useCallback(
     (items = []) =>
@@ -2133,7 +1825,7 @@ function RFQList() {
   const featuredIds = useMemo(() => new Set(featuredRFQs.map((item) => item._id)), [featuredRFQs]);
 
   const nearbyOnlyRFQs = useMemo(() => {
-    const source = filteredNearbyRFQs.length ? filteredNearbyRFQs : filteredEnrichedRFQs.filter((item) => item.isNearby);
+    const source = canonicalNearbyRFQs.length ? canonicalNearbyRFQs : filteredEnrichedRFQs.filter((item) => item.isNearby);
     const filtered = source.filter((item) => !featuredIds.has(item._id));
     const favoriteCategories = new Set(favoriteItems.map((item) => getCategoryKey(item)).filter(Boolean));
 
@@ -2147,7 +1839,7 @@ function RFQList() {
       return scoreB - scoreA;
     });
     return applySort(recommended);
-  }, [applySort, favoriteItems, featuredIds, filteredEnrichedRFQs, filteredNearbyRFQs, getCategoryKey]);
+  }, [applySort, canonicalNearbyRFQs, favoriteItems, featuredIds, filteredEnrichedRFQs, getCategoryKey]);
   const featuredRFQsSorted = useMemo(() => sortPremiumFirst(featuredRFQs), [featuredRFQs, sortPremiumFirst]);
   const nearbyOnlyRFQsSorted = useMemo(() => sortPremiumFirst(nearbyOnlyRFQs), [nearbyOnlyRFQs, sortPremiumFirst]);
   const premiumUnderFeaturedRFQs = useMemo(
@@ -2166,14 +1858,14 @@ function RFQList() {
   }, [featuredRFQsSorted, normalRFQs, premiumUnderFeaturedRFQs, isFeaturedRFQ]);
   const hasDistanceData = useMemo(
     () =>
-      filteredNearbyRFQs.some(
+      canonicalNearbyRFQs.some(
         (item) => Number.isFinite(Number(item?.distanceKm)) || Number.isFinite(Number(item?.distance))
       ),
-    [filteredNearbyRFQs]
+    [canonicalNearbyRFQs]
   );
   const filteredOrderedRFQs = orderedRFQs;
   const selectedCityLabel = useMemo(
-    () => deferredFilters.city || selectedCity?.name || 'Seçili Şehir',
+    () => deferredFilters.city || selectedCity?.name || 'Seçili şehir',
     [deferredFilters.city, selectedCity?.name]
   );
   const mapRadiusCenter = radiusCenter;
@@ -2237,47 +1929,97 @@ function RFQList() {
     });
   }, [getRFQCoords, hasRadiusCenter, isMapCityWide, mapRadiusCenter, mapRadiusKm, quickFilteredRFQs]);
 
+  const canonicalFilteredRFQs = useMemo(() => {
+    if (!mapAreaFilterActive || !mapAreaFilterIds) {
+      return radiusFilteredRFQs;
+    }
+    return radiusFilteredRFQs.filter((item) => mapAreaFilterIds.has(String(item._id)));
+  }, [mapAreaFilterActive, mapAreaFilterIds, radiusFilteredRFQs]);
+
   useEffect(() => {
     localStorage.setItem('rfq_sortKey', sortKey);
     setFilters((prev) => ({ ...prev, sort: sortKey }));
   }, [sortKey]);
 
-  const mapSourceItems = useMemo(() => (Array.isArray(radiusFilteredRFQs) ? radiusFilteredRFQs : []), [radiusFilteredRFQs]);
+  const mapSearchBaseItems = useMemo(
+    () => (Array.isArray(radiusFilteredRFQs) ? radiusFilteredRFQs : []),
+    [radiusFilteredRFQs]
+  );
 
   const mapBaseItems = useMemo(() => {
-    return [...mapSourceItems]
+    return [...canonicalFilteredRFQs]
       .filter((item) => Boolean(getRFQCoords(item)))
       .filter((item) => (!showActiveOnly ? true : isActiveRequest(item, nowTs)));
-  }, [getRFQCoords, mapSourceItems, nowTs, showActiveOnly]);
+  }, [canonicalFilteredRFQs, getRFQCoords, nowTs, showActiveOnly]);
 
-  const mapItems = useMemo(() => {
-    let items = mapBaseItems;
-    if (hasRadiusCenter && mapRadiusKm > 0 && !isMapCityWide) {
-      items = items.filter((item) => {
-        const coords = getRFQCoords(item);
-        if (!coords) {
-          return false;
-        }
-        const distance = getDistanceKm(mapRadiusCenter, coords);
-        return typeof distance === 'number' && distance <= mapRadiusKm;
-      });
+  const mapItems = useMemo(() => mapBaseItems, [mapBaseItems]);
+  const locationFocusItems = useMemo(() => {
+    if (appliedDistrictKey) {
+      return mapBaseItems.filter((item) => String(getDistrictName(item) || '').trim().toLowerCase() === appliedDistrictKey);
+    }
+    if (appliedCityKey) {
+      return mapBaseItems.filter((item) => String(getCityName(item) || '').trim().toLowerCase() === appliedCityKey);
+    }
+    return mapBaseItems;
+  }, [appliedCityKey, appliedDistrictKey, getCityName, getDistrictName, mapBaseItems]);
+
+  const locationFocusBounds = useMemo(() => {
+    let south = Number.POSITIVE_INFINITY;
+    let west = Number.POSITIVE_INFINITY;
+    let north = Number.NEGATIVE_INFINITY;
+    let east = Number.NEGATIVE_INFINITY;
+    let count = 0;
+
+    locationFocusItems.forEach((item) => {
+      const coords = getRFQCoords(item);
+      if (!coords) {
+        return;
+      }
+      south = Math.min(south, coords.lat);
+      west = Math.min(west, coords.lng);
+      north = Math.max(north, coords.lat);
+      east = Math.max(east, coords.lng);
+      count += 1;
+    });
+
+    if (!count) {
+      return null;
     }
 
-    if (!mapAreaFilterActive || !mapBounds) {
-      return items;
-    }
+    return {
+      south,
+      west,
+      north,
+      east,
+      count,
+      center: {
+        lat: (south + north) / 2,
+        lng: (west + east) / 2
+      }
+    };
+  }, [getRFQCoords, locationFocusItems]);
 
-    if (!mapAreaFilterIds) {
-      return items;
-    }
+  const selectedMapItem = useMemo(
+    () => (selectedRfqId ? mapItems.find((item) => getRFQIdentity(item) === selectedRfqId) || null : null),
+    [mapItems, selectedRfqId]
+  );
+  const selectedPreviewItem = useMemo(() => selectedMapItem || selectedRfq || null, [selectedMapItem, selectedRfq]);
 
-    const filtered = items.filter((item) => mapAreaFilterIds.has(String(item._id)));
-    return Array.isArray(filtered) ? filtered : [];
-  }, [getRFQCoords, hasRadiusCenter, isMapCityWide, mapAreaFilterActive, mapAreaFilterIds, mapBaseItems, mapBounds, mapRadiusCenter, mapRadiusKm]);
+  useEffect(() => {
+    if (!selectedRfqId) {
+      return;
+    }
+    if (!selectedPreviewItem) {
+      setSelectedRfq(null);
+    }
+  }, [selectedPreviewItem, selectedRfqId]);
 
   const mapCenter = useMemo(() => {
-    if (userCoords) {
-      return [userCoords.lat, userCoords.lng];
+    if (locationFocusBounds?.center) {
+      return [locationFocusBounds.center.lat, locationFocusBounds.center.lng];
+    }
+    if (radiusCenter) {
+      return [radiusCenter.lat, radiusCenter.lng];
     }
     if (mapItems.length) {
       const coords = getRFQCoords(mapItems[0]);
@@ -2286,32 +2028,7 @@ function RFQList() {
       }
     }
     return [mapSettings.defaultCenter?.lat || 41.0082, mapSettings.defaultCenter?.lng || 28.9784];
-  }, [getRFQCoords, mapItems, mapSettings.defaultCenter, userCoords]);
-
-  const mapViewActive = mapViewEnabled &&
-    viewMode === 'map' &&
-    !isFilterSheetOpen &&
-    !isCategoryModalOpen &&
-    !isCreateSheetMounted &&
-    !showLocationModal;
-
-  useEffect(() => {
-    if (mapViewActive) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [mapViewActive]);
-
-  useEffect(() => {
-    if (!mapViewActive) {
-      setIsMapFilterOpen(false);
-    }
-  }, [mapViewActive]);
+  }, [getRFQCoords, locationFocusBounds, mapItems, mapSettings.defaultCenter, radiusCenter]);
 
   const listIsEmpty = radiusFilteredRFQs.length === 0;
   const mapIsEmpty = mapItems.length === 0;
@@ -2319,6 +2036,69 @@ function RFQList() {
   const selectedKm = Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
   const canApplyFilters = Boolean((draftFilters || filters).city || (draftFilters || filters).cityId);
   const hasMapCoords = mapBaseItems.length > 0;
+  const effectiveListItems = filteredOrderedRFQs;
+  const effectiveSelectedCityLabel = appliedFilters.city || selectedCityLabel;
+  const effectiveHasCityFilter = Boolean(appliedFilters.city);
+  const effectiveSelectedKm = Number(appliedFilters.radius) || selectedKm;
+  const effectiveIsMapCityWide = cityFallbackEnabled && mapRadiusKm >= maxRadiusKm && Boolean(appliedFilters.city);
+  const effectiveHasMapCoords = mapSearchBaseItems.length > 0;
+  const effectiveListIsEmpty = effectiveListItems.length === 0;
+  const isCurrentLocationContext = Boolean(radiusCenter && currentLocationMatchesFilters);
+  const locationFocusKey = useMemo(() => {
+    const radiusValue = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+    if (isCurrentLocationContext && radiusCenter) {
+      return `current:${radiusCenter.lat.toFixed(4)}:${radiusCenter.lng.toFixed(4)}:${radiusValue}`;
+    }
+    if (appliedDistrictKey) {
+      return `district:${appliedDistrictKey}:${effectiveListItems.length}`;
+    }
+    if (appliedCityKey) {
+      return `city:${appliedCityKey}:${effectiveListItems.length}`;
+    }
+    return '';
+  }, [appliedCityKey, appliedDistrictKey, appliedFilters.radius, effectiveListItems.length, isCurrentLocationContext, radiusCenter, radiusConfig.default]);
+  const mapFocusTarget = useMemo(() => {
+    const radiusValue = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
+    if (isCurrentLocationContext && radiusCenter) {
+      return {
+        key: locationFocusKey,
+        center: radiusCenter,
+        zoom: radiusValue <= 10 ? 12 : radiusValue <= 25 ? 11 : 10
+      };
+    }
+    if (locationFocusBounds?.count > 1 && (appliedCityKey || appliedDistrictKey)) {
+      return {
+        key: locationFocusKey,
+        bounds: locationFocusBounds,
+        maxZoom: appliedDistrictKey ? 12 : 11
+      };
+    }
+    if (locationFocusBounds?.center && (appliedCityKey || appliedDistrictKey)) {
+      return {
+        key: locationFocusKey,
+        center: locationFocusBounds.center,
+        zoom: appliedDistrictKey ? 12 : 11
+      };
+    }
+    return null;
+  }, [appliedCityKey, appliedDistrictKey, appliedFilters.radius, isCurrentLocationContext, locationFocusBounds, locationFocusKey, radiusCenter, radiusConfig.default]);
+  const previousLocationFocusKeyRef = useRef('');
+
+  useEffect(() => {
+    if (!locationFocusKey) {
+      previousLocationFocusKeyRef.current = '';
+      return;
+    }
+    if (!previousLocationFocusKeyRef.current) {
+      previousLocationFocusKeyRef.current = locationFocusKey;
+      return;
+    }
+    if (previousLocationFocusKeyRef.current === locationFocusKey) {
+      return;
+    }
+    previousLocationFocusKeyRef.current = locationFocusKey;
+    setSelectedRfq(null);
+  }, [locationFocusKey]);
   const [uiTexts, setUiTexts] = useState({
     searchHint: 'Yazdıkça liste filtrelenecek.',
     emptyCityTitle: 'Şehir seçerek talepleri gör',
@@ -2374,9 +2154,9 @@ function RFQList() {
     (term) => {
       const query = normalizeSearch(term);
       if (!query) {
-        return radiusFilteredRFQs.length;
+        return effectiveListItems.length;
       }
-      return radiusFilteredRFQs.filter((item) => {
+      return effectiveListItems.filter((item) => {
         const text = [
           item?.title,
           item?.description,
@@ -2390,7 +2170,7 @@ function RFQList() {
         return text.includes(query);
       }).length;
     },
-    [getCategoryDisplayName, getCityName, getDistrictName, normalizeSearch, radiusFilteredRFQs]
+    [effectiveListItems, getCategoryDisplayName, getCityName, getDistrictName, normalizeSearch]
   );
 
   const logSearchEvent = useCallback(
@@ -2431,10 +2211,7 @@ function RFQList() {
 
   useEffect(() => {
     const nextRadius = Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
-    const timer = window.setTimeout(() => {
-      setMapRadiusKm(nextRadius);
-    }, 200);
-    return () => window.clearTimeout(timer);
+    setMapRadiusKm((prev) => (prev === nextRadius ? prev : nextRadius));
   }, [filters.radius, radiusConfig.default]);
 
   useEffect(() => {
@@ -2487,20 +2264,6 @@ function RFQList() {
     fetchNearby();
   }, [fetchNearby, fetchRFQs]);
 
-  const toggleLiveLocation = useCallback(() => {
-    if (!liveLocationEnabled) {
-      setToast('Canlı konum şu an kapalı.');
-      window.setTimeout(() => setToast(null), 1800);
-      return;
-    }
-    if (liveStatus === 'active' || liveStatus === 'requesting') {
-      stopLiveLocation();
-      setUserPosition(null);
-      setUserCoords(null);
-      return;
-    }
-    startLiveLocation();
-  }, [liveLocationEnabled, liveStatus, setToast, startLiveLocation, stopLiveLocation]);
 
   const handleSearchThisArea = useCallback(() => {
     if (!mapBounds) {
@@ -2508,7 +2271,7 @@ function RFQList() {
     }
 
     const nextIds = new Set();
-    mapBaseItems.forEach((item) => {
+    mapSearchBaseItems.forEach((item) => {
       const coords = getRFQCoords(item);
       if (!coords) {
         return;
@@ -2525,7 +2288,7 @@ function RFQList() {
     setMapAreaFilterIds(nextIds);
     setMapAreaFilterActive(true);
     setMapHasMoved(false);
-  }, [getRFQCoords, mapBaseItems, mapBounds]);
+  }, [getRFQCoords, mapBounds, mapSearchBaseItems]);
 
   const mapTileUrl = isDarkMode
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
@@ -2533,11 +2296,42 @@ function RFQList() {
   const mapAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
 
   const selectedRfqCoords = useMemo(() => {
-    if (!selectedRfq) {
+    if (!selectedPreviewItem) {
       return null;
     }
-    return getRFQCoords(selectedRfq);
-  }, [getRFQCoords, selectedRfq]);
+    return getRFQCoords(selectedPreviewItem);
+  }, [getRFQCoords, selectedPreviewItem]);
+
+  const selectedRfqImages = useMemo(
+    () => (selectedPreviewItem ? getCardImages(selectedPreviewItem) : []),
+    [getCardImages, selectedPreviewItem]
+  );
+  const selectedRfqCategory = useMemo(
+    () => (selectedPreviewItem ? getCategoryDisplayName(selectedPreviewItem.category) : ''),
+    [getCategoryDisplayName, selectedPreviewItem]
+  );
+  const selectedRfqStatusLabel = useMemo(
+    () => (selectedPreviewItem ? getRequestStatusLabel(selectedPreviewItem, nowTs) : ''),
+    [nowTs, selectedPreviewItem]
+  );
+  const selectedRfqRemaining = useMemo(
+    () => (selectedPreviewItem ? formatRemainingTime(selectedPreviewItem, nowTs) : ''),
+    [nowTs, selectedPreviewItem]
+  );
+  const selectedRouteSummaryText = useMemo(() => {
+    if (!routeSummary || typeof routeSummary !== 'object') {
+      return '';
+    }
+
+    const parts = [];
+    if (Number.isFinite(routeSummary.distanceKm)) {
+      parts.push(`${routeSummary.distanceKm.toFixed(1)} km`);
+    }
+    if (Number.isFinite(routeSummary.durationMin)) {
+      parts.push(`${Math.round(routeSummary.durationMin)} dk`);
+    }
+    return parts.join(' • ');
+  }, [routeSummary]);
 
   const routePoints = useMemo(() => {
     if (!userPosition || !selectedRfqCoords) {
@@ -2570,37 +2364,27 @@ function RFQList() {
 
     const fetchInlineCategories = async () => {
       try {
-        const response = await api.get('/categories');
-        const flat = response.data?.data || response.data?.items || [];
-        const map = {};
-        const roots = [];
-
-        flat.forEach((cat) => {
-          map[String(cat._id)] = { ...cat, children: [] };
-        });
-
-        flat.forEach((cat) => {
-          const parentId = cat.parent ? String(typeof cat.parent === 'object' ? cat.parent._id : cat.parent) : null;
-          if (parentId && map[parentId]) {
-            map[parentId].children.push(map[String(cat._id)]);
-          } else {
-            roots.push(map[String(cat._id)]);
+        if (!filters.segment) {
+          if (isActive) {
+            setInlineSubcategories([]);
+            setFlatSubcategories([]);
           }
-        });
+          return;
+        }
 
-        const leafItems = Object.values(map).filter((item) => !item.children?.length);
+        const response = await api.get('/categories', { params: { segment: filters.segment } });
+        const flat = response.data?.data || response.data?.items || [];
+        const tree = normalizeCategoryTree(
+          response.data?.tree?.length ? response.data.tree : buildCategoryTree(flat),
+          filters.segment
+        );
+        const leafItems = flattenCategoryLeaves(tree);
         leafItems.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'tr'));
-        const subcats = [];
-        roots.forEach((parent) => {
-          if (!parent?.children?.length) return;
-          parent.children.forEach((child) => {
-            subcats.push({
-              ...child,
-              parentId: parent._id,
-              parentName: parent.name
-            });
-          });
-        });
+        const subcats = leafItems.map((item) => ({
+          ...item,
+          parentId: item.parentId || null,
+          parentName: item.parentName || ''
+        }));
         subcats.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'tr'));
 
         if (isActive) {
@@ -2620,15 +2404,18 @@ function RFQList() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [filters.segment]);
 
   const handleCategorySelect = useCallback(
     (category) => {
+      if (category?.segment && category.segment !== filters.segment) {
+        updateFilter('segment', category.segment);
+      }
       updateFilter('category', String(category._id));
       setCategoryLabel(Array.isArray(category.path) ? category.path.join(' > ') : category.name || '');
       setIsCategoryModalOpen(false);
     },
-    [updateFilter]
+    [filters.segment, updateFilter]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
@@ -2636,6 +2423,17 @@ function RFQList() {
     setCategoryLabel('');
     setIsCategoryModalOpen(false);
   }, [updateFilter]);
+
+  const handleSegmentSelect = useCallback(
+    (segment) => {
+      updateFilter('segment', segment || null);
+      updateFilter('category', null);
+      setCategoryLabel('');
+      setSearchQuery('');
+      setIsCategoryModalOpen(false);
+    },
+    [updateFilter]
+  );
 
   const activeParentName = useMemo(() => {
     const selectedId = String(filters.category || '');
@@ -2646,6 +2444,7 @@ function RFQList() {
 
   const suggestionResults = useMemo(() => {
     const query = normalizeSearch(deferredSearchQuery);
+    if (!filters.segment) return [];
     if (!query) return [];
     const apiResults = searchSuggestions
       .filter((item) => normalizeSearch(item.term).includes(query))
@@ -2678,7 +2477,7 @@ function RFQList() {
       return aName.localeCompare(bName, 'tr');
     });
     return results.slice(0, 10);
-  }, [deferredSearchQuery, flatSubcategories, normalizeSearch, searchSuggestions]);
+  }, [deferredSearchQuery, filters.segment, flatSubcategories, normalizeSearch, searchSuggestions]);
 
   const handleSuggestSelect = useCallback(
     (item) => {
@@ -2706,11 +2505,18 @@ function RFQList() {
 
   const renderRFQCard = useCallback(
     (rfq, index, baseDelay = 0, variant = 'normal') => {
+      const jobseekerMeta = rfq?.segment === 'jobseeker' ? rfq?.segmentMetadata || {} : null;
+      const jobseekerWorkTypes = Array.isArray(jobseekerMeta?.workTypes)
+        ? jobseekerMeta.workTypes.filter(Boolean)
+        : [];
+      const jobseekerSkills = Array.isArray(jobseekerMeta?.skills)
+        ? jobseekerMeta.skills.filter(Boolean).slice(0, 3)
+        : [];
       const buyerId = getBuyerId(rfq);
       const isOwner = Boolean(currentUserId && buyerId === currentUserId);
       const isOpened = swipedCard.id === rfq._id;
       const statusClass = rfq.status === 'awarded' ? 'done' : 'open';
-      const statusLabel = rfq.status === 'awarded' ? 'Tamamlandi' : 'Acik';
+      const statusLabel = rfq.status === 'awarded' ? 'Tamamlandı' : 'Açık';
       const images = getCardImages(rfq);
       const currentImageIndex = imageIndexes[rfq._id] || 0;
       const isFavorite = favorites.includes(String(rfq._id));
@@ -2748,7 +2554,7 @@ function RFQList() {
 
             return prev.filter((item) => String(item._id) !== String(rfq._id));
           });
-          setToast(isNowFavorite ? 'Favorilere eklendi' : 'Favoriden cikarildi');
+          setToast(isNowFavorite ? 'Favorilere eklendi' : 'Favorilerden çıkarıldı');
           window.setTimeout(() => {
             setToast(null);
           }, 3000);
@@ -2760,7 +2566,7 @@ function RFQList() {
             prev.map((item) => (item._id === rfq._id ? { ...item, favoriteCount: nextFavoriteCount } : item))
           );
         } catch (toggleError) {
-          setToast(toggleError.response?.data?.message || 'Favori islemi basarisiz.');
+          setToast(toggleError.response?.data?.message || 'Favori işlemi başarısız.');
           window.setTimeout(() => {
             setToast(null);
           }, 3000);
@@ -2768,12 +2574,9 @@ function RFQList() {
       };
 
       return (
-        <motion.div
+        <div
           key={rfq._id}
           className="rfq-swipe-wrap"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: (index + baseDelay) * 0.05 }}
         >
           <div className="rfq-actions">
             <button type="button" className="secondary-btn swipe-btn" onClick={() => navigate(`/rfq/${rfq._id}`)}>
@@ -2850,15 +2653,34 @@ function RFQList() {
               </div>
             ) : null}
             {getCityName(rfq) ? <div className="rfq-sub">Konum: {getCityName(rfq)}{getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}</div> : null}
-            <div className="rfq-sub">Miktar: {rfq.quantity}</div>
+            {jobseekerMeta ? (
+              <>
+                {jobseekerWorkTypes.length ? (
+                  <div className="rfq-sub">Çalışma: {jobseekerWorkTypes.join(' / ')}</div>
+                ) : null}
+                {jobseekerMeta.availabilityDate ? (
+                  <div className="rfq-sub">Başlangıç: {formatDate(jobseekerMeta.availabilityDate)}</div>
+                ) : null}
+                {jobseekerMeta.expectedPay ? (
+                  <div className="rfq-sub">Beklenti: {jobseekerMeta.expectedPay}</div>
+                ) : null}
+                {jobseekerSkills.length ? (
+                  <div className="rfq-sub">Yetkinlik: {jobseekerSkills.join(', ')}</div>
+                ) : null}
+              </>
+            ) : (
+              <div className="rfq-sub">Miktar: {rfq.quantity}</div>
+            )}
 
             <div className="rfq-badges">
-              <span className="deadline-badge">Termin: {formatDate(rfq.deadline)}</span>
+              <span className="deadline-badge">
+                {jobseekerMeta ? 'Müsaitlik' : 'Termin'}: {formatDate(jobseekerMeta?.availabilityDate || rfq.deadline)}
+              </span>
               <span className={`badge ${statusClass}`}>{statusLabel}</span>
-              {rfq.isAuction ? <span className="premium-badge">Canli Acik Arttirma</span> : null}
+              {rfq.isAuction ? <span className="premium-badge">Canlı Açık Artırma</span> : null}
             </div>
             {rfq.isAuction ? (
-              <div className="rfq-sub">En Iyi Teklif: {rfq.currentBestOffer ? `${rfq.currentBestOffer} TL` : 'Henuz yok'}</div>
+              <div className="rfq-sub">En İyi Teklif: {rfq.currentBestOffer ? `${rfq.currentBestOffer} TL` : 'Henüz yok'}</div>
             ) : null}
 
             {rfq?.distance ? (
@@ -2867,7 +2689,7 @@ function RFQList() {
               <div className="distance-text">📍 {rfq.distanceKm.toFixed(1)} km uzakta</div>
             ) : null}
           </article>
-        </motion.div>
+        </div>
       );
     },
     [
@@ -2895,16 +2717,14 @@ function RFQList() {
   );
 
   return (
-    <div className={viewMode === 'map' ? 'rfq-list-page map-mode' : 'rfq-list-page'} onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd}>
+    <div className="rfq-list-page" onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd}>
       <div className="ui-rev-watermark">UI REV 1</div>
       <div className="pull-indicator" style={{ height: `${pullDistance}px` }}>
         {pullDistance > 0 ? <span className="spinner" /> : null}
       </div>
       <LoadingOverlay visible={showLoadingOverlay} />
 
-      {locationWarning && !showLocationModal ? <div className="location-error-box">{locationWarning}</div> : null}
-
-      {error && viewMode === 'list' ? (
+      {error ? (
         <ErrorStateCard
           title="Bağlantı sorunu"
           message="Talepler yüklenemedi. İnterneti kontrol edip tekrar dene."
@@ -2912,26 +2732,26 @@ function RFQList() {
         />
       ) : null}
 
-      <div className="view-toggle">
-        <button
-          type="button"
-          className={viewMode === 'list' ? 'active' : ''}
-          onClick={() => setViewMode('list')}
-        >
-          Liste
-        </button>
-        {mapViewEnabled ? (
-          <button
-            type="button"
-            className={viewMode === 'map' ? 'active' : ''}
-            onClick={() => setViewMode('map')}
-          >
-            Harita
-          </button>
-        ) : null}
-      </div>
-
       <div className="home-filters">
+        <div className="cats-header-row">
+          <div className="cats-inline-wrap">
+            <div className="cats-inline-scroll">
+              {SEGMENT_OPTIONS.map((segment) => {
+                const isActive = String(filters.segment || '') === segment.value;
+                return (
+                  <button
+                    key={segment.value}
+                    type="button"
+                    className={`cats-inline-chip ${isActive ? 'active' : ''}`}
+                    onClick={() => handleSegmentSelect(isActive ? '' : segment.value)}
+                  >
+                    {segment.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         <div className="cats-header-row">
           <button
             type="button"
@@ -2945,7 +2765,7 @@ function RFQList() {
               type="button"
               className="mini-clear-btn"
               onClick={handleClearCategoryFilter}
-              aria-label="Kategori secimini kaldir"
+              aria-label="Kategori seçimini kaldır"
             >
               ×
             </button>
@@ -3036,10 +2856,12 @@ function RFQList() {
                 autoComplete="off"
                 inputMode="search"
                 enterKeyHint="search"
+                disabled={!filters.segment}
               />
               <button
                 type="button"
                 className="rfq-search-cta"
+                disabled={!filters.segment}
                 onClick={() => pushSearchHistory(searchQuery)}
               >
                 Ara
@@ -3048,12 +2870,12 @@ function RFQList() {
             <div className="search-hint">{uiTexts.searchHint}</div>
             <div className="search-category-meta">
               <div className="search-meta-title">Ana Kategori</div>
-              <div className="search-parent-chip">{activeParentName || 'Kategori secilmedi'}</div>
+              <div className="search-parent-chip">{filters.segment ? (activeParentName || 'Kategori seçilmedi') : 'Segment seçilmedi'}</div>
             </div>
 
             {suggestionResults.length ? (
               <div className="search-suggestions">
-                <div className="search-meta-title">Oneriler</div>
+                <div className="search-meta-title">Öneriler</div>
                 <div className="search-suggestion-list">
                   {suggestionResults.map((item) => (
                     <button
@@ -3102,224 +2924,64 @@ function RFQList() {
 
       {loading ? <RFQSkeletonGrid count={6} /> : null}
 
-      <AnimatePresence mode="wait">
-      {!loading && viewMode === 'list' ? (
-        <motion.div
-          key="list"
-          className="mode-fade"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.25 }}
-        >
-          <section className="list-section">
-            <div className="list-head">
-              {homeContent.heroTitle ? (
-                <div className="list-hero-title">{homeContent.heroTitle}</div>
-              ) : null}
-              <h1>{`📍 ${selectedCityLabel}`}</h1>
-              {homeContent.heroSubtitle ? (
-                <div className="list-subtitle">{homeContent.heroSubtitle}</div>
-              ) : null}
-            </div>
-
-            {nearbyLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
-            {isFiltering ? (
-              <div className="filter-loading">
-                <span className="spinner" aria-hidden="true" />
-                <span>Filtreleniyor…</span>
-              </div>
+      {!loading ? (
+        <section className="list-section">
+          <div className="list-head">
+            {homeContent.heroTitle ? (
+              <div className="list-hero-title">{homeContent.heroTitle}</div>
             ) : null}
+            <h1>{`📍 ${effectiveSelectedCityLabel}`}</h1>
+            {homeContent.heroSubtitle ? (
+              <div className="list-subtitle">{homeContent.heroSubtitle}</div>
+            ) : null}
+          </div>
 
-            {listIsEmpty && !nearbyLoading ? (
-              <EmptyStateCard
-                title={hasCityFilter ? 'Bu bölgede talep yok' : uiTexts.emptyCityTitle}
-                description={
-                  hasCityFilter
-                    ? `${deferredFilters.city || selectedCityLabel} • ${selectedKm >= maxRadiusKm ? 'Şehir geneli' : `${selectedKm} km`} için henüz ilan bulunamadı.`
-                    : uiTexts.emptyCityDescription
-                }
-                primaryLabel={hasCityFilter ? 'Talep oluştur' : 'Şehir seç'}
-                secondaryLabel={hasCityFilter ? 'Km artır' : null}
-                onPrimary={hasCityFilter ? handleCreateRFQ : handleSelectCity}
-                onSecondary={hasCityFilter ? handleIncreaseKm : null}
-              />
-            ) : (
-              <div className="rfq-grid">
-                {radiusFilteredRFQs.map((rfq, index) => {
-                  const cardVariant = featuredIds.has(rfq._id)
-                    ? 'featured'
-                    : isPremiumRFQ(rfq)
-                      ? 'premium'
-                      : 'normal';
-                  return renderRFQCard(rfq, index, 0, cardVariant);
-                })}
-              </div>
-            )}
-          </section>
-          {loadingMore ? <RFQSkeletonGrid count={2} /> : null}
-        </motion.div>
-      ) : null}
+          {nearbyLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
+          {isFiltering ? (
+            <div className="filter-loading">
+              <span className="spinner" aria-hidden="true" />
+              <span>Filtreleniyor...</span>
+            </div>
+          ) : null}
 
-      {!loading && mapViewActive ? (
-        <motion.div
-          key="map"
-          className="mode-fade rfq-map-wrap"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          {nearbyLoading || loading ? (
-            <div className="map-overlay">
-              <RFQSkeletonGrid count={4} />
-            </div>
-          ) : null}
-          {!nearbyLoading && !loading && error ? (
-            <div className="map-overlay">
-              <ErrorStateCard title="Harita yüklenemedi" message="Harita verileri alınamadı." onRetry={handleRetry} />
-            </div>
-          ) : null}
-          {!nearbyLoading && !loading && !error && mapIsEmpty ? (
-            <div className="map-banner">
-              {hasCityFilter ? 'Haritada gösterilecek talep yok.' : 'Şehir seçerek talepleri gör.'}
-              <button type="button" className="ghost-btn" onClick={hasCityFilter ? handleIncreaseKm : handleSelectCity}>
-                {hasCityFilter ? 'Km artır' : 'Şehir seç'}
-              </button>
-            </div>
-          ) : null}
-          {hasMapCoords && mapHasMoved ? (
-            <button type="button" className="map-search-area-btn" onClick={handleSearchThisArea}>
-              Bu alanı ara
-            </button>
-          ) : null}
-          {mapViewActive && mapSettings.controlsEnabled !== false && !isSearchTriggerOpen ? (
-            <div className={`map-filter-shell ${isMapFilterOpen ? 'is-open' : ''}`} ref={mapFilterRef}>
-              <button
-                type="button"
-                className="map-filter-toggle"
-                aria-label="Konum filtresini aç"
-                aria-expanded={isMapFilterOpen}
-                onClick={() => {
-                  setIsSearchTriggerOpen(false);
-                  setIsMapFilterOpen((prev) => !prev);
-                }}
-              >
-                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                  <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
-                  <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-              </button>
-              <div className="map-filter-panel">
-                <div className="map-live-controls">
-                  <button
-                    type="button"
-                    className="secondary-btn"
-                    onClick={toggleLiveLocation}
-                    disabled={!liveLocationEnabled}
-                  >
-                    {liveStatus === 'active' || liveStatus === 'requesting' ? 'Canli konumu kapat' : 'Canli konumu ac'}
-                  </button>
-                  {liveStatus === 'active' ? (
-                    <span className="map-live-status">
-                      Konum aktif{Number.isFinite(Number(accuracy)) ? ` • ±${Math.round(Number(accuracy))}m` : ''}
-                    </span>
-                  ) : (
-                    <span className="map-live-status">
-                      {radiusCenter ? 'Konum merkezli filtre aktif' : 'Yaricap filtresi icin konum sec'}
-                    </span>
-                  )}
-                </div>
-                <div className="map-radius-controls">
-                  <div className="map-radius-header">
-                    <span>Yakınındaki ilanlar</span>
-                    <strong>{isMapCityWide ? 'Şehir geneli' : `${selectedKm} km`}</strong>
-                  </div>
-                  <input
-                    ref={mapRadiusInputRef}
-                    type="range"
-                    min={minRadiusKm}
-                    max={maxRadiusKm}
-                    step={radiusStep}
-                    value={Math.min(selectedKm, maxRadiusKm)}
-                    onChange={(event) => handleRadiusChange(event.target.value)}
-                    disabled={!radiusCenter}
-                    aria-label="Yarıçap filtresi"
-                  />
-                  <div className="map-radius-hint">
-                    {radiusCenter
-                      ? isMapCityWide
-                        ? 'Maksimum yarıçap: şehirdeki tüm ilanlar'
-                        : 'Yarıçapı değiştirerek listeyi daralt'
-                      : 'Konum açınca yarıçap filtresi aktif olur'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-          <Suspense
-            fallback={
-              <div className="map-overlay map-loading">
-                <div className="map-loading-card">
-                  <div className="map-loading-spinner" />
-                  <div>
-                    <div className="map-loading-title">Harita yükleniyor…</div>
-                    <div className="map-loading-sub">Veriler hazırlanıyor</div>
-                  </div>
-                </div>
-              </div>
-            }
-          >
-          <RFQListMap
-              mapCenter={mapCenter}
-              mapItems={mapItems}
-              mapTileUrl={mapTileUrl}
-              mapAttribution={mapAttribution}
-              radiusCenter={mapRadiusCenter}
-              mapRadiusKm={mapRadiusKm}
-              showRadiusCircle={mapSettings.radiusCircleEnabled !== false && !isMapCityWide}
-              clusterRef={clusterRef}
-              mapZoom={mapZoom}
-              mapMinZoom={mapSettings.minZoom}
-              mapMaxZoom={mapSettings.maxZoom}
-              clusterEnabled={mapSettings.clusterEnabled !== false}
-              setMapZoom={setMapZoom}
-              setMapBounds={setMapBounds}
-              setMapHasMoved={setMapHasMoved}
-              shouldSuppressMapUpdates={shouldSuppressMapUpdates}
-              getRFQCoords={getRFQCoords}
-              getCardImages={getCardImages}
-              getCategoryName={getCategoryDisplayName}
-              isPremiumRFQ={isPremiumRFQ}
-              isFeaturedRFQ={isFeaturedRFQ}
-              isActiveRequest={isActiveRequest}
-              nowTs={nowTs}
-              newRFQMarkers={newRFQMarkers}
-              selectedRfq={selectedRfq}
-              setSelectedRfq={setSelectedRfq}
-              navigate={navigate}
-              routePoints={routePoints}
-              userPosition={userPosition}
-              isDarkMode={isDarkMode}
-              mapAreaFilterActive={mapAreaFilterActive}
-              escapeHtml={escapeHtml}
+          {effectiveListIsEmpty && !nearbyLoading ? (
+            <EmptyStateCard
+              title={effectiveHasCityFilter ? 'Bu bölgede talep yok' : uiTexts.emptyCityTitle}
+              description={
+                effectiveHasCityFilter
+                  ? `${effectiveSelectedCityLabel} • ${effectiveSelectedKm >= maxRadiusKm ? 'Şehir geneli' : `${effectiveSelectedKm} km`} için henüz ilan bulunamadı.`
+                  : uiTexts.emptyCityDescription
+              }
+              primaryLabel={effectiveHasCityFilter ? 'Talep oluştur' : 'Şehir seç'}
+              secondaryLabel={effectiveHasCityFilter ? 'Km artır' : null}
+              onPrimary={effectiveHasCityFilter ? handleCreateRFQ : handleSelectCity}
+              onSecondary={effectiveHasCityFilter ? handleIncreaseKm : null}
             />
-          </Suspense>
-
-        </motion.div>
+          ) : (
+            <div className="rfq-grid">
+              {effectiveListItems.map((rfq, index) => {
+                const cardVariant = featuredIds.has(rfq._id)
+                  ? 'featured'
+                  : isPremiumRFQ(rfq)
+                    ? 'premium'
+                    : 'normal';
+                return renderRFQCard(rfq, index, 0, cardVariant);
+              })}
+            </div>
+          )}
+          {loadingMore ? <RFQSkeletonGrid count={2} /> : null}
+        </section>
       ) : null}
-      </AnimatePresence>
 
       {!loading && hasMore ? <div ref={loadMoreRef} className="load-more-sentinel" /> : null}
       {refreshing ? <div className="refresh-text">Yenileniyor...</div> : null}
       {showResultsToast && filters.city ? (
         <div className={`results-toast ${resultsToastVisible ? 'show' : ''}`}>
-          📍 <strong>{filters.city}</strong> icinde{' '}
+          📍 <strong>{filters.city}</strong> içinde{' '}
           <span className="results-km">
-            {selectedKm >= maxRadiusKm ? 'Şehir geneli' : `${selectedKm} km`}
+            {effectiveSelectedKm >= maxRadiusKm ? 'Şehir geneli' : `${effectiveSelectedKm} km`}
           </span>{' '}
-          capindaki talepler gosteriliyor
+          çapındaki talepler gösteriliyor
         </div>
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
@@ -3331,34 +2993,6 @@ function RFQList() {
         initialSnap="mid"
         headerRight={(
           <div className="sheet-header-actions">
-            <button
-              type="button"
-              className={`sheet-location-btn ${useCurrentLocationLoading ? 'is-loading' : ''}`}
-              aria-label="Mevcut konumu kullan"
-              onClick={handleUseCurrentLocation}
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              disabled={useCurrentLocationLoading}
-              aria-busy={useCurrentLocationLoading}
-            >
-              {useCurrentLocationLoading ? (
-                <span className="spinner sheet-location-spinner" aria-hidden="true" />
-              ) : (
-                <svg
-                  viewBox="0 0 24 24"
-                  width="22"
-                  height="22"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M12 2.5c-3.86 0-7 3.14-7 7 0 5.04 6.2 11.9 6.47 12.19.28.31.77.31 1.05 0C12.8 21.4 19 14.54 19 9.5c0-3.86-3.14-7-7-7Zm0 10.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4Z"/>
-                  <path d="M6 20.3c1.9 1.2 3.9 1.7 6 1.7s4.1-.5 6-1.7c.5-.3.2-1.1-.4-1.1H6.4c-.6 0-.9.8-.4 1.1Z"/>
-                </svg>
-              )}
-            </button>
-            {useCurrentLocationLoading ? (
-              <span className="sheet-location-loading">Bulunuyor...</span>
-            ) : null}
             <button
               type="button"
               className="apply-btn sheet-apply-header"
@@ -3404,7 +3038,7 @@ function RFQList() {
             onClick={handleCreateAlert}
             disabled={alertSubmitting}
           >
-            {alertSubmitting ? 'Kaydediliyor…' : 'Takip Et'}
+            {alertSubmitting ? 'Kaydediliyor...' : 'Takip Et'}
           </button>
         </div>
       </ReusableBottomSheet>
@@ -3421,7 +3055,7 @@ function RFQList() {
               className="rb-sheet-handle-wrap"
               onPointerDown={handleCreateSheetDragStart}
               role="button"
-              aria-label="Sheet sürükleme"
+              aria-label="Sheet surukleme"
             >
               <div className="rb-sheet-handle" />
             </div>
@@ -3432,23 +3066,17 @@ function RFQList() {
           </div>
         </div>
       ) : null}
+
       <CategorySelector
         mode="modal"
         open={isCategoryModalOpen}
         title="Kategoriler"
+        selectedSegment={filters.segment || ''}
+        onSegmentChange={handleSegmentSelect}
         onClose={() => setIsCategoryModalOpen(false)}
         onSelect={handleCategorySelect}
         onClear={handleClearCategoryFilter}
         selectedCategoryId={filters.category}
-      />
-      <LocationPermissionModal
-        open={showLocationModal}
-        denied={locationDenied}
-        loading={locationLoading}
-        warningMessage={locationWarning}
-        onManualSelect={openManualSelection}
-        onEnableLocation={resolveLocationPermission}
-        onClose={() => setShowLocationModal(false)}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,28 @@ const CategorySelector = lazy(() => import('../components/CategorySelector'));
 const MapPicker = lazy(() => import('../components/MapPicker'));
 const ReusableBottomSheet = lazy(() => import('../components/ReusableBottomSheet'));
 
+const SEGMENT_OPTIONS = [
+  { value: 'goods', label: 'Eşya' },
+  { value: 'service', label: 'Hizmet / Usta' },
+  { value: 'auto', label: 'Otomobil' },
+  { value: 'jobseeker', label: 'İş Arayan Kişi' }
+];
+
+const JOBSEEKER_WORK_TYPES = [
+  { value: 'part-time', label: 'Part-time' },
+  { value: 'full-time', label: 'Full-time' },
+  { value: 'hourly', label: 'Saatlik' },
+  { value: 'daily', label: 'Günlük' }
+];
+
+const EMPTY_JOBSEEKER_META = {
+  workTypes: [],
+  availabilityDate: '',
+  skills: '',
+  shortNote: '',
+  expectedPay: ''
+};
+
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -14,6 +36,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [form, setForm] = useState({
     title: '',
     description: '',
+    segment: '',
     categoryId: '',
     city: '',
     district: '',
@@ -31,8 +54,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState('');
   const [images, setImages] = useState([]);
   const [selectedCategoryLabel, setSelectedCategoryLabel] = useState('');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -70,6 +91,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState('');
   const [extraPaymentLoading, setExtraPaymentLoading] = useState(false);
+  const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
   const isEdit = mode === 'edit';
   const premiumActive = Boolean(
     user?.isPremium && (!user?.premiumUntil || new Date(user.premiumUntil) > new Date())
@@ -104,9 +126,26 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       priceText
     );
   }, [form, images.length, priceText]);
-  const isCarCategory = useMemo(() => {
-    return /araba|otomobil/i.test(String(selectedCategoryLabel || ''));
-  }, [selectedCategoryLabel]);
+  const isCarCategory = useMemo(() => form.segment === 'auto', [form.segment]);
+  const isJobseekerSegment = useMemo(() => form.segment === 'jobseeker', [form.segment]);
+  const buildGeoPoint = useCallback((value) => {
+    const lat = Number(value?.lat);
+    const lng = Number(value?.lng);
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
+      return null;
+    }
+    return {
+      type: 'Point',
+      coordinates: [lng, lat]
+    };
+  }, []);
 
   useEffect(() => {
     if (!isEdit || !initialData) {
@@ -115,6 +154,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setForm({
       title: initialData.title || '',
       description: initialData.description || '',
+      segment: String(initialData?.segment || initialData?.category?.segment || ''),
       categoryId: String(initialData?.category?._id || initialData?.category || ''),
       city: String(initialData?.locationData?.city || initialData?.city?.name || ''),
       district: String(initialData?.locationData?.district || initialData?.district?.name || ''),
@@ -166,6 +206,17 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setCarYear(String(initialData.car.year));
       }
     }
+    setJobseekerMeta({
+      workTypes: Array.isArray(initialData?.segmentMetadata?.workTypes)
+        ? initialData.segmentMetadata.workTypes.filter(Boolean)
+        : [],
+      availabilityDate: String(initialData?.segmentMetadata?.availabilityDate || ''),
+      skills: Array.isArray(initialData?.segmentMetadata?.skills)
+        ? initialData.segmentMetadata.skills.join(', ')
+        : String(initialData?.segmentMetadata?.skills || ''),
+      shortNote: String(initialData?.segmentMetadata?.shortNote || ''),
+      expectedPay: String(initialData?.segmentMetadata?.expectedPay || '')
+    });
   }, [initialData, isEdit]);
 
   useEffect(() => {
@@ -220,6 +271,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     const normalizedValue = String(value || '').trim().toLocaleLowerCase('tr-TR');
     return items.find((item) => item.name.toLocaleLowerCase('tr-TR') === normalizedValue) || null;
   };
+
+  useEffect(() => {
+    const lat = Number(selectedLocation?.lat);
+    const lng = Number(selectedLocation?.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setLatitude(lat);
+      setLongitude(lng);
+      return;
+    }
+    setLatitude(null);
+    setLongitude(null);
+  }, [selectedLocation]);
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -384,18 +447,55 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        setLatitude(lat);
-        setLongitude(lng);
         setSelectedLocation({ lat, lng });
 
+        const resolveName = (value) => {
+          if (!value) return '';
+          if (typeof value === 'string') return value;
+          return value.name || value.label || value.title || '';
+        };
+
+        const resolveNearestCity = async () => {
+          try {
+            let page = 1;
+            let hasMore = true;
+            let nearest = null;
+            let nearestDistance = Number.POSITIVE_INFINITY;
+
+            while (hasMore && page <= 10) {
+              const response = await api.get('/location/cities', {
+                params: { page, limit: 200, includeCoords: true }
+              });
+              const items = response.data?.items || response.data?.data || [];
+              items.forEach((city) => {
+                const coords = city?.center?.coordinates || city?.location?.coordinates || null;
+                const latVal = Array.isArray(coords) ? Number(coords[1]) : Number(city?.lat);
+                const lngVal = Array.isArray(coords) ? Number(coords[0]) : Number(city?.lng);
+                if (!Number.isFinite(latVal) || !Number.isFinite(lngVal)) {
+                  return;
+                }
+                const distance = haversineKm({ lat, lng }, { lat: latVal, lng: lngVal });
+                if (distance < nearestDistance) {
+                  nearestDistance = distance;
+                  nearest = {
+                    _id: city._id || city.id || '',
+                    name: city.name || ''
+                  };
+                }
+              });
+              hasMore = Boolean(response.data?.hasMore);
+              page += 1;
+            }
+
+            return nearest?.name ? nearest : null;
+          } catch (_error) {
+            return null;
+          }
+        };
+
         try {
-          const reverseResponse = await api.get('/location/reverse', { params: { lat, lng } });
-          const payload = reverseResponse.data?.data || reverseResponse.data || {};
-          const resolveName = (value) => {
-            if (!value) return '';
-            if (typeof value === 'string') return value;
-            return value.name || value.label || value.title || '';
-          };
+          const reverseResponse = await reverseGeocode({ lat, lng });
+          const payload = reverseResponse.data || {};
           const cityCandidates = [
             resolveName(payload.city),
             resolveName(payload.province),
@@ -420,8 +520,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
             payload.ilce
           ].filter(Boolean);
 
-          const cityName = cityCandidates[0] || '';
-          const districtName = districtCandidates[0] || '';
+          let cityName = cityCandidates[0] || '';
+          let districtName = districtCandidates[0] || '';
+
+          if (!cityName) {
+            const nearestCity = await resolveNearestCity();
+            if (nearestCity?.name) {
+              cityName = nearestCity.name;
+              districtName = '';
+            }
+          }
 
           if (cityName) {
             setForm((prev) => ({
@@ -474,11 +582,44 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               if (districtItems.length) {
                 setDistrictOptions(districtItems);
               }
+            } else {
+              setForm((prev) => ({
+                ...prev,
+                district: '',
+                neighborhood: '',
+                street: ''
+              }));
+              setDistrictOptions([]);
+              setNeighborhoodOptions([]);
+              setStreetOptions([]);
             }
+          } else if (!silent) {
+            setLocationError('Konum alındı. Şehir bilgisi çözümlenemedi, lütfen şehir seçin.');
           }
         } catch (_error) {
-          if (!silent) {
-            setLocationError('Konum bilgisi alinamadi, tekrar dene.');
+          const nearestCity = await resolveNearestCity();
+          if (nearestCity?.name) {
+            setForm((prev) => ({
+              ...prev,
+              city: nearestCity.name,
+              district: '',
+              neighborhood: '',
+              street: ''
+            }));
+            setCityQuery(nearestCity.name);
+            setLocationIds({
+              cityId: nearestCity._id || '',
+              districtId: '',
+              neighborhoodId: ''
+            });
+            setDistrictOptions([]);
+            setNeighborhoodOptions([]);
+            setStreetOptions([]);
+            if (!silent) {
+              setLocationError('Konum alındı. İlçe bulunamadı, istersen manuel seçim yapabilirsin.');
+            }
+          } else if (!silent) {
+            setLocationError('Konum alındı ancak şehir bilgisi bulunamadı, lütfen manuel seçin.');
           }
         } finally {
           setLocating(false);
@@ -489,7 +630,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           if (error?.code === 1) {
             setLocationError('Konum izni verilmedi');
           } else {
-            setLocationError('Konum alınamadı, tekrar dene');
+        setLocationError('Konum alınamadı, tekrar dene');
           }
         }
         setLocating(false);
@@ -501,10 +642,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       }
     );
   };
-
-  useEffect(() => {
-    requestCurrentLocation(true);
-  }, []);
 
   useEffect(() => {
     if (isEdit) {
@@ -526,6 +663,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     if (selected?.selectedCategoryId) {
       setForm((prev) => ({
         ...prev,
+        segment: String(selected.selectedSegment || prev.segment || ''),
         categoryId: String(selected.selectedCategoryId)
       }));
       if (Array.isArray(selected.selectedCategoryPath) && selected.selectedCategoryPath.length > 0) {
@@ -603,8 +741,35 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     logFlowEvent({ step, event: 'step_view' });
   }, [logFlowEvent, step]);
 
+  const toggleJobseekerWorkType = useCallback((value) => {
+    setJobseekerMeta((prev) => ({
+      ...prev,
+      workTypes: prev.workTypes.includes(value)
+        ? prev.workTypes.filter((item) => item !== value)
+        : [...prev.workTypes, value]
+    }));
+  }, []);
+
+  const buildJobseekerMetadata = useCallback(() => {
+    const normalizedSkills = String(jobseekerMeta.skills || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return {
+      workTypes: jobseekerMeta.workTypes,
+      availabilityDate: jobseekerMeta.availabilityDate || undefined,
+      skills: normalizedSkills,
+      shortNote: String(jobseekerMeta.shortNote || '').trim() || undefined,
+      expectedPay: String(jobseekerMeta.expectedPay || '').trim() || undefined
+    };
+  }, [jobseekerMeta]);
+
   const getStepErrorDetail = (currentStep) => {
     if (currentStep === 1) {
+      if (!form.segment) {
+        return { message: 'Segment seç', field: 'segment' };
+      }
       if (form.title.trim().length < 3) {
         return { message: 'Başlık en az 3 karakter olmalı', field: 'title' };
       }
@@ -621,20 +786,31 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       if (isCarCategory && (!carBrand || !carModel)) {
         return { message: 'Marka ve model seç', field: 'carBrand' };
       }
+      if (isJobseekerSegment && jobseekerMeta.workTypes.length === 0) {
+        return { message: 'Çalışma tipi seç', field: 'workTypes' };
+      }
+      if (isJobseekerSegment && !jobseekerMeta.availabilityDate) {
+        return { message: 'Müsaitlik tarihi seç', field: 'availabilityDate' };
+      }
       const quantityValue = Number(form.quantity);
-      if (!Number.isFinite(quantityValue) || quantityValue < 1) {
+      if (!isJobseekerSegment && (!Number.isFinite(quantityValue) || quantityValue < 1)) {
         return { message: 'Adet en az 1 olmalı', field: 'quantity' };
       }
       const hasPriceInput = priceText.trim().length > 0 || Number.isFinite(priceValue);
       if (hasPriceInput && (!Number.isFinite(priceValue) || priceValue <= 0)) {
         return { message: 'Hedef fiyat gir', field: 'targetPrice' };
       }
-      if (!form.deadline) {
+      if (!isJobseekerSegment && !form.deadline) {
         return { message: 'Teslim süresi seç', field: 'deadline' };
       }
-      const deadlineValue = new Date(form.deadline).getTime();
+      const deadlineValue = new Date(
+        isJobseekerSegment ? jobseekerMeta.availabilityDate : form.deadline
+      ).getTime();
       if (!Number.isFinite(deadlineValue) || deadlineValue <= Date.now()) {
-        return { message: 'Teslim süresi gelecekte olmalı', field: 'deadline' };
+        return {
+          message: isJobseekerSegment ? 'Müsaitlik tarihi gelecekte olmalı' : 'Teslim süresi gelecekte olmalı',
+          field: isJobseekerSegment ? 'availabilityDate' : 'deadline'
+        };
       }
       return { message: '', field: '' };
     }
@@ -646,11 +822,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
       if (!form.district) {
         return { message: 'İlçe seç', field: 'district' };
       }
-      if (
-        !selectedLocation ||
-        !Number.isFinite(Number(selectedLocation.lat)) ||
-        !Number.isFinite(Number(selectedLocation.lng))
-      ) {
+      if (!buildGeoPoint(selectedLocation)) {
         return { message: 'Konum seç', field: 'location' };
       }
       return { message: '', field: '' };
@@ -682,7 +854,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setLoading(true);
 
     try {
-      if (!selectedLocation || !Number.isFinite(Number(selectedLocation.lat)) || !Number.isFinite(Number(selectedLocation.lng))) {
+      const geoPoint = buildGeoPoint(selectedLocation);
+      if (!geoPoint) {
         setError('Konum seç');
         setLoading(false);
         return;
@@ -691,6 +864,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         const payload = {
           title: form.title,
           description: form.description,
+          segment: form.segment,
           categoryId: form.categoryId,
           cityId: locationIds.cityId || undefined,
           districtId: locationIds.districtId || undefined,
@@ -699,12 +873,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           quantity: Number(form.quantity),
           deadline: form.deadline,
           targetPrice: Number.isFinite(priceValue) ? priceValue : undefined,
-          location: {
-            type: 'Point',
-            coordinates: [Number(selectedLocation.lng), Number(selectedLocation.lat)]
-          },
+          location: geoPoint,
           isAuction: Boolean(form.isAuction)
         };
+        if (isJobseekerSegment) {
+          payload.quantity = 1;
+          payload.segmentMetadata = buildJobseekerMetadata();
+        }
         if (isCarCategory && carBrand && carModel) {
           payload.car = {
             brandId: carBrand?._id,
@@ -727,29 +902,29 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         const formData = new FormData();
         formData.append('title', form.title);
         formData.append('description', form.description);
+        formData.append('segment', form.segment);
         formData.append('categoryId', form.categoryId);
         formData.append('city', form.city);
         formData.append('district', form.district);
         formData.append('neighborhood', form.neighborhood);
         formData.append('street', form.street);
-        formData.append('quantity', String(Number(form.quantity)));
-        formData.append('deadline', form.deadline);
+        formData.append('quantity', String(isJobseekerSegment ? 1 : Number(form.quantity)));
+        formData.append('deadline', isJobseekerSegment ? jobseekerMeta.availabilityDate : form.deadline);
         formData.append('isAuction', String(Boolean(form.isAuction)));
         if (!form.deadline) {
           const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
           formData.append('expiresAt', expiresAt);
         }
-        if (selectedLocation) {
-          formData.append(
-            'location',
-            JSON.stringify({ type: 'Point', coordinates: [Number(selectedLocation.lng), Number(selectedLocation.lat)] })
-          );
-          formData.append('latitude', String(selectedLocation.lat));
-          formData.append('longitude', String(selectedLocation.lng));
-        }
+        formData.append('location', JSON.stringify(geoPoint));
+        formData.append('latitude', String(geoPoint.coordinates[1]));
+        formData.append('longitude', String(geoPoint.coordinates[0]));
 
     if (Number.isFinite(priceValue)) {
       formData.append('targetPrice', String(priceValue));
+    }
+
+    if (isJobseekerSegment) {
+      formData.append('segmentMetadata', JSON.stringify(buildJobseekerMetadata()));
     }
 
     if (isCarCategory && carBrand && carModel) {
@@ -785,6 +960,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setForm({
           title: '',
           description: '',
+          segment: '',
           categoryId: '',
           city: '',
           district: '',
@@ -804,6 +980,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setCarModel(null);
         setCarVariant(null);
         setCarYear('');
+        setJobseekerMeta(EMPTY_JOBSEEKER_META);
         setCityQuery('');
         setDistrictQuery('');
         setNeighborhoodQuery('');
@@ -851,8 +1028,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         setError('Sunucu hatası, tekrar dene');
         showToast('Sunucu hatası, tekrar dene');
       } else {
-        setError(message || (isEdit ? 'Talep guncellenemedi.' : 'Talep oluşturulamadı.'));
-        showToast(message || (isEdit ? 'Talep guncellenemedi.' : 'Talep oluşturulamadı.'));
+        setError(message || (isEdit ? 'Talep güncellenemedi.' : 'Talep oluşturulamadı.'));
+        showToast(message || (isEdit ? 'Talep güncellenemedi.' : 'Talep oluşturulamadı.'));
       }
     } finally {
       setLoading(false);
@@ -876,6 +1053,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const handleCategorySelect = (category) => {
     setForm((prev) => ({
       ...prev,
+      segment: String(category.segment || prev.segment || ''),
       categoryId: String(category._id)
     }));
     setSelectedCategoryLabel(Array.isArray(category.path) ? category.path.join(' > ') : category.name || '');
@@ -899,13 +1077,34 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
     setIsCategoryModalOpen(false);
   };
 
+  const handleSegmentSelect = (segment) => {
+    setForm((prev) => ({
+      ...prev,
+      segment,
+      categoryId: '',
+      quantity: segment === 'jobseeker' ? '' : prev.quantity,
+      targetPrice: segment === 'jobseeker' ? '' : prev.targetPrice,
+      deadline: segment === 'jobseeker' ? '' : prev.deadline
+    }));
+    setSelectedCategoryLabel('');
+    setCarBrand(null);
+    setCarModel(null);
+    setCarVariant(null);
+    setCarYear('');
+    setJobseekerMeta((prev) => (segment === 'jobseeker' ? prev : EMPTY_JOBSEEKER_META));
+    if (segment === 'jobseeker') {
+      setPriceText('');
+      setPriceValue(null);
+    }
+  };
+
   const step1Error = getStepError(1);
   const step2Error = getStepError(2);
   const step3Error = getStepError(3);
   const canContinueStep1 = step1Error === '';
   const canContinueStep2 = step2Error === '';
   const canContinueStep3 = step3Error === '';
-  const showStep1Errors = Boolean(stepError) || Boolean(form.title || form.description || form.categoryId);
+  const showStep1Errors = Boolean(stepError) || Boolean(form.title || form.description || form.categoryId || form.segment);
   const step1FieldErrors = {
     title: form.title.trim().length >= 3 ? '' : 'Başlık en az 3 karakter olmalı',
     categoryId: form.categoryId ? '' : 'Kategori seç',
@@ -921,7 +1120,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         window.location.href = url;
       }
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Checkout baslatilamadi.';
+      const message = requestError.response?.data?.message || 'Ödeme başlatılamadı.';
       setError(message);
       showToast(message);
     } finally {
@@ -953,7 +1152,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           ←
         </button>
         <h1>{isEdit ? 'Talep Düzenle' : 'Yeni RFQ Oluştur'}</h1>
-        <div className="wizard-progress" aria-label="Adim ilerleme">
+        <div className="wizard-progress" aria-label="Adım ilerleme">
           {[1, 2, 3, 4].map((dot) => (
             <span key={dot} className={`wizard-dot ${step === dot ? 'active' : ''}`} />
           ))}
@@ -961,7 +1160,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
         {!isEdit ? (
           <div className="quota-card">
             {quotaLoading ? (
-              <div className="quota-muted">Kota bilgisi yükleniyor…</div>
+              <div className="quota-muted">Kota bilgisi yükleniyor...</div>
             ) : quotaError ? (
               <div className="quota-error">{quotaError}</div>
             ) : quotaInfo ? (
@@ -983,7 +1182,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                       <div className="quota-pay">
                         <span>Ek ilan ücreti: {quotaInfo.extraPrice} {quotaInfo.currency}</span>
                         <button type="button" className="secondary-btn" onClick={handleExtraListingPayment} disabled={extraPaymentLoading}>
-                          {extraPaymentLoading ? 'Ödeme başlatılıyor…' : 'Ek ilan için ödeme yap'}
+                          {extraPaymentLoading ? 'Ödeme başlatılıyor...' : 'Ek ilan için ödeme yap'}
                         </button>
                       </div>
                     ) : (
@@ -1002,6 +1201,27 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           {step === 1 ? (
             <>
               <div className="form-group">
+                <label>Segment</label>
+                <div className="cats-inline-wrap">
+                  <div className="cats-inline-scroll">
+                    {SEGMENT_OPTIONS.map((option) => {
+                      const isActive = form.segment === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`cats-inline-chip ${isActive ? 'active' : ''}`}
+                          onClick={() => handleSegmentSelect(option.value)}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {showStep1Errors && !canContinueStep1 && !form.segment ? <div className="error">Segment seç</div> : null}
+              </div>
+              <div className="form-group">
                 <label htmlFor="title">Başlık</label>
                 <input id="title" name="title" value={form.title} onChange={handleChange} required />
                 {showStep1Errors && !canContinueStep1 && step1FieldErrors.title ? (
@@ -1015,9 +1235,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   id="categoryButton"
                   type="button"
                   className="secondary-btn category-select-btn"
+                  disabled={!form.segment}
                   onClick={() => setIsCategoryModalOpen(true)}
                 >
-                  {selectedCategoryLabel || 'Kategori sec'}
+                  {form.segment ? (selectedCategoryLabel || 'Kategori seç') : 'Önce segment seç'}
                 </button>
                 {showStep1Errors && !canContinueStep1 && step1FieldErrors.categoryId ? (
                   <div className="error">{step1FieldErrors.categoryId}</div>
@@ -1025,8 +1246,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               </div>
               {selectedCategoryLabel ? (
                 <div className="rfq-sub category-chip-row">
-                  <span>Secili kategori: {selectedCategoryLabel}</span>
-                  <button type="button" className="mini-clear-btn" onClick={handleClearCategory} aria-label="Secimi kaldir">
+                  <span>Seçili kategori: {selectedCategoryLabel}</span>
+                  <button type="button" className="mini-clear-btn" onClick={handleClearCategory} aria-label="Seçimi kaldır">
                     ×
                   </button>
                 </div>
@@ -1073,7 +1294,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           {step === 2 ? (
             <>
               <div className="form-group">
-                <label htmlFor="images">Foto Yükleme (Opsiyonel)</label>
+                <label htmlFor="images">Fotoğraf Yükleme (Opsiyonel)</label>
                 <input
                   id="images"
                   type="file"
@@ -1083,7 +1304,29 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                 />
               </div>
 
-              <div className="form-group">
+              {isJobseekerSegment ? (
+                <div className="form-group">
+                  <label>Çalışma Tipi</label>
+                  <div className="jobseeker-card-grid">
+                    {JOBSEEKER_WORK_TYPES.map((option) => {
+                      const isActive = jobseekerMeta.workTypes.includes(option.value);
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={`jobseeker-option-card ${isActive ? 'active' : ''}`}
+                          onClick={() => toggleJobseekerWorkType(option.value)}
+                        >
+                          <strong>{option.label}</strong>
+                          <span>Bu çalışma modelini profiline ekle</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {!isJobseekerSegment ? <div className="form-group">
                 <label htmlFor="quantity">Adet</label>
                 <input
                   id="quantity"
@@ -1094,13 +1337,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   onChange={handleChange}
                   required
                 />
-              </div>
+              </div> : null}
 
               {isCarCategory ? (
                 <div className="form-group">
                   <label>Araba Bilgisi</label>
                   <div className="rfq-sub">
-                    Marka: {carBrand?.name || 'Secilmedi'} / Model: {carModel?.name || 'Secilmedi'}
+                    Marka: {carBrand?.name || 'Seçilmedi'} / Model: {carModel?.name || 'Seçilmedi'}
                   </div>
                   {carVariant?.name ? <div className="rfq-sub">Tip: {carVariant.name}</div> : null}
                   <div className="wizard-actions wizard-actions-split">
@@ -1109,7 +1352,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                       className="secondary-btn"
                       onClick={() => setCarBrandSheetOpen(true)}
                     >
-                      Marka Sec
+                      Marka Seç
                     </button>
                     <button
                       type="button"
@@ -1117,7 +1360,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                       onClick={() => setCarModelSheetOpen(true)}
                       disabled={!carBrand}
                     >
-                      Model Sec
+                      Model Seç
                     </button>
                     <button
                       type="button"
@@ -1125,22 +1368,77 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                       onClick={() => setCarVariantSheetOpen(true)}
                       disabled={!carModel}
                     >
-                      Tip Sec
+                      Tip Seç
                     </button>
                   </div>
-                  <div className="rfq-sub">Yil (opsiyonel)</div>
+                  <div className="rfq-sub">Yıl (opsiyonel)</div>
                   <input
                     type="number"
                     min="1900"
                     max="2100"
                     value={carYear}
                     onChange={(event) => setCarYear(event.target.value)}
-                    placeholder="Yil"
+                    placeholder="Yıl"
                   />
                 </div>
               ) : null}
 
-              <div className="form-group">
+              {isJobseekerSegment ? (
+                <>
+                  <div className="form-group">
+                    <label htmlFor="availabilityDate">Müsaitlik / Başlangıç Tarihi</label>
+                    <input
+                      id="availabilityDate"
+                      type="date"
+                      value={jobseekerMeta.availabilityDate}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, availabilityDate: event.target.value }))
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="expectedPay">Beklenen Ücret (Opsiyonel)</label>
+                    <input
+                      id="expectedPay"
+                      type="text"
+                      value={jobseekerMeta.expectedPay}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, expectedPay: event.target.value }))
+                      }
+                      placeholder="Örn: 25000 TL / ay"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="skills">Yetkinlikler (Opsiyonel)</label>
+                    <input
+                      id="skills"
+                      type="text"
+                      value={jobseekerMeta.skills}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, skills: event.target.value }))
+                      }
+                      placeholder="Örn: Excel, satış, kaynak"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="shortNote">Kısa Not (Opsiyonel)</label>
+                    <textarea
+                      id="shortNote"
+                      value={jobseekerMeta.shortNote}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, shortNote: event.target.value }))
+                      }
+                      placeholder="Kendini kısaca anlat"
+                    />
+                  </div>
+                </>
+              ) : null}
+
+              {!isJobseekerSegment ? <div className="form-group">
                 <label htmlFor="targetPrice">Bütçe</label>
                 <input
                   id="targetPrice"
@@ -1152,9 +1450,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   placeholder="Örn: 1.000"
                 />
                 <small className="input-helper">Binlik ayırıcı otomatik eklenir</small>
-              </div>
+              </div> : null}
 
-              <div className="form-group">
+              {!isJobseekerSegment ? <div className="form-group">
                 <label htmlFor="deadline">Teslim Süresi</label>
                 <input
                   id="deadline"
@@ -1164,7 +1462,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   onChange={handleChange}
                   required
                 />
-              </div>
+              </div> : null}
 
               <div className="wizard-actions wizard-actions-split">
                 <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
@@ -1196,7 +1494,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           {step === 3 ? (
             <>
               <div className="form-group">
-                <label htmlFor="city">Sehir</label>
+                <label htmlFor="city">Şehir</label>
                 <input
                   id="city"
                   name="city"
@@ -1207,7 +1505,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   }}
                   list="rfq-cities"
                   required
-                  placeholder="Sehir secin"
+                  placeholder="Şehir seçin"
                 />
                 <datalist id="rfq-cities">
                   {cityOptions.map((city) => (
@@ -1217,7 +1515,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               </div>
 
               <div className="form-group">
-                <label htmlFor="district">Ilce</label>
+                <label htmlFor="district">İlçe</label>
                 <input
                   id="district"
                   name="district"
@@ -1242,7 +1540,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                   }}
                   list="rfq-districts"
                   disabled={!form.city}
-                  placeholder={form.city ? 'Ilce secin' : 'Once sehir secin'}
+                  placeholder={form.city ? 'İlçe seçin' : 'Önce şehir seçin'}
                 />
                 <datalist id="rfq-districts">
                   {districtOptions.map((district) => (
@@ -1273,7 +1571,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                     setStreetQuery('');
                   }}
                   list="rfq-neighborhoods"
-                  placeholder={form.district ? 'Mahalle secin' : 'Once ilce secin'}
+                  placeholder={form.district ? 'Mahalle seçin' : 'Önce ilçe seçin'}
                   disabled={!form.district}
                 />
                 <datalist id="rfq-neighborhoods">
@@ -1298,7 +1596,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                     }));
                   }}
                   list="rfq-streets"
-                  placeholder={form.neighborhood ? 'Cadde veya sokak secin' : 'Once mahalle secin'}
+                  placeholder={form.neighborhood ? 'Cadde veya sokak seçin' : 'Önce mahalle seçin'}
                   disabled={!form.neighborhood}
                 />
                 <datalist id="rfq-streets">
@@ -1311,22 +1609,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               <div className="form-group">
                 <div className="location-header">
                   <label>Konum</label>
-                  <button
-                    type="button"
-                    className="secondary-btn location-btn"
-                    onClick={() => requestCurrentLocation(false)}
-                    disabled={locating}
-                  >
-                    {locating ? 'Konum aliniyor...' : 'Şu anki konum'}
-                  </button>
                 </div>
-                <Suspense fallback={<div className="map-picker-loading">Harita yukleniyor...</div>}>
+                <Suspense fallback={<div className="map-picker-loading">Harita yükleniyor...</div>}>
                   <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={240} />
                 </Suspense>
                 <small className="input-helper">
-                  Pin&apos;i haritadan seç
+                  Şehri ve ilçeyi manuel seçip pin&apos;i haritadan yerleştir
                 </small>
-                {locationError ? <div className="error">{locationError}</div> : null}
                 {selectedLocation ? (
                   <div className="rfq-sub">Konum seçildi</div>
                 ) : null}
@@ -1367,8 +1656,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                     <strong>Premium ile daha fazla görünür ol</strong>
                     <span>
                       {premiumPlan
-                        ? `${premiumPlan.monthlyPrice} ${premiumPlan.currency}/ay · ${premiumPlan.yearlyPrice} ${premiumPlan.currency}/yıl`
-                        : 'Aylik / Yillik abone ol'}
+                        ? `${premiumPlan.monthlyPrice} ${premiumPlan.currency}/ay • ${premiumPlan.yearlyPrice} ${premiumPlan.currency}/yıl`
+                        : 'Aylık / Yıllık abone ol'}
                     </span>
                   </div>
                   <div className="premium-cta-actions">
@@ -1379,7 +1668,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                         onClick={() => handleCheckout(premiumMonthlyCode)}
                         disabled={checkoutLoading === premiumMonthlyCode}
                       >
-                        {checkoutLoading === premiumMonthlyCode ? 'Yonlendiriliyor...' : 'Aylik Abone Ol'}
+                        {checkoutLoading === premiumMonthlyCode ? 'Yönlendiriliyor...' : 'Aylık Abone Ol'}
                       </button>
                     ) : null}
                     {premiumModes.includes('yearly') ? (
@@ -1389,7 +1678,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                         onClick={() => handleCheckout(premiumYearlyCode)}
                         disabled={checkoutLoading === premiumYearlyCode}
                       >
-                        {checkoutLoading === premiumYearlyCode ? 'Yonlendiriliyor...' : 'Yillik Abone Ol'}
+                        {checkoutLoading === premiumYearlyCode ? 'Yönlendiriliyor...' : 'Yıllık Abone Ol'}
                       </button>
                     ) : null}
                     {featuredPlan && featuredModes.includes('monthly') ? (
@@ -1399,7 +1688,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                         onClick={() => handleCheckout(featuredMonthlyCode)}
                         disabled={checkoutLoading === featuredMonthlyCode}
                       >
-                        {checkoutLoading === featuredMonthlyCode ? 'Yonlendiriliyor...' : 'Aylik Öne Çıkar'}
+                        {checkoutLoading === featuredMonthlyCode ? 'Yönlendiriliyor...' : 'Aylık Öne Çıkar'}
                       </button>
                     ) : null}
                     {featuredPlan && featuredModes.includes('yearly') ? (
@@ -1409,7 +1698,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
                         onClick={() => handleCheckout(featuredYearlyCode)}
                         disabled={checkoutLoading === featuredYearlyCode}
                       >
-                        {checkoutLoading === featuredYearlyCode ? 'Yonlendiriliyor...' : 'Yillik Öne Çıkar'}
+                        {checkoutLoading === featuredYearlyCode ? 'Yönlendiriliyor...' : 'Yıllık Öne Çıkar'}
                       </button>
                     ) : null}
                   </div>
@@ -1422,7 +1711,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
               ) : (
                 <div className="premium-cta-card">
                   <div className="premium-cta-header">
-                    <strong>Premium üyesisin ✅</strong>
+                    <strong>Premium üyesisin</strong>
                     <span>Talebini öne çıkarmak için hazırsın</span>
                   </div>
                 </div>
@@ -1453,7 +1742,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           <CategorySelector
             mode="modal"
             open={isCategoryModalOpen}
-            title="Kategori Sec"
+            title="Kategori Seç"
+            selectedSegment={form.segment}
+            onSegmentChange={handleSegmentSelect}
             onClose={() => setIsCategoryModalOpen(false)}
             onSelect={handleCategorySelect}
             onClear={handleClearCategory}
@@ -1466,7 +1757,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           <ReusableBottomSheet
             open={carBrandSheetOpen}
             onClose={() => setCarBrandSheetOpen(false)}
-            title="Marka Sec"
+            title="Marka Seç"
             contentClassName="notif-sheet"
             initialSnap="mid"
           >
@@ -1501,7 +1792,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           <ReusableBottomSheet
             open={carModelSheetOpen}
             onClose={() => setCarModelSheetOpen(false)}
-            title="Model Sec"
+            title="Model Seç"
             contentClassName="notif-sheet"
             initialSnap="mid"
           >
@@ -1535,7 +1826,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
           <ReusableBottomSheet
             open={carVariantSheetOpen}
             onClose={() => setCarVariantSheetOpen(false)}
-            title="Tip Sec"
+            title="Tip Seç"
             contentClassName="notif-sheet"
             initialSnap="mid"
           >

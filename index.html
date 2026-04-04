@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Papatya Bahçesi</title>
+  <style>
+    :root {
+      --bg: #020202;
+      --grass: #2cff6f;
+      --stem: #00ff66;
+      --center: #f5ff5a;
+      --petal-1: #ff5cf3;
+      --petal-2: #69f0ff;
+      --petal-3: #b266ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 20%, #111111 0%, var(--bg) 60%);
+      color: #b8ffcb;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+
+    .scene {
+      position: relative;
+      width: min(980px, 95vw);
+      height: min(620px, 95vh);
+      overflow: hidden;
+      border: 1px solid #113d1f;
+      border-radius: 16px;
+      background: linear-gradient(to top, #020302 0%, #040404 65%, #0d0d0d 100%);
+      box-shadow: 0 0 25px #0f3b1e;
+    }
+
+    .title {
+      position: absolute;
+      top: 16px;
+      z-index: 6;
+      width: 100%;
+      padding: 0 10px;
+      color: #84ffc7;
+      text-align: center;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 8px #20ff8a;
+      font-size: clamp(16px, 2vw, 24px);
+    }
+
+    .scene.started .title {
+      color: #f9ff92;
+      text-shadow: 0 0 10px #ffe865;
+    }
+
+    .ground {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      height: 48%;
+      background: linear-gradient(to top, #031208 0%, rgba(3, 18, 8, 0.3) 100%);
+    }
+
+    .grass {
+      position: absolute;
+      bottom: -8px;
+      width: 2px;
+      height: 160px;
+      opacity: 0.85;
+      transform-origin: bottom center;
+      background: linear-gradient(to top, #0b662d, var(--grass));
+      filter: drop-shadow(0 0 4px #2aff7f);
+      animation: sway 2.8s ease-in-out infinite;
+    }
+
+    @keyframes sway {
+      0%, 100% {
+        transform: rotate(-4deg);
+      }
+      50% {
+        transform: rotate(6deg);
+      }
+    }
+
+    .cat {
+      position: absolute;
+      bottom: 125px;
+      left: -120px;
+      z-index: 5;
+      cursor: pointer;
+      user-select: none;
+      text-shadow: 0 0 8px #c4c4c4;
+      font-size: clamp(42px, 7vw, 64px);
+      animation: cat-walk 9s linear infinite;
+      transition: filter 0.3s ease;
+    }
+
+    .cat:hover {
+      filter: brightness(1.2);
+    }
+
+    .cat::after {
+      content: "Gri uzun tüylü kediye tıkla";
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      opacity: 0.85;
+      color: #d0d0d0;
+      white-space: nowrap;
+      pointer-events: none;
+      transform: translateX(-50%);
+      text-shadow: 0 0 6px #ffffff;
+      font-size: 13px;
+    }
+
+    @keyframes cat-walk {
+      0% {
+        left: -120px;
+        transform: scaleX(1);
+      }
+      49% {
+        transform: scaleX(1);
+      }
+      50% {
+        left: calc(100% + 20px);
+        transform: scaleX(-1);
+      }
+      99% {
+        transform: scaleX(-1);
+      }
+      100% {
+        left: -120px;
+        transform: scaleX(1);
+      }
+    }
+
+    .scene.started .cat {
+      left: 50%;
+      transform: translateX(-50%);
+      animation-play-state: paused;
+    }
+
+    .flowers {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+
+    .scene.started .flowers {
+      opacity: 1;
+    }
+
+    .flower {
+      position: absolute;
+      bottom: 60px;
+      width: 160px;
+      height: 320px;
+      transform-origin: bottom center;
+    }
+
+    .flower.one {
+      left: 15%;
+    }
+
+    .flower.two {
+      left: 42%;
+    }
+
+    .flower.three {
+      left: 69%;
+    }
+
+    .stem {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 10px;
+      height: 0;
+      border-radius: 10px;
+      transform: translateX(-50%);
+      background: linear-gradient(to top, #15803d, var(--stem));
+      box-shadow: 0 0 12px #00ff66;
+    }
+
+    .bloom {
+      position: absolute;
+      bottom: 180px;
+      left: 50%;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      transform: translateX(-50%) scale(0.1);
+    }
+
+    .center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      z-index: 2;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--center);
+      box-shadow: 0 0 18px var(--center);
+    }
+
+    .petal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 18px;
+      height: 52px;
+      border-radius: 20px;
+      transform-origin: 50% 95%;
+      box-shadow: 0 0 14px currentColor;
+    }
+
+    .flower.one .petal {
+      color: var(--petal-1);
+      background: var(--petal-1);
+    }
+
+    .flower.two .petal {
+      color: var(--petal-2);
+      background: var(--petal-2);
+    }
+
+    .flower.three .petal {
+      color: var(--petal-3);
+      background: var(--petal-3);
+    }
+
+    .scene.started .flower.one .stem {
+      animation: grow 1.1s ease forwards;
+    }
+
+    .scene.started .flower.two .stem {
+      animation: grow 1.1s ease forwards 0.4s;
+    }
+
+    .scene.started .flower.three .stem {
+      animation: grow 1.1s ease forwards 0.8s;
+    }
+
+    .scene.started .flower.one .bloom {
+      animation: pop 0.9s ease forwards 1s, breathe 2.2s ease-in-out infinite 1.9s;
+    }
+
+    .scene.started .flower.two .bloom {
+      animation: pop 0.9s ease forwards 1.4s, breathe 2.2s ease-in-out infinite 2.3s;
+    }
+
+    .scene.started .flower.three .bloom {
+      animation: pop 0.9s ease forwards 1.8s, breathe 2.2s ease-in-out infinite 2.7s;
+    }
+
+    @keyframes grow {
+      from {
+        height: 0;
+      }
+      to {
+        height: 210px;
+      }
+    }
+
+    @keyframes pop {
+      from {
+        width: 0;
+        height: 0;
+        opacity: 0;
+        transform: translateX(-50%) scale(0.2);
+      }
+      to {
+        width: 130px;
+        height: 130px;
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+    }
+
+    @keyframes breathe {
+      0%, 100% {
+        transform: translateX(-50%) scale(1);
+      }
+      50% {
+        transform: translateX(-50%) scale(1.08);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="scene" id="scene">
+    <h1 class="title" id="title">Önce kediyi izle, sonra üstüne tıkla ✨</h1>
+    <div class="ground" id="ground"></div>
+    <div class="cat" id="cat" role="button" tabindex="0" aria-label="Kediye tıkla">🐈</div>
+
+    <div class="flowers" aria-hidden="true">
+      <div class="flower one">
+        <div class="stem"></div>
+        <div class="bloom">
+          <div class="center"></div>
+        </div>
+      </div>
+
+      <div class="flower two">
+        <div class="stem"></div>
+        <div class="bloom">
+          <div class="center"></div>
+        </div>
+      </div>
+
+      <div class="flower three">
+        <div class="stem"></div>
+        <div class="bloom">
+          <div class="center"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ground = document.getElementById("ground");
+    const scene = document.getElementById("scene");
+    const cat = document.getElementById("cat");
+    const title = document.getElementById("title");
+
+    function createGrass() {
+      for (let i = 0; i < 90; i += 1) {
+        const blade = document.createElement("div");
+        blade.className = "grass";
+        blade.style.left = `${Math.random() * 100}%`;
+        blade.style.height = `${70 + Math.random() * 130}px`;
+        blade.style.animationDelay = `${Math.random() * 1.8}s`;
+        blade.style.opacity = `${0.5 + Math.random() * 0.5}`;
+        ground.appendChild(blade);
+      }
+    }
+
+    function addPetals() {
+      const blooms = document.querySelectorAll(".bloom");
+
+      blooms.forEach((bloom) => {
+        for (let i = 0; i < 12; i += 1) {
+          const petal = document.createElement("span");
+          petal.className = "petal";
+          petal.style.transform = `translate(-50%, -90%) rotate(${i * 30}deg)`;
+          bloom.appendChild(petal);
+        }
+      });
+    }
+
+    function startFlowers() {
+      if (scene.classList.contains("started")) {
+        return;
+      }
+
+      scene.classList.add("started");
+      title.textContent = "Neon papatyalar açıyor 🌸";
+    }
+
+    cat.addEventListener("click", startFlowers);
+    cat.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startFlowers();
+      }
+    });
+
+    createGrass();
+    addPetals();
+  </script>
+</body>
+</html>

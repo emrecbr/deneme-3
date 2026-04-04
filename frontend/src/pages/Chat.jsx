@@ -225,7 +225,7 @@ function Chat() {
 
       <section className="card">
         <h2>Mesajlasma</h2>
-        {loading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}
 
         {chat?.rfq ? (
@@ -319,7 +319,7 @@ function Chat() {
               disabled={offerSubmitting}
             />
             <button type="submit" className="primary-btn" disabled={offerSubmitting}>
-              {offerSubmitting ? '...' : offer && ['sent', 'viewed', 'countered'].includes(offer.status) ? 'Teklifi Guncelle' : 'Teklif Ver'}
+              {offerSubmitting ? '...' : offer && ['sent', 'viewed', 'countered'].includes(offer.status) ? 'Teklifi Güncelle' : 'Teklif Ver'}
             </button>
           </form>
         ) : null}

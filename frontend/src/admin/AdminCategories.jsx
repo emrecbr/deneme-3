@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 
+const SEGMENT_OPTIONS = [
+  { value: '', label: 'Tüm segmentler / Belirtilmedi' },
+  { value: 'goods', label: 'Esya' },
+  { value: 'service', label: 'Hizmet / Usta' },
+  { value: 'auto', label: 'Otomobil' },
+  { value: 'jobseeker', label: 'İş Arayan Kişi' }
+];
+
 const emptyForm = {
   name: '',
   slug: '',
   order: 0,
-  isActive: true
+  isActive: true,
+  segment: ''
 };
 
 export default function AdminCategories() {
@@ -17,16 +26,29 @@ export default function AdminCategories() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('');
+
+  const getSegmentLabel = (value) =>
+    SEGMENT_OPTIONS.find((item) => item.value === String(value || ''))?.label || 'Belirtilmedi';
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get(`/admin/categories?parent=none&includeInactive=true&page=${page}&limit=50`);
+      const params = new URLSearchParams({
+        parent: 'none',
+        includeInactive: 'true',
+        page: String(page),
+        limit: '50'
+      });
+      if (segmentFilter) {
+        params.set('segment', segmentFilter);
+      }
+      const response = await api.get(`/admin/categories?${params.toString()}`);
       setItems(response.data?.items || []);
       setHasMore(Boolean(response.data?.pagination?.hasMore));
     } catch (err) {
-      setError(err?.response?.data?.message || 'Kategori listesi alınamadı.');
+      setError(err?.response?.data?.message || 'Kategori listesi alinamadi.');
     } finally {
       setLoading(false);
     }
@@ -34,16 +56,17 @@ export default function AdminCategories() {
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [page, segmentFilter]);
 
   const submit = async () => {
     setMessage('');
     try {
+      const payload = { ...form, parent: null };
       if (editingId) {
-        await api.patch(`/admin/categories/${editingId}`, { ...form, parent: null });
-        setMessage('Kategori güncellendi.');
+        await api.patch(`/admin/categories/${editingId}`, payload);
+        setMessage('Kategori guncellendi.');
       } else {
-        await api.post('/admin/categories', { ...form, parent: null });
+        await api.post('/admin/categories', payload);
         setMessage('Kategori eklendi.');
       }
       setForm(emptyForm);
@@ -51,7 +74,7 @@ export default function AdminCategories() {
       setPage(1);
       load();
     } catch (err) {
-      setMessage(err?.response?.data?.message || 'İşlem başarısız.');
+      setMessage(err?.response?.data?.message || 'Islem basarisiz.');
     }
   };
 
@@ -61,7 +84,8 @@ export default function AdminCategories() {
       name: item.name || '',
       slug: item.slug || '',
       order: item.order || 0,
-      isActive: item.isActive !== false
+      isActive: item.isActive !== false,
+      segment: item.segment || ''
     });
   };
 
@@ -70,9 +94,30 @@ export default function AdminCategories() {
       <div className="admin-panel-title">Ana Kategoriler</div>
       <div className="admin-panel-body">
         {error ? <div className="admin-error">{error}</div> : null}
+
+        <div className="admin-filter-grid">
+          <label>
+            Segment Filtresi
+            <select
+              className="admin-input"
+              value={segmentFilter}
+              onChange={(e) => {
+                setSegmentFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              {SEGMENT_OPTIONS.map((option) => (
+                <option key={option.value || 'all'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="admin-form-grid">
           <label>
-            Kategori Adı
+            Kategori Adi
             <input className="admin-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
           <label>
@@ -80,7 +125,17 @@ export default function AdminCategories() {
             <input className="admin-input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
           </label>
           <label>
-            Sıra
+            Segment
+            <select className="admin-input" value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })}>
+              {SEGMENT_OPTIONS.map((option) => (
+                <option key={option.value || 'empty'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Sira
             <input className="admin-input" type="number" value={form.order} onChange={(e) => setForm({ ...form, order: Number(e.target.value) })} />
           </label>
           <label>
@@ -99,25 +154,27 @@ export default function AdminCategories() {
         </div>
 
         {loading ? (
-          <div className="admin-empty">Yükleniyor…</div>
+          <div className="admin-empty">Yükleniyor...</div>
         ) : (
           <div className="admin-table">
             <div className="admin-table-row admin-table-head no-checkbox">
               <div>Ad</div>
+              <div>Segment</div>
               <div>Slug</div>
-              <div>Sıra</div>
+              <div>Sira</div>
               <div>Aktif</div>
               <div></div>
             </div>
             {items.map((item) => (
               <div key={item._id} className="admin-table-row no-checkbox">
                 <div>{item.name}</div>
+                <div>{getSegmentLabel(item.segment)}</div>
                 <div>{item.slug}</div>
                 <div>{item.order ?? 0}</div>
                 <div>{item.isActive === false ? 'Pasif' : 'Aktif'}</div>
                 <div>
                   <button type="button" className="admin-btn" onClick={() => startEdit(item)}>
-                    Düzenle
+                    Duzenle
                   </button>
                 </div>
               </div>

@@ -1,19 +1,42 @@
 import { io } from 'socket.io-client';
 
 let socketInstance = null;
+let resolvedSocketBase = null;
+let hasResolvedSocketBase = false;
+let missingSocketBaseWarned = false;
 
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
 
+const resolveSocketBase = () => {
+  if (hasResolvedSocketBase) {
+    return resolvedSocketBase;
+  }
+
+  const apiBase = (import.meta.env.VITE_API_URL || '').trim();
+  const socketBaseEnv = (import.meta.env.VITE_SOCKET_URL || '').trim();
+  const sameOriginBase =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : '';
+
+  resolvedSocketBase =
+    socketBaseEnv ||
+    (apiBase ? apiBase.replace(/\/api\/?$/, '') : '') ||
+    sameOriginBase ||
+    null;
+  hasResolvedSocketBase = true;
+
+  if (!resolvedSocketBase && !missingSocketBaseWarned) {
+    missingSocketBaseWarned = true;
+    console.warn('Socket base URL could not be resolved; socket connection disabled.');
+  }
+
+  return resolvedSocketBase;
+};
+
 export const getSocket = ({ userId, city } = {}) => {
   if (!socketInstance) {
-    const apiBase = (import.meta.env.VITE_API_URL || '').trim();
-    const socketBaseEnv = (import.meta.env.VITE_SOCKET_URL || '').trim();
-    const socketBase =
-      socketBaseEnv ||
-      (apiBase ? apiBase.replace(/\/api\/?$/, '') : '');
-    if (!socketBase) {
-      console.warn('VITE_SOCKET_URL missing; socket connection disabled.');
-    }
+    const socketBase = resolveSocketBase();
     if (!socketBase) {
       return null;
     }

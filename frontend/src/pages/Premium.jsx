@@ -24,7 +24,7 @@ function Premium() {
       setPlans(items.filter((plan) => plan.key === 'premium_listing' || plan.key === 'featured_listing'));
       setError('');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Planlar alinamadi.');
+      setError(requestError.response?.data?.message || 'Planlar alınamadı.');
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ function Premium() {
         window.location.href = url;
       }
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Odeme baslatilamadi.');
+      setError(requestError.response?.data?.message || 'Ödeme başlatılamadı.');
     } finally {
       setProcessing('');
     }
@@ -68,7 +68,7 @@ function Premium() {
       await fetchBilling();
       await checkAuth();
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Iptal istegi alinmadi.');
+      setError(requestError.response?.data?.message || 'İptal isteği alınmadı.');
     }
   };
 
@@ -89,19 +89,19 @@ function Premium() {
       {error ? <div className="card ux-error-state">{error}</div> : null}
 
       <section className="card premium-status-card">
-        <h2>{premiumActive ? 'Premium Aktif' : 'Premium Degil'}</h2>
-        {billing?.premiumUntil ? <p>Premium bitis: {new Date(billing.premiumUntil).toLocaleDateString('tr-TR')}</p> : null}
+        <h2>{premiumActive ? 'Premium Aktif' : 'Premium Değil'}</h2>
+        {billing?.premiumUntil ? <p>Premium bitiş: {new Date(billing.premiumUntil).toLocaleDateString('tr-TR')}</p> : null}
         {billing?.subscription ? (
           <div className="premium-subscription-box">
             <div>Plan: {billing.subscription.planCode}</div>
             <div>
-              Donem sonu: {billing.subscription.currentPeriodEnd ? new Date(billing.subscription.currentPeriodEnd).toLocaleDateString('tr-TR') : '-'}
+              Dönem sonu: {billing.subscription.currentPeriodEnd ? new Date(billing.subscription.currentPeriodEnd).toLocaleDateString('tr-TR') : '-'}
             </div>
             {billing.subscription.cancelAtPeriodEnd ? (
-              <div className="status-pill pending">Donem sonunda iptal</div>
+              <div className="status-pill pending">Dönem sonunda iptal</div>
             ) : (
               <button type="button" className="secondary-btn" onClick={handleCancelAtPeriodEnd}>
-                Donem sonunda iptal et
+                Dönem sonunda iptal et
               </button>
             )}
           </div>
@@ -110,7 +110,7 @@ function Premium() {
 
       <section className="card premium-plans">
         <h2>Premium Paket</h2>
-        {loading ? <div>Yukleniyor...</div> : null}
+        {loading ? <div>Yükleniyor...</div> : null}
         {!loading && plans.length ? (
           <div className="premium-plan-grid">
             {plans
@@ -123,7 +123,7 @@ function Premium() {
                     <div className="premium-plan-price">{formatPrice(plan.monthlyPrice, plan.currency)} / ay</div>
                   ) : null}
                   {plan.billingModes?.includes('yearly') ? (
-                    <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yil</div>
+                    <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yıl</div>
                   ) : null}
                   <div className="premium-cta-actions">
                     {plan.billingModes?.includes('monthly') ? (
@@ -134,8 +134,8 @@ function Premium() {
                         disabled={processing === (plan.metadata?.planCodes?.monthly || 'premium_monthly')}
                       >
                         {processing === (plan.metadata?.planCodes?.monthly || 'premium_monthly')
-                          ? 'Yonlendiriliyor...'
-                          : 'Aylik Satin Al'}
+                          ? 'Yönlendiriliyor...'
+                          : 'Aylık Satın Al'}
                       </button>
                     ) : null}
                     {plan.billingModes?.includes('yearly') ? (
@@ -146,8 +146,8 @@ function Premium() {
                         disabled={processing === (plan.metadata?.planCodes?.yearly || 'premium_yearly')}
                       >
                         {processing === (plan.metadata?.planCodes?.yearly || 'premium_yearly')
-                          ? 'Yonlendiriliyor...'
-                          : 'Yillik Satin Al'}
+                          ? 'Yönlendiriliyor...'
+                          : 'Yıllık Satın Al'}
                       </button>
                     ) : null}
                   </div>
@@ -168,7 +168,7 @@ function Premium() {
                 <div className="premium-plan-price">{formatPrice(plan.monthlyPrice, plan.currency)} / ay</div>
               ) : null}
               {plan.billingModes?.includes('yearly') ? (
-                <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yil</div>
+                <div className="premium-plan-price">{formatPrice(plan.yearlyPrice, plan.currency)} / yıl</div>
               ) : null}
               <div className="premium-cta-actions">
                 {plan.billingModes?.includes('monthly') ? (
@@ -179,8 +179,8 @@ function Premium() {
                     disabled={processing === (plan.metadata?.planCodes?.monthly || 'featured_monthly')}
                   >
                     {processing === (plan.metadata?.planCodes?.monthly || 'featured_monthly')
-                      ? 'Yonlendiriliyor...'
-                      : 'Aylik Öne Çıkar'}
+                      ? 'Yönlendiriliyor...'
+                      : 'Aylık Öne Çıkar'}
                   </button>
                 ) : null}
                 {plan.billingModes?.includes('yearly') ? (
@@ -191,8 +191,8 @@ function Premium() {
                     disabled={processing === (plan.metadata?.planCodes?.yearly || 'featured_yearly')}
                   >
                     {processing === (plan.metadata?.planCodes?.yearly || 'featured_yearly')
-                      ? 'Yonlendiriliyor...'
-                      : 'Yillik Öne Çıkar'}
+                      ? 'Yönlendiriliyor...'
+                      : 'Yıllık Öne Çıkar'}
                   </button>
                 ) : null}
                 {featuredCredits > 0 ? (

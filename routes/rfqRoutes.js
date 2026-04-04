@@ -19,13 +19,144 @@ import { checkModeration } from '../src/utils/moderation.js';
 import { triggerMatchingAlertsForRfq } from '../src/services/alertSubscriptionService.js';
 
 const rfqRoutes = Router();
+const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
 const toBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const cleanText = (value) => {
   const text = String(value || '').trim();
   return text || '';
 };
+const normalizeSegment = (value) => String(value || '').trim().toLowerCase();
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const isValidLngLat = (lng, lat) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  lat >= -90 &&
+  lat <= 90 &&
+  lng >= -180 &&
+  lng <= 180;
+const normalizeGeoPoint = ({ location, longitude, latitude }) => {
+  let coordsProvided = false;
+
+  if (location != null && location !== '') {
+    coordsProvided = true;
+    let parsedLocation = location;
+    if (typeof location === 'string') {
+      try {
+        parsedLocation = JSON.parse(location);
+      } catch (_error) {
+        parsedLocation = null;
+      }
+    }
+
+    const rawCoords = Array.isArray(parsedLocation?.coordinates) ? parsedLocation.coordinates : null;
+    if (parsedLocation?.type === 'Point' && Array.isArray(rawCoords) && rawCoords.length === 2) {
+      const lng = Number(rawCoords[0]);
+      const lat = Number(rawCoords[1]);
+      if (isValidLngLat(lng, lat)) {
+        return {
+          point: {
+            type: 'Point',
+            coordinates: [lng, lat]
+          },
+          coordsProvided
+        };
+      }
+    }
+  }
+
+  const hasCoordinatesInput =
+    longitude != null &&
+    latitude != null &&
+    longitude !== '' &&
+    latitude !== '';
+
+  if (hasCoordinatesInput) {
+    coordsProvided = true;
+    const lng = Number(longitude);
+    const lat = Number(latitude);
+    if (isValidLngLat(lng, lat)) {
+      return {
+        point: {
+          type: 'Point',
+          coordinates: [lng, lat]
+        },
+        coordsProvided
+      };
+    }
+  }
+
+  return { point: null, coordsProvided };
+};
+
+const ensureSegmentValue = (value) => {
+  const segment = normalizeSegment(value);
+  return ALLOWED_SEGMENTS.has(segment) ? segment : '';
+};
+
+const resolveCategoryAndSegment = async ({ categoryId, segment }) => {
+  const normalizedSegment = normalizeSegment(segment);
+  if (normalizedSegment && !ALLOWED_SEGMENTS.has(normalizedSegment)) {
+    return { error: 'invalid_segment' };
+  }
+
+  const normalizedCategoryId = cleanText(categoryId);
+  if (!normalizedCategoryId) {
+    return { error: 'category_required' };
+  }
+
+  if (mongoose.isValidObjectId(normalizedCategoryId)) {
+    const category = await Category.findById(normalizedCategoryId).select('_id segment');
+    if (!category) {
+      return { error: 'category_not_found' };
+    }
+
+    const categorySegment = ensureSegmentValue(category.segment);
+    if (normalizedSegment && categorySegment && normalizedSegment !== categorySegment) {
+      return { error: 'segment_category_mismatch' };
+    }
+
+    return {
+      categoryValue: category._id,
+      segmentValue: normalizedSegment || categorySegment || undefined
+    };
+  }
+
+  return {
+    categoryValue: normalizedCategoryId,
+    segmentValue: normalizedSegment || undefined,
+    legacyCategory: true
+  };
+};
+
+const applySegmentToRfqPayload = (rfq) => {
+  if (!rfq || rfq.segment) {
+    return rfq;
+  }
+  const categorySegment = ensureSegmentValue(rfq?.category?.segment);
+  if (categorySegment) {
+    rfq.segment = categorySegment;
+  }
+  return rfq;
+};
+
+const resolveCategoryQueryFilter = async (value) => {
+  const normalizedValue = cleanText(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  if (mongoose.isValidObjectId(normalizedValue)) {
+    return new mongoose.Types.ObjectId(normalizedValue);
+  }
+
+  const category = await Category.findOne({ slug: normalizedValue.toLowerCase() }).select('_id').lean();
+  if (category?._id) {
+    return category._id;
+  }
+
+  return normalizedValue;
+};
 
 rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, next) => {
   let quotaConsumption = null;
@@ -41,6 +172,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       title,
       description,
       categoryId,
+      segment,
       quantity,
       targetPrice,
       deadline,
@@ -52,7 +184,8 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       district,
       neighborhood,
       street,
-      productDetails
+      productDetails,
+      segmentMetadata
     } = req.body;
 
     if (!cleanText(title) || !cleanText(description)) {
@@ -91,55 +224,39 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       });
     }
 
-    let category = null;
-    if (categoryId && mongoose.isValidObjectId(categoryId)) {
-      category = await Category.findById(categoryId).select('_id');
-      if (!category) {
-        return res.status(404).json({
-          success: false,
-          message: 'Kategori bulunamadi.'
-        });
-      }
-    } else if (!cleanText(categoryId)) {
+    const categoryResolution = await resolveCategoryAndSegment({ categoryId, segment });
+    if (categoryResolution.error === 'invalid_segment') {
+      return res.status(400).json({
+        success: false,
+        message: 'Gecerli segment secimi zorunludur.'
+      });
+    }
+    if (categoryResolution.error === 'segment_category_mismatch') {
+      return res.status(400).json({
+        success: false,
+        message: 'Kategori ile segment uyusmuyor.'
+      });
+    }
+    if (categoryResolution.error === 'category_not_found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Kategori bulunamadi.'
+      });
+    }
+    if (categoryResolution.error === 'category_required') {
       return res.status(400).json({
         success: false,
         message: 'Gecerli kategori secimi zorunludur.'
       });
     }
 
-    const hasCoordinatesInput = longitude != null && latitude != null && longitude !== '' && latitude !== '';
-    const parsedLongitude = Number(longitude);
-    const parsedLatitude = Number(latitude);
-    const isValidLatLng = (lat, lng) =>
-      Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-    const hasValidCoordinates = hasCoordinatesInput && isValidLatLng(parsedLatitude, parsedLongitude);
-
-    let resolvedLocation = null;
-    let resolvedLng = Number.isFinite(parsedLongitude) ? parsedLongitude : null;
-    let resolvedLat = Number.isFinite(parsedLatitude) ? parsedLatitude : null;
-    if (location) {
-      let parsedLocation = location;
-      if (typeof location === 'string') {
-        try {
-          parsedLocation = JSON.parse(location);
-        } catch (_error) {
-          parsedLocation = null;
-        }
-      }
-      if (parsedLocation?.coordinates?.length === 2) {
-        const [lng, lat] = parsedLocation.coordinates;
-        const parsedLng = Number(lng);
-        const parsedLat = Number(lat);
-        if (isValidLatLng(parsedLat, parsedLng)) {
-          resolvedLocation = {
-            type: 'Point',
-            coordinates: [parsedLng, parsedLat]
-          };
-          resolvedLng = parsedLng;
-          resolvedLat = parsedLat;
-        }
-      }
-    }
+    const { point: resolvedLocation, coordsProvided } = normalizeGeoPoint({
+      location,
+      longitude,
+      latitude
+    });
+    const resolvedLng = Number(resolvedLocation?.coordinates?.[0]);
+    const resolvedLat = Number(resolvedLocation?.coordinates?.[1]);
 
     const owner = await User.findById(req.user.id).select('locationSelection city');
     if (!owner) {
@@ -158,32 +275,26 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
 
     let resolvedLocationData = { ...fallbackLocation };
 
-    if (hasCoordinatesInput && !hasValidCoordinates) {
+    if (coordsProvided && !resolvedLocation) {
       return res.status(400).json({
         success: false,
         message: 'Konum bilgisi gecersiz.'
       });
     }
-    if (location && !resolvedLocation) {
-      return res.status(400).json({
-        success: false,
-        message: 'Konum formatı hatalı (lat/lng gerekli).'
-      });
-    }
-    if (!resolvedLocation && !hasValidCoordinates) {
+    if (!resolvedLocation) {
       return res.status(400).json({
         success: false,
         message: 'Konum seçilmedi (lat/lng zorunlu)'
       });
     }
 
-    if (resolvedLocation || hasValidCoordinates) {
+    if (resolvedLocation) {
       const nearestAddress = await Location.findOne({
         coordinates: {
           $near: {
             $geometry: {
               type: 'Point',
-              coordinates: [resolvedLng ?? parsedLongitude, resolvedLat ?? parsedLatitude]
+              coordinates: [resolvedLng, resolvedLat]
             },
             $maxDistance: 3000
           }
@@ -290,6 +401,15 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       }
     }
 
+    let segmentMetadataPayload = {};
+    if (segmentMetadata) {
+      try {
+        segmentMetadataPayload = typeof segmentMetadata === 'string' ? JSON.parse(segmentMetadata) : segmentMetadata;
+      } catch (_error) {
+        segmentMetadataPayload = {};
+      }
+    }
+
 
     const listingExpiryDays = await getListingExpiryDays();
     const computedExpiresAt = computeExpiresAt(new Date(), listingExpiryDays);
@@ -297,21 +417,15 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
     const rfq = await RFQ.create({
       title: cleanText(title),
       description: cleanText(description),
-      category: category ? category._id : cleanText(categoryId),
+      category: categoryResolution.categoryValue,
+      segment: categoryResolution.segmentValue,
       quantity: parsedQuantity,
       targetPrice: targetPrice ? Number(targetPrice) : undefined,
       deadline: parsedDeadline,
       expiresAt: computedExpiresAt,
       isAuction: toBoolean(isAuction),
       currentBestOffer: toBoolean(isAuction) && targetPrice ? Number(targetPrice) : undefined,
-      location: resolvedLocation
-        ? resolvedLocation
-        : hasValidCoordinates
-          ? {
-              type: 'Point',
-              coordinates: [parsedLongitude, parsedLatitude]
-            }
-          : undefined,
+      location: resolvedLocation,
       city: selectedCity._id,
       district: selectedDistrictId || undefined,
       neighborhood: resolvedLocationData.neighborhood || undefined,
@@ -334,16 +448,18 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
           }
         : undefined,
       productDetails: productDetailsPayload || {},
+      segmentMetadata: segmentMetadataPayload || {},
       buyer: req.user.id,
       images: imagePaths
     });
 
     const populatedRFQ = await RFQ.findById(rfq._id)
       .populate('buyer', 'name email')
-      .populate('category', 'name slug')
+      .populate('category', 'name slug parent icon order segment')
       .populate('city', 'name slug')
       .populate('district', 'name city')
       .lean();
+    applySegmentToRfqPayload(populatedRFQ);
 
     if (global.io) {
       const cityRoom = normalizeCity((populatedRFQ || rfq)?.locationData?.city || resolvedLocationData.city);
@@ -476,7 +592,7 @@ rfqRoutes.patch('/backfill-location', authMiddleware, async (req, res, next) => 
 
 rfqRoutes.get('/nearby', async (req, res) => {
   try {
-    const { lat, lng, radius, radiusKm, category, city } = req.query;
+    const { lat, lng, radius, radiusKm, category, city, segment } = req.query;
     const latNum = Number.parseFloat(lat);
     const lngNum = Number.parseFloat(lng);
 
@@ -493,8 +609,19 @@ rfqRoutes.get('/nearby', async (req, res) => {
     await markExpiredRfqs(now);
 
     const nearQuery = { status: 'open', isDeleted: { $ne: true } };
-    if (category && mongoose.isValidObjectId(category)) {
-      nearQuery.category = new mongoose.Types.ObjectId(category);
+    const normalizedSegment = normalizeSegment(segment);
+    if (normalizedSegment) {
+      if (!ALLOWED_SEGMENTS.has(normalizedSegment)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid segment'
+        });
+      }
+      nearQuery.segment = normalizedSegment;
+    }
+    const categoryFilter = await resolveCategoryQueryFilter(category);
+    if (categoryFilter) {
+      nearQuery.category = categoryFilter;
     }
     if (city) {
       nearQuery['locationData.city'] = { $regex: `^${String(city).trim()}$`, $options: 'i' };
@@ -533,9 +660,10 @@ rfqRoutes.get('/nearby', async (req, res) => {
     ]);
 
     await RFQ.populate(rfqs, { path: 'buyer', select: 'name email' });
-    await RFQ.populate(rfqs, { path: 'category', select: 'name slug parent icon order' });
+    await RFQ.populate(rfqs, { path: 'category', select: 'name slug parent icon order segment' });
     await RFQ.populate(rfqs, { path: 'city', select: 'name slug' });
     await RFQ.populate(rfqs, { path: 'district', select: 'name city' });
+    rfqs.forEach((item) => applySegmentToRfqPayload(item));
 
     return res.status(200).json({
       items: rfqs,
@@ -560,6 +688,8 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
     const query = {};
     const cityId = String(req.query.cityId || '').trim();
     const districtId = String(req.query.districtId || '').trim();
+    const segment = normalizeSegment(req.query.segment);
+    const category = req.query.category;
 
     if (cityId && !mongoose.isValidObjectId(cityId)) {
       return res.status(400).json({
@@ -577,10 +707,19 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
       });
     }
 
+    if (segment && !ALLOWED_SEGMENTS.has(segment)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_SEGMENT',
+        message: 'segment gecersiz.'
+      });
+    }
+
     const now = new Date();
     const listingExpiryDays = await getListingExpiryDays();
     await backfillMissingExpiresAt(listingExpiryDays);
     await markExpiredRfqs(now);
+    const categoryFilter = await resolveCategoryQueryFilter(category);
 
     if (req.query.buyer === 'currentUser') {
       if (!req.user?.id) {
@@ -593,6 +732,12 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
       applyExpiryFilter(query, now);
     } else {
       query.status = 'open';
+      if (segment) {
+        query.segment = segment;
+      }
+      if (categoryFilter) {
+        query.category = categoryFilter;
+      }
       if (cityId && mongoose.isValidObjectId(cityId)) {
         query.city = cityId;
       }
@@ -604,12 +749,13 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
 
     const rfqs = await RFQ.find(query)
       .populate('buyer', 'name email')
-      .populate('category', 'name slug parent icon order')
+      .populate('category', 'name slug parent icon order segment')
       .populate('city', 'name slug')
       .populate('district', 'name city')
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
+    rfqs.forEach((item) => applySegmentToRfqPayload(item));
     rfqs.forEach((item) => {
       const until = item.featuredUntil ? new Date(item.featuredUntil) : null;
       item.featuredActive = Boolean(item.isFeatured && until && until > now);
@@ -670,6 +816,8 @@ rfqRoutes.get('/by-city', async (req, res, next) => {
     const cityId = String(req.query.cityId || '').trim();
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const segment = normalizeSegment(req.query.segment);
+    const category = req.query.category;
 
     if (!cityId || !mongoose.isValidObjectId(cityId)) {
       return res.status(400).json({
@@ -678,25 +826,40 @@ rfqRoutes.get('/by-city', async (req, res, next) => {
       });
     }
 
+    if (segment && !ALLOWED_SEGMENTS.has(segment)) {
+      return res.status(400).json({
+        success: false,
+        message: 'segment gecersiz.'
+      });
+    }
+
     const now = new Date();
     const listingExpiryDays = await getListingExpiryDays();
     await backfillMissingExpiresAt(listingExpiryDays);
     await markExpiredRfqs(now);
+    const categoryFilter = await resolveCategoryQueryFilter(category);
 
     const query = {
       status: 'open',
       city: cityId
     };
+    if (segment) {
+      query.segment = segment;
+    }
+    if (categoryFilter) {
+      query.category = categoryFilter;
+    }
     applyExpiryFilter(query, now);
 
     const rfqs = await RFQ.find(query)
       .populate('buyer', 'name email')
-      .populate('category', 'name slug parent icon order')
+      .populate('category', 'name slug parent icon order segment')
       .populate('city', 'name slug')
       .populate('district', 'name city')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
+    rfqs.forEach((item) => applySegmentToRfqPayload(item));
     const total = await RFQ.countDocuments(query);
     const lastPage = Math.max(Math.ceil(total / limit), 1);
     const hasMore = page < lastPage;
@@ -715,7 +878,7 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
   try {
     const rfq = await RFQ.findById(req.params.id)
       .populate('buyer', 'name email')
-      .populate('category', 'name slug parent icon order')
+      .populate('category', 'name slug parent icon order segment')
       .populate('city', 'name slug')
       .populate('district', 'name city');
 
@@ -741,6 +904,7 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
     }
 
     const rfqData = rfq.toObject();
+    applySegmentToRfqPayload(rfqData);
     const featuredUntil = rfqData.featuredUntil ? new Date(rfqData.featuredUntil) : null;
     rfqData.featuredActive = Boolean(rfqData.isFeatured && featuredUntil && featuredUntil > new Date());
     const requesterId = req.user?.id || null;
@@ -863,6 +1027,7 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       title,
       description,
       categoryId,
+      segment,
       cityId,
       districtId,
       neighborhood,
@@ -871,7 +1036,8 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       targetPrice,
       deadline,
       isAuction,
-      productDetails
+      productDetails,
+      segmentMetadata
     } = req.body || {};
 
     if (title != null) {
@@ -893,24 +1059,39 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       rfq.isAuction = toBoolean(isAuction);
     }
 
-    if (typeof categoryId !== 'undefined') {
-      if (categoryId && mongoose.isValidObjectId(categoryId)) {
-        const category = await Category.findById(categoryId).select('_id');
-        if (!category) {
-          return res.status(404).json({
-            success: false,
-            message: 'Kategori bulunamadi.'
-          });
-        }
-        rfq.category = category._id;
-      } else if (cleanText(categoryId)) {
-        rfq.category = cleanText(categoryId);
-      } else {
+    if (typeof categoryId !== 'undefined' || typeof segment !== 'undefined') {
+      const categoryResolution = await resolveCategoryAndSegment({
+        categoryId: typeof categoryId !== 'undefined' ? categoryId : rfq.category,
+        segment: typeof segment !== 'undefined' ? segment : rfq.segment
+      });
+
+      if (categoryResolution.error === 'invalid_segment') {
+        return res.status(400).json({
+          success: false,
+          message: 'Gecerli segment secimi zorunludur.'
+        });
+      }
+      if (categoryResolution.error === 'segment_category_mismatch') {
+        return res.status(400).json({
+          success: false,
+          message: 'Kategori ile segment uyusmuyor.'
+        });
+      }
+      if (categoryResolution.error === 'category_not_found') {
+        return res.status(404).json({
+          success: false,
+          message: 'Kategori bulunamadi.'
+        });
+      }
+      if (categoryResolution.error === 'category_required') {
         return res.status(400).json({
           success: false,
           message: 'Gecerli kategori secimi zorunludur.'
         });
       }
+
+      rfq.category = categoryResolution.categoryValue;
+      rfq.segment = categoryResolution.segmentValue;
     }
 
     if (cityId && mongoose.isValidObjectId(cityId)) {
@@ -961,6 +1142,18 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
         }
       }
       rfq.productDetails = parsedDetails || {};
+    }
+
+    if (typeof segmentMetadata !== 'undefined') {
+      let parsedSegmentMetadata = segmentMetadata;
+      if (typeof segmentMetadata === 'string') {
+        try {
+          parsedSegmentMetadata = JSON.parse(segmentMetadata);
+        } catch (_error) {
+          parsedSegmentMetadata = {};
+        }
+      }
+      rfq.segmentMetadata = parsedSegmentMetadata || {};
     }
 
     await rfq.save();

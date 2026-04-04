@@ -16,6 +16,11 @@ const rfqSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       required: true
     },
+    segment: {
+      type: String,
+      enum: ['goods', 'service', 'auto', 'jobseeker'],
+      index: true
+    },
     quantity: {
       type: Number,
       required: true,
@@ -49,7 +54,24 @@ const rfqSchema = new mongoose.Schema(
       },
       coordinates: {
         type: [Number],
-        required: true
+        required: true,
+        validate: {
+          validator(value) {
+            if (!Array.isArray(value) || value.length !== 2) {
+              return false;
+            }
+            const [lng, lat] = value;
+            return (
+              Number.isFinite(lng) &&
+              Number.isFinite(lat) &&
+              lat >= -90 &&
+              lat <= 90 &&
+              lng >= -180 &&
+              lng <= 180
+            );
+          },
+          message: 'location.coordinates must be a valid [lng, lat] GeoJSON Point.'
+        }
       }
     },
     city: {
@@ -199,6 +221,10 @@ const rfqSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {}
     },
+    segmentMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     vehicleDetails: {
       brand: { type: String, trim: true },
       year: { type: Number },
@@ -213,6 +239,7 @@ const rfqSchema = new mongoose.Schema(
 );
 
 rfqSchema.index({ location: '2dsphere' });
+rfqSchema.index({ segment: 1, status: 1, createdAt: -1 });
 
 const RFQ = mongoose.model('RFQ', rfqSchema);
 

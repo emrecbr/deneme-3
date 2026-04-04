@@ -14,7 +14,7 @@ function AdminCarImport() {
     return (
       <div className="card">
         <h2>Yetkisiz</h2>
-        <p>Bu sayfa sadece admin kullanicilar icindir.</p>
+        <p>Bu sayfa sadece admin kullanıcılar içindir.</p>
       </div>
     );
   }

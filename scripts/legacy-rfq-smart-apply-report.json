@@ -1,0 +1,337 @@
+{
+  "mode": "apply",
+  "applySegmentOnly": true,
+  "totalRfqCount": 35,
+  "legacyStringCategoryCount": 15,
+  "scannedLegacyRecordCount": 15,
+  "safeCategoryMatchCount": 0,
+  "safeSegmentOnlyCount": 1,
+  "brandLikeValueCount": 5,
+  "freeTextNoiseCount": 8,
+  "ambiguousManualReviewCount": 0,
+  "unmappedCount": 1,
+  "updatedCount": 0,
+  "categoryUpdatedCount": 0,
+  "segmentOnlyUpdatedCount": 0,
+  "brandLikeSegmentOnlyUpdatedCount": 0,
+  "safeSegmentOnlyUpdatedCount": 0,
+  "repeatedLegacyValues": [
+    {
+      "value": "brand:Fiat",
+      "count": 2,
+      "segments": [
+        "auto"
+      ],
+      "classifications": [
+        "brand_like_value"
+      ],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "brand:Peugeot",
+      "count": 2,
+      "segments": [
+        "auto"
+      ],
+      "classifications": [
+        "brand_like_value"
+      ],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "133r",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "araba",
+      "count": 1,
+      "segments": [
+        "auto"
+      ],
+      "classifications": [
+        "safe_segment_only"
+      ],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "brand:Volkswagen",
+      "count": 1,
+      "segments": [
+        "auto"
+      ],
+      "classifications": [
+        "brand_like_value"
+      ],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "erkgjkoeprg",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "konum",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "OFPwekjf",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "qeoıfoqe",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "unmapped"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "qrerqer",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sdfsfsdf",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sdvsdvds",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sgsodg",
+      "count": 1,
+      "segments": [],
+      "classifications": [
+        "free_text_noise"
+      ],
+      "nearestSegmentHint": ""
+    }
+  ],
+  "examples": {
+    "safeCategoryMatch": [],
+    "safeSegmentOnly": [
+      {
+        "rfqId": "6998dcd040bcf07886b9e0e9",
+        "title": "bmw",
+        "rawCategory": "araba",
+        "classification": "safe_segment_only",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 3,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": true
+      }
+    ],
+    "brandLikeValue": [
+      {
+        "rfqId": "69c066419b5ab7b3705d72dd",
+        "title": "paspas",
+        "rawCategory": "brand:Peugeot",
+        "classification": "brand_like_value",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 4,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "69bf36f3e287def14fe9bf2f",
+        "title": "Passat",
+        "rawCategory": "brand:Volkswagen",
+        "classification": "brand_like_value",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 4,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "69bf3534e287def14fe9bceb",
+        "title": "uno",
+        "rawCategory": "brand:Fiat",
+        "classification": "brand_like_value",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 4,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "69bf337ae287def14fe9b80e",
+        "title": "uno",
+        "rawCategory": "brand:Fiat",
+        "classification": "brand_like_value",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 4,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "69b2d11d48a9d31339bc85d3",
+        "title": "yağ pompası",
+        "rawCategory": "brand:Peugeot",
+        "classification": "brand_like_value",
+        "existingSegment": "auto",
+        "segmentHint": "auto",
+        "intentTopSegment": "auto",
+        "intentTopScore": 4,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      }
+    ],
+    "freeTextNoise": [
+      {
+        "rfqId": "6998d01bc39beb51ed867880",
+        "title": "dneme komum",
+        "rawCategory": "konum",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "6998482ca8aeaf2e9fb966d3",
+        "title": "podfsgpoa",
+        "rawCategory": "OFPwekjf",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "69983cef2ff077e04425dce4",
+        "title": "14e132r",
+        "rawCategory": "133r",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "6998379f2ff077e04425dc8a",
+        "title": "qrqer",
+        "rawCategory": "qrerqer",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "699835322ff077e04425dc0a",
+        "title": "eu8ewt",
+        "rawCategory": "sgsodg",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "6997984d3d92d3bbf9caa628",
+        "title": "sdfsfsf",
+        "rawCategory": "sdfsfsdf",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "6997919a9808f61160f0d2f5",
+        "title": "ıjıfrqweh",
+        "rawCategory": "erkgjkoeprg",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      },
+      {
+        "rfqId": "699791033ec577601caa6d14",
+        "title": "dvdsvsdv",
+        "rawCategory": "sdvsdvds",
+        "classification": "free_text_noise",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      }
+    ],
+    "ambiguousManualReview": [],
+    "unmapped": [
+      {
+        "rfqId": "69987de1f36c00ea58f0f860",
+        "title": "fadsfsdf",
+        "rawCategory": "qeoıfoqe",
+        "classification": "unmapped",
+        "existingSegment": "",
+        "segmentHint": "",
+        "intentTopSegment": "",
+        "intentTopScore": 0,
+        "canApplyCategory": false,
+        "canApplySegmentOnly": false
+      }
+    ]
+  }
+}

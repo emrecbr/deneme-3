@@ -1,0 +1,157 @@
+{
+  "mode": "apply",
+  "totalRfqCount": 34,
+  "legacyStringCategoryCount": 15,
+  "scannedLegacyRecordCount": 15,
+  "safelyMatchedCount": 0,
+  "updatedCount": 0,
+  "ambiguousCount": 0,
+  "unmappedCount": 15,
+  "segmentFilledCount": 0,
+  "repeatedLegacyValues": [
+    {
+      "value": "brand:Fiat",
+      "count": 2,
+      "segments": [],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "brand:Peugeot",
+      "count": 2,
+      "segments": [],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "133r",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "araba",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "brand:Volkswagen",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": "auto"
+    },
+    {
+      "value": "erkgjkoeprg",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "konum",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "OFPwekjf",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "qeoıfoqe",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "qrerqer",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sdfsfsdf",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sdvsdvds",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    },
+    {
+      "value": "sgsodg",
+      "count": 1,
+      "segments": [],
+      "nearestSegmentHint": ""
+    }
+  ],
+  "examples": {
+    "matched": [],
+    "ambiguous": [],
+    "unmapped": [
+      {
+        "rfqId": "69c066419b5ab7b3705d72dd",
+        "title": "paspas",
+        "rawCategory": "brand:Peugeot",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "69bf36f3e287def14fe9bf2f",
+        "title": "Passat",
+        "rawCategory": "brand:Volkswagen",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "69bf3534e287def14fe9bceb",
+        "title": "uno",
+        "rawCategory": "brand:Fiat",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "69bf337ae287def14fe9b80e",
+        "title": "uno",
+        "rawCategory": "brand:Fiat",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "69b2d11d48a9d31339bc85d3",
+        "title": "yağ pompası",
+        "rawCategory": "brand:Peugeot",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "6998dcd040bcf07886b9e0e9",
+        "title": "bmw",
+        "rawCategory": "araba",
+        "segmentHint": "auto"
+      },
+      {
+        "rfqId": "6998d01bc39beb51ed867880",
+        "title": "dneme komum",
+        "rawCategory": "konum",
+        "segmentHint": ""
+      },
+      {
+        "rfqId": "69987de1f36c00ea58f0f860",
+        "title": "fadsfsdf",
+        "rawCategory": "qeoıfoqe",
+        "segmentHint": ""
+      },
+      {
+        "rfqId": "6998482ca8aeaf2e9fb966d3",
+        "title": "podfsgpoa",
+        "rawCategory": "OFPwekjf",
+        "segmentHint": ""
+      },
+      {
+        "rfqId": "69983cef2ff077e04425dce4",
+        "title": "14e132r",
+        "rawCategory": "133r",
+        "segmentHint": ""
+      }
+    ]
+  }
+}

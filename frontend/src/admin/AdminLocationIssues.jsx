@@ -12,11 +12,41 @@ export default function AdminLocationIssues() {
   const [districts, setDistricts] = useState([]);
 
   const isObjectId = (value) => /^[a-f\d]{24}$/i.test(String(value || ''));
+  const issueLabels = {
+    missing_city: 'Şehir eksik',
+    missing_district: 'İlçe eksik',
+    missing_coordinates: 'Koordinat eksik',
+    missing_location_data: 'Konum bilgisi eksik'
+  };
+
+  const getCityDisplayName = (rfq) => {
+    const direct = rfq?.city;
+    if (direct && typeof direct === 'object') return direct.name || rfq?.locationData?.city || '';
+    if (typeof direct === 'string' && direct.trim() && !isObjectId(direct)) return direct.trim();
+    if (rfq?.locationData?.city) return String(rfq.locationData.city).trim();
+    if (isObjectId(direct)) {
+      const match = cities.find((city) => String(city._id) === String(direct));
+      return match?.name || String(direct);
+    }
+    return '';
+  };
+
+  const getDistrictDisplayName = (rfq) => {
+    const direct = rfq?.district;
+    if (direct && typeof direct === 'object') return direct.name || rfq?.locationData?.district || '';
+    if (typeof direct === 'string' && direct.trim() && !isObjectId(direct)) return direct.trim();
+    if (rfq?.locationData?.district) return String(rfq.locationData.district).trim();
+    if (isObjectId(direct)) {
+      const match = districts.find((district) => String(district._id) === String(direct));
+      return match?.name || String(direct);
+    }
+    return '';
+  };
 
   const resolveCityId = (rfq) => {
     const direct = rfq?.city;
     if (isObjectId(direct)) return direct;
-    const nameCandidate = typeof direct === 'string' ? direct : rfq?.locationData?.city;
+    const nameCandidate = typeof direct === 'string' && !isObjectId(direct) ? direct : rfq?.locationData?.city;
     if (!nameCandidate) return '';
     const match = cities.find((city) => city.name?.toLowerCase() === String(nameCandidate).toLowerCase());
     return match?._id || '';
@@ -25,7 +55,7 @@ export default function AdminLocationIssues() {
   const resolveDistrictId = (rfq, resolvedCityId) => {
     const direct = rfq?.district;
     if (isObjectId(direct)) return direct;
-    const nameCandidate = typeof direct === 'string' ? direct : rfq?.locationData?.district;
+    const nameCandidate = typeof direct === 'string' && !isObjectId(direct) ? direct : rfq?.locationData?.district;
     if (!nameCandidate) return '';
     const match = districts.find((district) => {
       if (!district?.name) return false;
@@ -60,6 +90,23 @@ export default function AdminLocationIssues() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!selected?.rfq?._id) {
+      return;
+    }
+    const cityId = resolveCityId(selected.rfq);
+    const districtId = resolveDistrictId(selected.rfq, cityId);
+    const lat = selected.rfq?.location?.coordinates?.[1] ?? '';
+    const lng = selected.rfq?.location?.coordinates?.[0] ?? '';
+
+    setFixForm((prev) => ({
+      cityId: prev.cityId || cityId,
+      districtId: prev.districtId || districtId,
+      lat: prev.lat !== '' ? prev.lat : lat === undefined || lat === null ? '' : String(lat),
+      lng: prev.lng !== '' ? prev.lng : lng === undefined || lng === null ? '' : String(lng)
+    }));
+  }, [selected, cities, districts]);
 
   const startFix = (item) => {
     const rfq = item?.rfq;
@@ -111,7 +158,10 @@ export default function AdminLocationIssues() {
               <li key={`${item.rfq?._id}-${idx}`}>
                 <div>
                   <strong>{item.rfq?.title}</strong>
-                  <span className="admin-muted">{item.type}</span>
+                  <span className="admin-muted">{issueLabels[item.type] || item.type}</span>
+                  <span className="admin-muted">
+                    Şehir: {getCityDisplayName(item.rfq) || 'Yok'} • İlçe: {getDistrictDisplayName(item.rfq) || 'Yok'}
+                  </span>
                 </div>
                 <button type="button" className="admin-btn" onClick={() => startFix(item)}>
                   Düzelt
@@ -124,12 +174,15 @@ export default function AdminLocationIssues() {
         {selected ? (
           <>
             <div className="admin-divider"></div>
-            <div className="admin-panel-subtitle">Düzeltme</div>
+            <div className="admin-panel-subtitle">Konum Düzeltme Formu</div>
+            <div className="admin-muted">
+              Mevcut şehir: {getCityDisplayName(selected.rfq) || 'Yok'} • Mevcut ilçe: {getDistrictDisplayName(selected.rfq) || 'Yok'}
+            </div>
             <div className="admin-form-grid">
               <label>
                 Şehir
                 <select className="admin-input" value={fixForm.cityId} onChange={(e) => setFixForm({ ...fixForm, cityId: e.target.value, districtId: '' })}>
-                  <option value="">Seçin</option>
+                  <option value="">Şehir seçin</option>
                   {cities.map((city) => (
                     <option key={city._id} value={city._id}>{city.name}</option>
                   ))}
@@ -138,7 +191,7 @@ export default function AdminLocationIssues() {
               <label>
                 İlçe
                 <select className="admin-input" value={fixForm.districtId} onChange={(e) => setFixForm({ ...fixForm, districtId: e.target.value })}>
-                  <option value="">Seçin</option>
+                  <option value="">{fixForm.cityId ? 'İlçe seçin' : 'Önce şehir seçin'}</option>
                   {(fixForm.cityId
                     ? districts.filter((district) => String(district.city?._id || district.city) === String(fixForm.cityId))
                     : districts

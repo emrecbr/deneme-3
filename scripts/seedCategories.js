@@ -7,6 +7,7 @@ const CATEGORY_TREE = [
   {
     name: 'Elektronik',
     slug: 'elektronik',
+    segment: 'goods',
     icon: 'smartphone',
     children: [
       { name: 'Telefon', slug: 'telefon' },
@@ -20,6 +21,7 @@ const CATEGORY_TREE = [
   {
     name: 'Ev & Yaşam',
     slug: 'ev-yasam',
+    segment: 'goods',
     icon: 'home',
     children: [
       { name: 'Mobilya', slug: 'mobilya' },
@@ -31,6 +33,7 @@ const CATEGORY_TREE = [
   {
     name: 'Moda',
     slug: 'moda',
+    segment: 'goods',
     icon: 'shirt',
     children: [
       { name: 'Kadın', slug: 'kadin' },
@@ -41,6 +44,7 @@ const CATEGORY_TREE = [
   {
     name: 'Araba',
     slug: 'araba',
+    segment: 'auto',
     icon: 'car',
     children: [
       { name: 'Motor & Mekanik', slug: 'motor-mekanik' },
@@ -56,6 +60,7 @@ const CATEGORY_TREE = [
   {
     name: 'Hizmet',
     slug: 'hizmet',
+    segment: 'service',
     icon: 'wrench',
     children: [
       { name: 'Temizlik', slug: 'temizlik' },
@@ -67,6 +72,7 @@ const CATEGORY_TREE = [
   {
     name: 'İş & Freelance',
     slug: 'is-freelance',
+    segment: 'jobseeker',
     icon: 'briefcase',
     children: [
       { name: 'Yazılım Geliştirme', slug: 'yazilim-gelistirme' },
@@ -87,6 +93,7 @@ const seedCategories = async () => {
         $set: {
           name: parent.name,
           slug: parent.slug,
+          segment: parent.segment,
           parent: null,
           icon: parent.icon || '',
           order: parentIndex
@@ -103,6 +110,7 @@ const seedCategories = async () => {
           $set: {
             name: child.name,
             slug: `${parent.slug}-${child.slug}`,
+            segment: parent.segment,
             parent: parentCategory._id,
             icon: child.icon || '',
             order: childIndex

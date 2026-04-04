@@ -58,7 +58,7 @@ function DistrictSelect() {
 
   return (
     <div className="district-select-wrap">
-      <label htmlFor="districtSelect">Ilce Sec</label>
+      <label htmlFor="districtSelect">İlçe Seç</label>
       <select
         id="districtSelect"
         value={selectedDistrict?._id || ''}
@@ -69,7 +69,7 @@ function DistrictSelect() {
         }}
         disabled={!selectedCity?._id || loading}
       >
-        <option value="">{selectedCity?._id ? (loading ? 'Yukleniyor...' : 'Tum ilceler') : 'Once sehir secin'}</option>
+        <option value="">{selectedCity?._id ? (loading ? 'Yükleniyor...' : 'Tüm ilçeler') : 'Önce şehir seçin'}</option>
         {options.map((district) => (
           <option key={district._id} value={district._id}>
             {district.name}

@@ -4,7 +4,9 @@ import RFQ from '../models/RFQ.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import SearchSuggestion from '../models/SearchSuggestion.js';
 
+const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
 const normalize = (value) => String(value || '').trim();
+const normalizeSegment = (value) => String(value || '').trim().toLowerCase();
 const slugify = (value) =>
   normalize(value)
     .toLowerCase()
@@ -17,6 +19,18 @@ const parseLimit = (value) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return 20;
   return Math.min(Math.max(parsed, 1), 100);
+};
+
+const syncCategoryKinds = async (ids = []) => {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean).map((item) => String(item))));
+  for (const id of uniqueIds) {
+    if (!mongoose.isValidObjectId(id)) continue;
+    const category = await Category.findById(id).select('_id parent').lean();
+    if (!category?._id) continue;
+    const hasChildren = await Category.exists({ parent: category._id });
+    const kind = !category.parent ? 'root' : hasChildren ? 'branch' : 'leaf';
+    await Category.findByIdAndUpdate(category._id, { $set: { kind } });
+  }
 };
 
 const logAdminAction = async (req, action, meta = {}) => {
@@ -41,10 +55,17 @@ export const listAdminCategories = async (req, res, next) => {
     const includeInactive = String(req.query.includeInactive || '').toLowerCase() === 'true';
     const parent = normalize(req.query.parent);
     const search = normalize(req.query.search || req.query.q);
+    const segment = normalizeSegment(req.query.segment);
 
     const query = {};
     if (!includeInactive) {
       query.isActive = { $ne: false };
+    }
+    if (segment) {
+      if (!ALLOWED_SEGMENTS.has(segment)) {
+        return res.status(400).json({ success: false, message: 'Geçersiz segment.' });
+      }
+      query.segment = segment;
     }
     if (parent) {
       if (parent === 'any') {
@@ -85,19 +106,47 @@ export const listAdminCategories = async (req, res, next) => {
 
 export const createAdminCategory = async (req, res, next) => {
   try {
-    const { name, slug, parent, order, isActive } = req.body || {};
+    const { name, slug, parent, order, isActive, segment } = req.body || {};
     if (!normalize(name)) {
       return res.status(400).json({ success: false, message: 'Kategori adı zorunlu.' });
     }
+    const normalizedSegment = normalizeSegment(segment);
+    if (normalizedSegment && !ALLOWED_SEGMENTS.has(normalizedSegment)) {
+      return res.status(400).json({ success: false, message: 'Geçersiz segment.' });
+    }
+
+    let resolvedParent = null;
+    let resolvedSegment = normalizedSegment || undefined;
+    let resolvedLevel = 0;
+    let resolvedKind = 'root';
+    if (parent && mongoose.isValidObjectId(parent)) {
+      const parentDoc = await Category.findById(parent).select('_id segment level').lean();
+      if (!parentDoc?._id) {
+        return res.status(404).json({ success: false, message: 'Parent kategori bulunamadı.' });
+      }
+      resolvedParent = parentDoc._id;
+      const parentSegment = normalizeSegment(parentDoc.segment);
+      if (normalizedSegment && parentSegment && normalizedSegment !== parentSegment) {
+        return res.status(400).json({ success: false, message: 'Parent kategori ile segment uyuşmuyor.' });
+      }
+      resolvedSegment = resolvedSegment || parentSegment || undefined;
+      resolvedLevel = Number(parentDoc.level || 0) + 1;
+      resolvedKind = 'leaf';
+    }
+
     const payload = {
       name: normalize(name),
       slug: normalize(slug) || slugify(name),
-      parent: parent && mongoose.isValidObjectId(parent) ? parent : null,
+      parent: resolvedParent,
+      segment: resolvedSegment,
+      level: resolvedLevel,
+      kind: resolvedKind,
       order: Number.isFinite(Number(order)) ? Number(order) : 0,
       isActive: typeof isActive === 'boolean' ? isActive : true
     };
 
     const category = await Category.create(payload);
+    await syncCategoryKinds([category._id, resolvedParent]);
     await logAdminAction(req, 'category_create', { categoryId: category._id });
     return res.status(201).json({ success: true, data: category });
   } catch (error) {
@@ -107,21 +156,51 @@ export const createAdminCategory = async (req, res, next) => {
 
 export const updateAdminCategory = async (req, res, next) => {
   try {
-    const { name, slug, parent, order, isActive } = req.body || {};
+    const { name, slug, parent, order, isActive, segment } = req.body || {};
     const category = await Category.findById(req.params.id);
     if (!category) {
       return res.status(404).json({ success: false, message: 'Kategori bulunamadı.' });
     }
 
+    const normalizedSegment = segment !== undefined ? normalizeSegment(segment) : undefined;
+    if (normalizedSegment && !ALLOWED_SEGMENTS.has(normalizedSegment)) {
+      return res.status(400).json({ success: false, message: 'Geçersiz segment.' });
+    }
+
+    let relatedParentId = category.parent ? String(category.parent) : null;
     if (name !== undefined) category.name = normalize(name);
     if (slug !== undefined) category.slug = normalize(slug) || slugify(category.name);
     if (parent !== undefined) {
-      category.parent = parent && mongoose.isValidObjectId(parent) ? parent : null;
+      if (parent && mongoose.isValidObjectId(parent)) {
+        const parentDoc = await Category.findById(parent).select('_id segment level').lean();
+        if (!parentDoc?._id) {
+          return res.status(404).json({ success: false, message: 'Parent kategori bulunamadı.' });
+        }
+        const parentSegment = normalizeSegment(parentDoc.segment);
+        const effectiveSegment = normalizedSegment !== undefined ? normalizedSegment : normalizeSegment(category.segment);
+        if (effectiveSegment && parentSegment && effectiveSegment !== parentSegment) {
+          return res.status(400).json({ success: false, message: 'Parent kategori ile segment uyuşmuyor.' });
+        }
+        category.parent = parentDoc._id;
+        category.level = Number(parentDoc.level || 0) + 1;
+        relatedParentId = String(parentDoc._id);
+        if (!normalizedSegment && parentSegment) {
+          category.segment = parentSegment;
+        }
+      } else {
+        category.parent = null;
+        category.level = 0;
+        relatedParentId = null;
+      }
     }
     if (order !== undefined) category.order = Number(order) || 0;
     if (isActive !== undefined) category.isActive = Boolean(isActive);
+    if (normalizedSegment !== undefined) {
+      category.segment = normalizedSegment || undefined;
+    }
 
     await category.save();
+    await syncCategoryKinds([category._id, relatedParentId]);
     await logAdminAction(req, 'category_update', { categoryId: category._id });
     return res.status(200).json({ success: true, data: category });
   } catch (error) {

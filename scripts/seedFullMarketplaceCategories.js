@@ -16,9 +16,19 @@ function slugify(text) {
     .replace(/[^a-z0-9\-]/g, '');
 }
 
+function inferSegment(nodeName, inheritedSegment = '') {
+  if (inheritedSegment) return inheritedSegment;
+  const normalized = slugify(String(nodeName || ''));
+  if (['araba', 'motosiklet', 'diger-araclar'].includes(normalized)) {
+    return 'auto';
+  }
+  return 'goods';
+}
+
 const CATEGORY_TREE = [
   {
     name: 'Araba',
+    segment: 'auto',
     children: [
       { name: 'Motor & Mekanik' },
       { name: 'Fren & Süspansiyon' },
@@ -32,6 +42,7 @@ const CATEGORY_TREE = [
   },
   {
     name: 'Telefon',
+    segment: 'goods',
     children: [
       { name: 'iPhone iOS Telefon', children: [{ name: 'iPhone 17 Pro Max' }, { name: 'iPhone 16' }] },
       { name: 'Android Telefon', children: [{ name: 'Samsung' }, { name: 'Xiaomi' }, { name: 'Huawei' }] },
@@ -41,6 +52,7 @@ const CATEGORY_TREE = [
   },
   {
     name: 'Elektronik',
+    segment: 'goods',
     children: [
       { name: 'Bilgisayar', children: [{ name: 'Dizüstü' }, { name: 'Masaüstü' }, { name: 'Monitör' }] },
       { name: 'Tablet' },
@@ -64,6 +76,7 @@ const CATEGORY_TREE = [
   },
   {
     name: 'Motosiklet',
+    segment: 'auto',
     children: [
       { name: 'Scooter' },
       { name: 'Touring' },
@@ -73,6 +86,7 @@ const CATEGORY_TREE = [
   },
   {
     name: 'Giyim & Aksesuar',
+    segment: 'goods',
     children: [
       { name: 'Kadın', children: [{ name: 'Üst Giyim' }, { name: 'Alt Giyim' }, { name: 'Elbise' }] },
       { name: 'Erkek', children: [{ name: 'Üst Giyim' }, { name: 'Alt Giyim' }] },
@@ -125,11 +139,12 @@ const CATEGORY_TREE = [
   }
 ];
 
-const createCategories = async (nodes, parent = null, level = 0, parentSlug = '') => {
+const createCategories = async (nodes, parent = null, level = 0, parentSlug = '', inheritedSegment = '') => {
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
     const localSlug = slugify(node.name);
     const fullSlug = parentSlug ? `${parentSlug}-${localSlug}` : localSlug;
+    const segment = node.segment || inferSegment(node.name, inheritedSegment) || undefined;
 
     const created = await Category.findOneAndUpdate(
       { slug: fullSlug },
@@ -137,6 +152,7 @@ const createCategories = async (nodes, parent = null, level = 0, parentSlug = ''
         $set: {
           name: node.name,
           slug: fullSlug,
+          segment,
           parent,
           level,
           order: index
@@ -146,7 +162,7 @@ const createCategories = async (nodes, parent = null, level = 0, parentSlug = ''
     );
 
     if (Array.isArray(node.children) && node.children.length > 0) {
-      await createCategories(node.children, created._id, level + 1, fullSlug);
+      await createCategories(node.children, created._id, level + 1, fullSlug, segment);
     }
   }
 };

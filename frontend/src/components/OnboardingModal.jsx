@@ -4,8 +4,8 @@ import api from '../api/axios';
 
 const STEPS = [
   {
-    title: 'Yakindaki Talepleri Kesfet',
-    text: 'Konumuna gore canli talepleri goruntule.'
+    title: 'Yakındaki Talepleri Keşfet',
+    text: 'Konumuna göre canlı talepleri görüntüle.'
   },
   {
     title: 'Teklif Ver veya Talep Olustur',
@@ -13,7 +13,7 @@ const STEPS = [
   },
   {
     title: 'Guvenli Mesajlasma ve Puanlama',
-    text: 'Islem sonrasi degerlendirme ile guven olustur.'
+    text: 'İşlem sonrası değerlendirme ile güven oluştur.'
   }
 ];
 
@@ -193,7 +193,7 @@ function OnboardingModal({ open, onComplete }) {
   const goNext = () => {
     if (isLastStep) {
       if (!selection.city.trim()) {
-        setLocationError('Sehir secimi zorunludur.');
+        setLocationError('Şehir seçimi zorunludur.');
         return;
       }
       onComplete({
@@ -338,7 +338,7 @@ function OnboardingModal({ open, onComplete }) {
                         setStreetQuery('');
                       }}
                       list="onboarding-districts"
-                      placeholder="Ilce (opsiyonel)"
+                      placeholder="İlçe (opsiyonel)"
                       disabled={!selection.city}
                     />
                     <datalist id="onboarding-districts">

@@ -14,6 +14,8 @@ import { logAuthEvent } from '../src/utils/authLog.js';
 const TOKEN_COOKIE_NAME = 'token';
 const TOKEN_EXPIRES_IN = '7d';
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const GOOGLE_OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
+const GOOGLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 
 const signToken = (payload) => {
   if (!process.env.JWT_SECRET) {
@@ -31,6 +33,125 @@ const normalizePhone = (value) => normalizeTrPhoneE164(value);
 
 const normalizeEmail = (value) =>
   String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+
+const maskEmailForLog = (email) => {
+  const value = normalizeEmail(email);
+  if (!value.includes('@')) return value;
+  const [name, domain] = value.split('@');
+  if (name.length <= 2) return `**@${domain}`;
+  return `${name[0]}***${name.slice(-1)}@${domain}`;
+};
+
+const buildUserPayload = (user) => ({
+  id: user._id,
+  name: user.name,
+  firstName: user.firstName || '',
+  lastName: user.lastName || '',
+  phone: user.phone || '',
+  email: user.email,
+  emailVerified: Boolean(user.emailVerified),
+  role: user.role,
+  isPremium: Boolean(user.isPremium),
+  premiumUntil: user.premiumUntil || null,
+  trustScore: Number(user.trustScore || 50),
+  totalCompletedDeals: Number(user.totalCompletedDeals || 0),
+  positiveReviews: Number(user.positiveReviews || 0),
+  negativeReviews: Number(user.negativeReviews || 0),
+  isOnboardingCompleted: Boolean(user.isOnboardingCompleted),
+  featuredCredits: Number(user.featuredCredits || 0)
+});
+
+const getAuthCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  maxAge: TOKEN_MAX_AGE
+});
+
+const setAuthCookie = (res, token) => {
+  res.cookie(TOKEN_COOKIE_NAME, token, getAuthCookieOptions());
+};
+
+const issueAuthToken = (res, user) => {
+  const token = signToken({
+    id: user._id,
+    role: user.role
+  });
+  setAuthCookie(res, token);
+  return token;
+};
+
+const getRequestBaseUrl = (req) => {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = req.get('host');
+  if (!host) {
+    return '';
+  }
+  return `${protocol}://${host}`;
+};
+
+const getFrontendBaseUrl = () =>
+  String(
+    process.env.FRONTEND_URL ||
+      process.env.CLIENT_ORIGIN ||
+      process.env.APP_BASE_URL ||
+      'http://localhost:5173'
+  )
+    .trim()
+    .replace(/\/$/, '');
+
+const getGoogleCallbackUrl = (req) => {
+  const configured = String(process.env.GOOGLE_CALLBACK_URL || '').trim();
+  if (configured && configured.includes('/api/auth/google/callback')) {
+    return configured;
+  }
+  const requestBase = getRequestBaseUrl(req);
+  if (!requestBase) {
+    return '';
+  }
+  return `${requestBase}/api/auth/google/callback`;
+};
+
+const redirectToFrontend = (res, path, params = {}) => {
+  const frontendBaseUrl = getFrontendBaseUrl();
+  const url = new URL(path, `${frontendBaseUrl}/`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  });
+  return res.redirect(url.toString());
+};
+
+const verifyGoogleIdToken = async (idToken) => {
+  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+  if (!response.ok) {
+    throw new Error('GOOGLE_ID_TOKEN_INVALID');
+  }
+  const payload = await response.json();
+  const aud = String(payload.aud || '');
+  const iss = String(payload.iss || '');
+  if (aud !== String(process.env.GOOGLE_CLIENT_ID || '').trim()) {
+    throw new Error('GOOGLE_ID_TOKEN_AUDIENCE_MISMATCH');
+  }
+  if (!['accounts.google.com', 'https://accounts.google.com'].includes(iss)) {
+    throw new Error('GOOGLE_ID_TOKEN_ISSUER_MISMATCH');
+  }
+  return payload;
+};
+
+const fetchGoogleUserInfo = async (accessToken) => {
+  const response = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  if (!response.ok) {
+    throw new Error('GOOGLE_USERINFO_FETCH_FAILED');
+  }
+  return response.json();
+};
 
 const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
@@ -66,35 +187,11 @@ const isOauthConfigured = (provider) => {
 };
 
 const sendAuthResponse = (res, statusCode, user) => {
-  const token = signToken({
-    id: user._id,
-    role: user.role
-  });
-
-  res.cookie(TOKEN_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    maxAge: TOKEN_MAX_AGE
-  });
+  const token = issueAuthToken(res, user);
 
   res.status(statusCode).json({
     token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        emailVerified: Boolean(user.emailVerified),
-        role: user.role,
-        isPremium: Boolean(user.isPremium),
-        premiumUntil: user.premiumUntil || null,
-        trustScore: Number(user.trustScore || 50),
-      totalCompletedDeals: Number(user.totalCompletedDeals || 0),
-      positiveReviews: Number(user.positiveReviews || 0),
-      negativeReviews: Number(user.negativeReviews || 0),
-      isOnboardingCompleted: Boolean(user.isOnboardingCompleted),
-      featuredCredits: Number(user.featuredCredits || 0)
-    }
+    user: buildUserPayload(user)
   });
 };
 
@@ -686,17 +783,165 @@ export const verifyLoginOtp = async (req, res) => {
 };
 
 export const oauthGoogle = async (_req, res) => {
+  const req = _req;
   if (!isOauthConfigured('google')) {
+    console.warn('GOOGLE_AUTH_START_FAIL', { reason: 'missing_google_env' });
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
-  return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
+
+  const callbackUrl = getGoogleCallbackUrl(req);
+  if (!callbackUrl) {
+    console.warn('GOOGLE_AUTH_START_FAIL', { reason: 'invalid_callback_url' });
+    return res.status(500).json({ success: false, code: 'INVALID_CALLBACK_URL' });
+  }
+
+  const state = crypto.randomBytes(24).toString('hex');
+  res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: GOOGLE_OAUTH_STATE_MAX_AGE
+  });
+
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set('redirect_uri', callbackUrl);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', 'openid email profile');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('prompt', 'select_account');
+
+  console.info('GOOGLE_AUTH_START', {
+    callbackUrl,
+    frontendBaseUrl: getFrontendBaseUrl()
+  });
+
+  return res.redirect(authUrl.toString());
 };
 
-export const oauthGoogleCallback = async (_req, res) => {
+export const oauthGoogleCallback = async (req, res) => {
+  const fail = (reason) => {
+    console.warn('GOOGLE_AUTH_CALLBACK_FAIL', { reason });
+    res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME);
+    return redirectToFrontend(res, '/login', {
+      error: 'google_auth_failed',
+      reason
+    });
+  };
+
   if (!isOauthConfigured('google')) {
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
-  return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
+
+  console.info('GOOGLE_AUTH_CALLBACK_HIT');
+
+  const callbackUrl = getGoogleCallbackUrl(req);
+  if (!callbackUrl) {
+    return fail('invalid_callback_url');
+  }
+
+  const providerError = String(req.query?.error || '').trim();
+  const code = String(req.query?.code || '').trim();
+  const state = String(req.query?.state || '').trim();
+  const expectedState = String(req.cookies?.[GOOGLE_OAUTH_STATE_COOKIE_NAME] || '').trim();
+
+  if (providerError) {
+    return fail(`provider_${providerError}`);
+  }
+  if (!code) {
+    return fail('missing_code');
+  }
+  if (!state || !expectedState || state !== expectedState) {
+    return fail('invalid_state');
+  }
+
+  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME);
+
+  try {
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code'
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      console.warn('GOOGLE_AUTH_TOKEN_EXCHANGE_FAIL', { status: tokenResponse.status });
+      return fail('token_exchange_failed');
+    }
+
+    const tokenData = await tokenResponse.json();
+    const idToken = String(tokenData.id_token || '').trim();
+    const accessToken = String(tokenData.access_token || '').trim();
+    if (!idToken || !accessToken) {
+      return fail('missing_google_tokens');
+    }
+
+    const idTokenPayload = await verifyGoogleIdToken(idToken);
+    const userInfo = await fetchGoogleUserInfo(accessToken);
+    const email = normalizeEmail(userInfo.email || idTokenPayload.email);
+    const emailVerified =
+      String(userInfo.email_verified || idTokenPayload.email_verified || '').toLowerCase() === 'true';
+
+    if (!email) {
+      return fail('missing_email');
+    }
+    if (!emailVerified) {
+      return fail('email_not_verified');
+    }
+
+    let user = await User.findOne({ email });
+    let created = false;
+
+    if (user) {
+      user.name = String(userInfo.name || user.name || email.split('@')[0]).trim() || user.name;
+      user.emailVerified = true;
+      if (userInfo.picture && !user.avatarUrl) {
+        user.avatarUrl = userInfo.picture;
+      }
+      user.lastLoginAt = new Date();
+      await user.save();
+      console.info('GOOGLE_AUTH_USER_MATCHED', {
+        userId: String(user._id),
+        email: maskEmailForLog(email)
+      });
+    } else {
+      const generatedPassword = crypto.randomBytes(32).toString('hex');
+      user = await User.create({
+        name: String(userInfo.name || email.split('@')[0] || 'Kullanici').trim() || 'Kullanici',
+        email,
+        emailVerified: true,
+        avatarUrl: String(userInfo.picture || '').trim() || undefined,
+        password: generatedPassword,
+        lastLoginAt: new Date()
+      });
+      created = true;
+      console.info('GOOGLE_AUTH_USER_CREATED', {
+        userId: String(user._id),
+        email: maskEmailForLog(email)
+      });
+    }
+
+    const token = issueAuthToken(res, user);
+    console.info('GOOGLE_AUTH_TOKEN_ISSUED', {
+      userId: String(user._id),
+      created
+    });
+
+    return redirectToFrontend(res, '/auth/callback', { token });
+  } catch (error) {
+    console.error('GOOGLE_AUTH_CALLBACK_EXCEPTION', {
+      message: error?.message || 'unknown_error'
+    });
+    return fail(error?.message || 'unknown_error');
+  }
 };
 
 export const oauthApple = async (_req, res) => {

@@ -44,13 +44,13 @@ function Notifications() {
             }
           }}
         >
-          Tumunu okundu yap
+          Tümünü okundu yap
         </button>
       </div>
 
       <section className="card">
         <h2>Bildirimler</h2>
-        {loading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}
         {!loading && !error ? (
           items.length ? (

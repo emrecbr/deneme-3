@@ -282,7 +282,7 @@ function ProfileAccount() {
       await checkAuth();
     } catch (requestError) {
       const status = requestError.response?.status;
-      const message = requestError.response?.data?.message || 'Guncelleme basarisiz';
+      const message = requestError.response?.data?.message || 'Güncelleme başarısız';
       if (!requestError.response) {
         setError('Sunucuya baglanilamadi');
         showToast('Sunucuya bağlanılamadı');
@@ -308,7 +308,7 @@ function ProfileAccount() {
     setPasswordError('');
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Tum alanlari doldur');
+      setPasswordError('Tüm alanları doldur');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -316,7 +316,7 @@ function ProfileAccount() {
       return;
     }
     if (!passwordPolicy(newPassword)) {
-      setPasswordError('Sifre en az 3 karakter, 1 buyuk harf, 1 sayi ve 1 ozel karakter icermeli');
+      setPasswordError('Şifre en az 3 karakter, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli');
       return;
     }
 
@@ -328,19 +328,19 @@ function ProfileAccount() {
       });
       setPasswordOpen(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      showToast('Sifre guncellendi');
+      showToast('Şifre güncellendi');
     } catch (requestError) {
       const code = requestError.response?.data?.code;
       if (code === 'BAD_PASSWORD') {
         setPasswordError('Mevcut sifre yanlis');
       } else if (code === 'WEAK_PASSWORD') {
-        setPasswordError('Sifre kurallarini saglamiyor');
+        setPasswordError('Şifre kurallarını sağlamıyor');
       } else if (code === 'SAME_PASSWORD') {
         setPasswordError('Yeni sifre eski sifre ile ayni olamaz');
       } else if (!requestError.response) {
         setPasswordError('Sunucuya baglanilamadi');
       } else {
-        setPasswordError(requestError.response?.data?.message || 'Sifre guncellenemedi');
+        setPasswordError(requestError.response?.data?.message || 'Şifre güncellenemedi');
       }
     } finally {
       setPasswordLoading(false);
@@ -550,7 +550,7 @@ function ProfileAccount() {
 
       <section className="card account-card">
         <h2>Bilgilerim</h2>
-        {loading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}
         <form onSubmit={handleSave} className="account-form">
           <label className="account-field">
@@ -768,7 +768,7 @@ function ProfileAccount() {
           </button>
         </div>
 
-        {alertsLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {alertsLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {alertsError ? <div className="error">{alertsError}</div> : null}
         {!alertsLoading && !alertsError ? (
           alerts.length ? (
@@ -908,20 +908,20 @@ function ProfileAccount() {
       </ReusableBottomSheet>
 
       <section className="card account-card">
-        <h2>Sifre</h2>
-        <p className="rfq-sub">Sifreni guvenli tutmak icin duzenli olarak degistir.</p>
+        <h2>Şifre</h2>
+        <p className="rfq-sub">Şifreni güvenli tutmak için düzenli olarak değiştir.</p>
         <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(true)}>
-          Sifreyi Degistir
+          Şifreyi Değiştir
         </button>
         <button type="button" className="link-btn" onClick={() => navigate('/forgot-password')}>
-          Sifremi unuttum / Sifre olustur
+          Şifremi unuttum / Şifre oluştur
         </button>
       </section>
 
       <ReusableBottomSheet
         open={passwordOpen}
         onClose={() => setPasswordOpen(false)}
-        title="Sifreyi Degistir"
+        title="Şifreyi Değiştir"
         contentClassName="offer-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setPasswordOpen(false)} aria-label="Kapat">
@@ -931,7 +931,7 @@ function ProfileAccount() {
       >
         <form className="offer-sheet-form" onSubmit={handlePasswordSubmit}>
           <label className="offer-field">
-            <span>Mevcut Sifre</span>
+            <span>Mevcut Şifre</span>
             <input
               type="password"
               name="currentPassword"
@@ -942,7 +942,7 @@ function ProfileAccount() {
             />
           </label>
           <label className="offer-field">
-            <span>Yeni Sifre</span>
+            <span>Yeni Şifre</span>
             <input
               type="password"
               name="newPassword"
@@ -953,10 +953,10 @@ function ProfileAccount() {
             />
           </label>
           <div className="rfq-sub">
-            Sifre en az 3 karakter olmali, 1 buyuk harf, 1 sayi ve 1 ozel karakter icermeli.
+            Şifre en az 3 karakter olmalı, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli.
           </div>
           <label className="offer-field">
-            <span>Yeni Sifre (Tekrar)</span>
+            <span>Yeni Şifre (Tekrar)</span>
             <input
               type="password"
               name="confirmPassword"
@@ -970,7 +970,7 @@ function ProfileAccount() {
           <div className="offer-sheet-footer">
             <div className="offer-sheet-actions">
               <button type="submit" className="primary-btn" disabled={passwordLoading}>
-                {passwordLoading ? 'Guncelleniyor...' : 'Sifreyi Guncelle'}
+                {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
               </button>
               <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(false)}>
                 Vazgec

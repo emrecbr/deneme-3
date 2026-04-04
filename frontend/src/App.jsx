@@ -171,7 +171,7 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div className="card">Yukleniyor...</div>;
+    return <div className="card">Yükleniyor...</div>;
   }
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
@@ -193,7 +193,7 @@ function App() {
 
   return (
     <>
-    <Suspense fallback={<div className="card">Yukleniyor...</div>}>
+    <Suspense fallback={<div className="card">Yükleniyor...</div>}>
     <Routes>
       <Route
         path="/admin"

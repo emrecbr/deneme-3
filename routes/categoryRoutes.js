@@ -2,11 +2,23 @@ import express from 'express';
 import Category from '../models/Category.js';
 
 const router = express.Router();
+const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
+const normalizeSegment = (value) => String(value || '').trim().toLowerCase();
 
 router.get('/', async (_req, res) => {
   try {
     const includeInactive = String(_req.query?.includeInactive || '').toLowerCase() === 'true';
-    const categories = await Category.find(includeInactive ? {} : { isActive: { $ne: false } }).lean();
+    const segment = normalizeSegment(_req.query?.segment);
+    if (segment && !ALLOWED_SEGMENTS.has(segment)) {
+      return res.status(400).json({ success: false, message: 'Invalid segment.' });
+    }
+
+    const query = includeInactive ? {} : { isActive: { $ne: false } };
+    if (segment) {
+      query.segment = segment;
+    }
+
+    const categories = await Category.find(query).sort({ level: 1, order: 1, name: 1 }).lean();
     const map = new Map();
     const roots = [];
 

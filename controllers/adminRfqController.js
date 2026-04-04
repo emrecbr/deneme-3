@@ -8,6 +8,7 @@ import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, mark
 
 const normalize = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalize(value).toLowerCase();
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const parsePage = (value) => Math.max(Number.parseInt(value, 10) || 1, 1);
 const parseLimit = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -60,30 +61,92 @@ const resolveCategoryFilter = async (category) => {
   return { category: categoryDoc._id };
 };
 
+const appendAndCondition = (query, condition) => {
+  if (!condition || !Object.keys(condition).length) return;
+  if (!Array.isArray(query.$and)) {
+    query.$and = [];
+  }
+  query.$and.push(condition);
+};
+
 const resolveCityFilter = async (city) => {
   const cityValue = normalize(city);
   if (!cityValue) return null;
+
   if (mongoose.isValidObjectId(cityValue)) {
-    return { city: new mongoose.Types.ObjectId(cityValue) };
+    const cityId = new mongoose.Types.ObjectId(cityValue);
+    const cityDoc = await City.findById(cityId).select('_id name').lean();
+    const exactName = cityDoc?.name ? new RegExp(`^${escapeRegex(cityDoc.name)}$`, 'i') : null;
+    const clauses = [{ city: cityId }];
+    if (exactName) {
+      clauses.push({ 'locationData.city': exactName });
+      clauses.push({ city: exactName });
+    }
+    return {
+      cityId,
+      cityName: cityDoc?.name || '',
+      condition: clauses.length === 1 ? clauses[0] : { $or: clauses }
+    };
   }
-  const cityDoc = await City.findOne({ name: new RegExp(`^${cityValue}$`, 'i') })
+
+  const exactName = new RegExp(`^${escapeRegex(cityValue)}$`, 'i');
+  const cityDoc = await City.findOne({ name: exactName })
     .select('_id')
     .lean();
-  if (!cityDoc?._id) return null;
-  return { city: cityDoc._id };
+
+  const clauses = [{ 'locationData.city': exactName }, { city: exactName }];
+  if (cityDoc?._id) {
+    clauses.unshift({ city: cityDoc._id });
+  }
+
+  return {
+    cityId: cityDoc?._id || null,
+    cityName: cityValue,
+    condition: { $or: clauses }
+  };
 };
 
-const resolveDistrictFilter = async (district) => {
+const resolveDistrictFilter = async (district, cityMeta = null) => {
   const districtValue = normalize(district);
   if (!districtValue) return null;
+
   if (mongoose.isValidObjectId(districtValue)) {
-    return { district: new mongoose.Types.ObjectId(districtValue) };
+    const districtId = new mongoose.Types.ObjectId(districtValue);
+    const districtDoc = await District.findById(districtId).select('_id name city').lean();
+    const exactName = districtDoc?.name ? new RegExp(`^${escapeRegex(districtDoc.name)}$`, 'i') : null;
+    const clauses = [{ district: districtId }];
+    if (exactName) {
+      clauses.push({ 'locationData.district': exactName });
+      clauses.push({ district: exactName });
+    }
+    return {
+      districtId,
+      districtName: districtDoc?.name || '',
+      cityId: districtDoc?.city || null,
+      condition: clauses.length === 1 ? clauses[0] : { $or: clauses }
+    };
   }
-  const districtDoc = await District.findOne({ name: new RegExp(`^${districtValue}$`, 'i') })
+
+  const exactName = new RegExp(`^${escapeRegex(districtValue)}$`, 'i');
+  const districtQuery = { name: exactName };
+  if (cityMeta?.cityId && mongoose.isValidObjectId(cityMeta.cityId)) {
+    districtQuery.city = cityMeta.cityId;
+  }
+  const districtDoc = await District.findOne(districtQuery)
     .select('_id')
     .lean();
-  if (!districtDoc?._id) return null;
-  return { district: districtDoc._id };
+
+  const clauses = [{ 'locationData.district': exactName }, { district: exactName }];
+  if (districtDoc?._id) {
+    clauses.unshift({ district: districtDoc._id });
+  }
+
+  return {
+    districtId: districtDoc?._id || null,
+    districtName: districtValue,
+    cityId: cityMeta?.cityId || null,
+    condition: { $or: clauses }
+  };
 };
 
 export const listAdminRfqs = async (req, res, next) => {
@@ -129,10 +192,12 @@ export const listAdminRfqs = async (req, res, next) => {
       query.followUp = { $ne: true };
     }
     if (q) {
-      query.$or = [
+      appendAndCondition(query, {
+        $or: [
         { title: new RegExp(q, 'i') },
         { description: new RegExp(q, 'i') }
-      ];
+        ]
+      });
     }
     if (userId && mongoose.isValidObjectId(userId)) {
       query.buyer = new mongoose.Types.ObjectId(userId);
@@ -143,18 +208,26 @@ export const listAdminRfqs = async (req, res, next) => {
       query.createdAt = createdRange;
     }
 
-    const [categoryFilter, cityFilter, districtFilter] = await Promise.all([
-      resolveCategoryFilter(category),
-      resolveCityFilter(city),
-      resolveDistrictFilter(district)
-    ]);
+    const categoryFilter = await resolveCategoryFilter(category);
+    const cityFilter = await resolveCityFilter(city);
+    const districtFilter = await resolveDistrictFilter(district, cityFilter);
 
-    if (categoryFilter) Object.assign(query, categoryFilter);
-    if (cityFilter) Object.assign(query, cityFilter);
-    if (districtFilter) Object.assign(query, districtFilter);
+    if (categoryFilter) {
+      appendAndCondition(query, categoryFilter);
+    }
+    if (cityFilter?.condition) {
+      appendAndCondition(query, cityFilter.condition);
+    }
+    if (districtFilter?.condition) {
+      appendAndCondition(query, districtFilter.condition);
+    }
 
     if (!includeExpired && status !== 'expired') {
       applyExpiryFilter(query, now);
+    }
+
+    if (Array.isArray(query.$and) && query.$and.length === 0) {
+      delete query.$and;
     }
 
     const [items, total] = await Promise.all([

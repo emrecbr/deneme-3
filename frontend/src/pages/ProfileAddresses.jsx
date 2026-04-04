@@ -310,7 +310,7 @@ function ProfileAddresses() {
           </button>
         </div>
         <p className="rfq-sub">Teslimat / konum bilgilerini kaydet</p>
-        {loading ? <div className="refresh-text">Yukleniyor...</div> : null}
+        {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}
         {sortedAddresses.length ? (
           <div className="address-list">

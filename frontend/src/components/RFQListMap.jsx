@@ -1,44 +1,72 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
-import { Circle, MapContainer, Marker, Popup, Polyline, TileLayer, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, Marker, Polyline, TileLayer, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { applyLeafletIconFix } from '../lib/leafletIconFix';
 
+const BOUNDS_EPSILON = 0.00001;
+
+function areBoundsEqual(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    Math.abs(a.south - b.south) < BOUNDS_EPSILON &&
+    Math.abs(a.west - b.west) < BOUNDS_EPSILON &&
+    Math.abs(a.north - b.north) < BOUNDS_EPSILON &&
+    Math.abs(a.east - b.east) < BOUNDS_EPSILON
+  );
+}
+
 function MapZoomSync({ onZoomChange, onBoundsChange, onUserMove, suppressUpdates }) {
+  const lastBoundsRef = useRef(null);
+  const lastZoomRef = useRef(null);
+
+  const publishViewport = useCallback(
+    (map, markUserMove = false) => {
+      const nextZoom = map.getZoom();
+      const rawBounds = map.getBounds();
+      const nextBounds = {
+        south: rawBounds.getSouth(),
+        west: rawBounds.getWest(),
+        north: rawBounds.getNorth(),
+        east: rawBounds.getEast()
+      };
+      const zoomChanged = lastZoomRef.current !== nextZoom;
+      const boundsChanged = !areBoundsEqual(lastBoundsRef.current, nextBounds);
+
+      if (zoomChanged) {
+        lastZoomRef.current = nextZoom;
+        onZoomChange(nextZoom);
+      }
+
+      if (boundsChanged) {
+        lastBoundsRef.current = nextBounds;
+        if (onBoundsChange) {
+          onBoundsChange(nextBounds);
+        }
+        if (markUserMove && onUserMove) {
+          onUserMove();
+        }
+      }
+    },
+    [onBoundsChange, onUserMove, onZoomChange]
+  );
+
   useMapEvents({
     zoomend: (event) => {
       if (suppressUpdates) {
         return;
       }
-      onZoomChange(event.target.getZoom());
-      if (onBoundsChange) {
-        const bounds = event.target.getBounds();
-        onBoundsChange({
-          south: bounds.getSouth(),
-          west: bounds.getWest(),
-          north: bounds.getNorth(),
-          east: bounds.getEast()
-        });
-      }
+      publishViewport(event.target);
     },
     moveend: (event) => {
       if (suppressUpdates) {
         return;
       }
-      if (onBoundsChange) {
-        const bounds = event.target.getBounds();
-        onBoundsChange({
-          south: bounds.getSouth(),
-          west: bounds.getWest(),
-          north: bounds.getNorth(),
-          east: bounds.getEast()
-        });
-      }
-      if (onUserMove) {
-        onUserMove();
-      }
+      publishViewport(event.target, true);
     }
   });
 
@@ -53,6 +81,28 @@ function buildMarkerCategory(rfq, getCategoryName) {
     getCategoryName(rfq.category) ||
     'Kategori'
   );
+}
+
+function getRFQIdentity(rfq) {
+  return String(rfq?._id || rfq?.id || '');
+}
+
+function isObjectIdLike(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || '').trim());
+}
+
+function buildMarkerTitle(rfq) {
+  const directTitle = String(rfq?.title || '').trim();
+  if (directTitle && !isObjectIdLike(directTitle)) {
+    return directTitle;
+  }
+
+  const fallbackDescription = String(rfq?.description || '').trim().slice(0, 40);
+  if (fallbackDescription && !isObjectIdLike(fallbackDescription)) {
+    return fallbackDescription;
+  }
+
+  return 'Talep';
 }
 
 export default function RFQListMap({
@@ -87,9 +137,13 @@ export default function RFQListMap({
   userPosition,
   isDarkMode,
   mapAreaFilterActive,
+  mapFocusTarget,
   escapeHtml
 }) {
   const mapRef = useRef(null);
+  const lastFitSignatureRef = useRef('');
+  const lastFocusKeyRef = useRef('');
+  const selectedRfqId = getRFQIdentity(selectedRfq) || null;
 
   useEffect(() => {
     applyLeafletIconFix();
@@ -150,6 +204,14 @@ export default function RFQListMap({
       return;
     }
 
+    const fitSignature = coordsList
+      .map((coords) => `${coords.lat.toFixed(5)}:${coords.lng.toFixed(5)}`)
+      .join('|');
+    if (lastFitSignatureRef.current === fitSignature) {
+      return;
+    }
+    lastFitSignatureRef.current = fitSignature;
+
     if (coordsList.length === 1) {
       mapRef.current.setView(coordsList[0], Math.max(12, mapRef.current.getZoom()));
       return;
@@ -158,6 +220,63 @@ export default function RFQListMap({
     const bounds = L.latLngBounds(coordsList);
     mapRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   }, [getRFQCoords, mapAreaFilterActive, mapItems]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapFocusTarget?.key || selectedRfqId) {
+      return;
+    }
+    if (lastFocusKeyRef.current === mapFocusTarget.key) {
+      return;
+    }
+    lastFocusKeyRef.current = mapFocusTarget.key;
+
+    if (mapFocusTarget.bounds) {
+      const { south, west, north, east } = mapFocusTarget.bounds;
+      mapRef.current.fitBounds(
+        [
+          [south, west],
+          [north, east]
+        ],
+        {
+          padding: [40, 40],
+          maxZoom: mapFocusTarget.maxZoom || 12
+        }
+      );
+      return;
+    }
+
+    if (mapFocusTarget.center) {
+      mapRef.current.setView(
+        [mapFocusTarget.center.lat, mapFocusTarget.center.lng],
+        mapFocusTarget.zoom || mapRef.current.getZoom(),
+        { animate: true }
+      );
+    }
+  }, [mapFocusTarget, selectedRfqId]);
+
+  useEffect(() => {
+    if (!mapRef.current || !selectedRfqId) {
+      return;
+    }
+    const selectedItem = mapItems.find((item) => getRFQIdentity(item) === selectedRfqId);
+    const coords = getRFQCoords(selectedItem);
+    if (!coords) {
+      return;
+    }
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    mapRef.current.panInside([coords.lat, coords.lng], {
+      paddingTopLeft: [24, 24],
+      paddingBottomRight: isMobile ? [24, 260] : [24, 40],
+      animate: true
+    });
+  }, [getRFQCoords, mapItems, selectedRfqId]);
+
+  const handleMarkerSelect = useCallback(
+    (rfq) => {
+      setSelectedRfq((prev) => (getRFQIdentity(prev) === getRFQIdentity(rfq) ? prev : rfq));
+    },
+    [setSelectedRfq]
+  );
 
   return (
     <MapContainer
@@ -217,57 +336,29 @@ export default function RFQListMap({
               return null;
             }
 
-            const images = getCardImages(rfq);
-            const firstImage = images[0];
-            const markerCategory = buildMarkerCategory(rfq, getCategoryName);
-            const markerSub = rfq?.title || (rfq?.description ? String(rfq.description).slice(0, 40) : 'Talep');
+            const markerTitle = buildMarkerTitle(rfq);
+            const markerSub = buildMarkerCategory(rfq, getCategoryName);
             const premium = isPremiumRFQ(rfq);
             const featured = isFeaturedRFQ(rfq);
             const isActive = isActiveRequest(rfq, nowTs);
             return (
               <Marker
-                key={rfq._id}
+                key={getRFQIdentity(rfq)}
                 position={[coords.lat, coords.lng]}
                 icon={createMarkerIcon(
-                  markerCategory,
+                  markerTitle,
                   markerSub,
                   premium,
-                  Boolean(newRFQMarkers[rfq._id]),
+                  Boolean(newRFQMarkers[getRFQIdentity(rfq)]),
                   isActive,
                   featured
                 )}
                 isPremium={premium}
                 zIndexOffset={featured ? 1200 : premium ? 800 : 0}
                 eventHandlers={{
-                  click: () => setSelectedRfq(rfq),
-                  popupclose: () => {
-                    if (selectedRfq?._id === rfq._id) {
-                      setSelectedRfq(null);
-                    }
-                  }
+                  click: () => handleMarkerSelect(rfq)
                 }}
-              >
-                {selectedRfq?._id === rfq._id ? (
-                  <Popup autoPan maxWidth={260} minWidth={200} closeButton>
-                    <div className="map-popup">
-                      {firstImage ? <img src={firstImage} alt={rfq.title} className="map-popup-image" /> : null}
-                      <div className="map-popup-category">{markerCategory}</div>
-                      <div className="map-popup-sub">{markerSub}</div>
-                      <button
-                        type="button"
-                        className="map-popup-action"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedRfq(null);
-                          navigate(`/rfq/${rfq._id}`);
-                        }}
-                      >
-                        Detay
-                      </button>
-                    </div>
-                  </Popup>
-                ) : null}
-              </Marker>
+              />
             );
           })}
         </MarkerClusterGroup>
@@ -278,57 +369,29 @@ export default function RFQListMap({
             return null;
           }
 
-          const images = getCardImages(rfq);
-          const firstImage = images[0];
-          const markerCategory = buildMarkerCategory(rfq, getCategoryName);
-          const markerSub = rfq?.title || (rfq?.description ? String(rfq.description).slice(0, 40) : 'Talep');
+          const markerTitle = buildMarkerTitle(rfq);
+          const markerSub = buildMarkerCategory(rfq, getCategoryName);
           const premium = isPremiumRFQ(rfq);
           const featured = isFeaturedRFQ(rfq);
           const isActive = isActiveRequest(rfq, nowTs);
           return (
             <Marker
-              key={rfq._id}
+              key={getRFQIdentity(rfq)}
               position={[coords.lat, coords.lng]}
               icon={createMarkerIcon(
-                markerCategory,
+                markerTitle,
                 markerSub,
                 premium,
-                Boolean(newRFQMarkers[rfq._id]),
+                Boolean(newRFQMarkers[getRFQIdentity(rfq)]),
                 isActive,
                 featured
               )}
               isPremium={premium}
               zIndexOffset={featured ? 1200 : premium ? 800 : 0}
               eventHandlers={{
-                click: () => setSelectedRfq(rfq),
-                popupclose: () => {
-                  if (selectedRfq?._id === rfq._id) {
-                    setSelectedRfq(null);
-                  }
-                }
+                click: () => handleMarkerSelect(rfq)
               }}
-            >
-              {selectedRfq?._id === rfq._id ? (
-                <Popup autoPan maxWidth={260} minWidth={200} closeButton>
-                  <div className="map-popup">
-                    {firstImage ? <img src={firstImage} alt={rfq.title} className="map-popup-image" /> : null}
-                    <div className="map-popup-category">{markerCategory}</div>
-                    <div className="map-popup-sub">{markerSub}</div>
-                    <button
-                      type="button"
-                      className="map-popup-action"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setSelectedRfq(null);
-                        navigate(`/rfq/${rfq._id}`);
-                      }}
-                    >
-                      Detay
-                    </button>
-                  </div>
-                </Popup>
-              ) : null}
-            </Marker>
+            />
           );
         })
       )}
@@ -336,9 +399,7 @@ export default function RFQListMap({
         <Polyline positions={routePoints} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.9 }} />
       ) : null}
       {userPosition ? (
-        <Marker position={[userPosition.lat, userPosition.lng]} icon={userMarkerIcon} zIndexOffset={1200}>
-          <Popup>Konumunuz</Popup>
-        </Marker>
+        <Marker position={[userPosition.lat, userPosition.lng]} icon={userMarkerIcon} zIndexOffset={1200} />
       ) : null}
     </MapContainer>
   );

@@ -272,7 +272,7 @@ function Layout({ children, showBottomNav = true }) {
           </button>
         </div>
       ) : null}
-      {!isOnline ? <div className="offline-banner">Cevrimdisisiniz</div> : null}
+      {!isOnline ? <div className="offline-banner">Çevrimdışısınız</div> : null}
       <header className="app-header">
         <strong className="app-logo">{isHome ? 'Talep Et' : 'Talepet'}</strong>
         {isHome ? (
@@ -286,7 +286,7 @@ function Layout({ children, showBottomNav = true }) {
                 <span className="city">{selectedCity}</span>
               </>
             ) : (
-              <span className="city">Sehir Sec</span>
+              <span className="city">Şehir Seç</span>
             )}
           </button>
         ) : null}

@@ -16,16 +16,16 @@ function LocationPermissionModal({
       <div className="ux-modal-card">
         <h2>Konum izni gerekli</h2>
         <p>
-          Yakin talepleri gosterebilmek icin konum bilgisine ihtiyacimiz var. Konumu aktif edebilir veya sehri manuel
-          secerek devam edebilirsin.
+          Yakın talepleri gösterebilmek için konum bilgisine ihtiyacımız var. Konumu aktif edebilir veya şehri manuel
+          seçerek devam edebilirsin.
         </p>
 
         <div className="ux-modal-actions">
           <button type="button" className="primary-btn" onClick={onEnableLocation} disabled={loading}>
-            {loading ? 'Konum aliniyor...' : 'Konumumu Aktif Et'}
+            {loading ? 'Konum alınıyor...' : 'Konumumu Aktif Et'}
           </button>
           <button type="button" className="secondary-btn" onClick={onManualSelect}>
-            Manuel Sec
+            Manuel Seç
           </button>
         </div>
 
@@ -33,16 +33,16 @@ function LocationPermissionModal({
 
         {denied ? (
           <div className="modal-hint">
-            <p>Konum izni kapali. Tarayici ayarlarindan izin verip tekrar deneyebilirsin.</p>
+            <p>Konum izni kapalı. Tarayıcı ayarlarından izin verip tekrar deneyebilirsin.</p>
             <ul>
               <li>Chrome: kilit ikonu → Site settings → Location → Allow</li>
-              <li>iOS Safari: Ayarlar → Safari → Konum → Sor / Izin ver</li>
+              <li>iOS Safari: Ayarlar → Safari → Konum → Sor / İzin ver</li>
             </ul>
           </div>
         ) : null}
 
         <button type="button" className="link-btn" onClick={onClose}>
-          Simdilik gec
+          Şimdilik geç
         </button>
       </div>
     </div>
