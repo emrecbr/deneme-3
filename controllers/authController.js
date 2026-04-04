@@ -91,30 +91,190 @@ const getRequestBaseUrl = (req) => {
   return `${protocol}://${host}`;
 };
 
-const getFrontendBaseUrl = () =>
-  String(
-    process.env.FRONTEND_URL ||
-      process.env.CLIENT_ORIGIN ||
-      process.env.APP_BASE_URL ||
-      'http://localhost:5173'
-  )
-    .trim()
-    .replace(/\/$/, '');
+const getFrontendBaseConfig = () => {
+  const candidates = [
+    ['FRONTEND_URL', process.env.FRONTEND_URL],
+    ['CLIENT_ORIGIN', process.env.CLIENT_ORIGIN],
+    ['APP_BASE_URL', process.env.APP_BASE_URL]
+  ];
 
-const getGoogleCallbackUrl = (req) => {
+  const matched = candidates.find(([, value]) => String(value || '').trim());
+  if (matched) {
+    return {
+      value: String(matched[1]).trim().replace(/\/$/, ''),
+      source: matched[0]
+    };
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return {
+      value: 'http://localhost:5173',
+      source: 'dev_fallback'
+    };
+  }
+
+  return {
+    value: '',
+    source: 'missing'
+  };
+};
+
+const getFrontendBaseUrl = () => getFrontendBaseConfig().value;
+
+const getGoogleCallbackConfig = (req) => {
   const configured = String(process.env.GOOGLE_CALLBACK_URL || '').trim();
   if (configured && configured.includes('/api/auth/google/callback')) {
-    return configured;
+    return {
+      value: configured,
+      source: 'GOOGLE_CALLBACK_URL'
+    };
   }
-  const requestBase = getRequestBaseUrl(req);
-  if (!requestBase) {
+
+  if (process.env.NODE_ENV !== 'production') {
+    const requestBase = getRequestBaseUrl(req);
+    if (requestBase) {
+      return {
+        value: `${requestBase}/api/auth/google/callback`,
+        source: 'request_fallback'
+      };
+    }
+  }
+
+  return {
+    value: '',
+    source: configured ? 'invalid_env_value' : 'missing'
+  };
+};
+
+const getGoogleCallbackUrl = (req) => getGoogleCallbackConfig(req).value;
+
+const buildGoogleAuthEnvSnapshot = (req) => {
+  const frontendConfig = getFrontendBaseConfig();
+  const callbackConfig = getGoogleCallbackConfig(req);
+
+  return {
+    nodeEnv: process.env.NODE_ENV || 'undefined',
+    requestBaseUrl: getRequestBaseUrl(req),
+    requestHost: req.get('host') || '',
+    forwardedProto: String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() || '',
+    googleClientIdConfigured: Boolean(String(process.env.GOOGLE_CLIENT_ID || '').trim()),
+    googleClientSecretConfigured: Boolean(String(process.env.GOOGLE_CLIENT_SECRET || '').trim()),
+    googleCallbackUrl: callbackConfig.value,
+    googleCallbackUrlSource: callbackConfig.source,
+    frontendBaseUrl: frontendConfig.value,
+    frontendBaseUrlSource: frontendConfig.source
+  };
+};
+
+const readSafeResponseBody = async (response) => {
+  try {
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('application/json')) {
+      const json = await response.json();
+      return {
+        error: String(json?.error || '').trim(),
+        error_description: String(json?.error_description || '').trim()
+      };
+    }
+
+    const text = String(await response.text()).trim();
+    return {
+      error: text.slice(0, 120),
+      error_description: ''
+    };
+  } catch (_error) {
+    return {
+      error: '',
+      error_description: ''
+    };
+  }
+};
+
+const getHostFromUrl = (value) => {
+  try {
+    return new URL(String(value || '').trim()).host;
+  } catch (_error) {
     return '';
   }
-  return `${requestBase}/api/auth/google/callback`;
+};
+
+const getHostnameOnly = (value) => String(value || '').trim().split(':')[0].toLowerCase();
+
+const buildSharedCookieDomain = (...hosts) => {
+  if (process.env.NODE_ENV !== 'production') {
+    return '';
+  }
+
+  const normalized = hosts
+    .map(getHostnameOnly)
+    .filter(Boolean)
+    .map((host) => host.split('.').filter(Boolean));
+
+  if (!normalized.length || normalized.some((parts) => parts.length < 2)) {
+    return '';
+  }
+
+  const shared = [];
+  const maxDepth = Math.min(...normalized.map((parts) => parts.length));
+  for (let index = 1; index <= maxDepth; index += 1) {
+    const candidate = normalized[0][normalized[0].length - index];
+    if (normalized.every((parts) => parts[parts.length - index] === candidate)) {
+      shared.unshift(candidate);
+    } else {
+      break;
+    }
+  }
+
+  if (shared.length < 2) {
+    return '';
+  }
+
+  return `.${shared.join('.')}`;
+};
+
+const getGoogleStateCookieOptions = (req) => {
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
+  const callbackHost = getHostFromUrl(envSnapshot.googleCallbackUrl);
+  const frontendHost = getHostFromUrl(envSnapshot.frontendBaseUrl);
+  const cookieDomain = buildSharedCookieDomain(requestHost, callbackHost, frontendHost);
+
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: GOOGLE_OAUTH_STATE_MAX_AGE,
+    ...(cookieDomain ? { domain: cookieDomain } : {})
+  };
+};
+
+const mapGoogleCallbackErrorToReason = (error) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').trim();
+
+  if (code === 'GOOGLE_INVALID_REDIRECT_URI') return 'invalid_redirect_uri';
+  if (code === 'GOOGLE_TOKEN_EXCHANGE_FAILED') return 'token_exchange_failed';
+  if (code === 'GOOGLE_ID_TOKEN_INVALID') return 'invalid_id_token';
+  if (code === 'GOOGLE_ID_TOKEN_AUDIENCE_MISMATCH') return 'invalid_audience';
+  if (code === 'GOOGLE_ID_TOKEN_ISSUER_MISMATCH') return 'invalid_issuer';
+  if (code === 'GOOGLE_USERINFO_FETCH_FAILED') return 'unknown_callback_error';
+  if (code === 'GOOGLE_USER_CREATE_FAILED') return 'user_create_failed';
+  if (code === 'FRONTEND_REDIRECT_RESOLUTION_FAILED') return 'frontend_redirect_resolution_failed';
+  if (message === 'missing_email') return 'missing_email';
+  if (message === 'email_not_verified') return 'email_not_verified';
+
+  return 'unknown_callback_error';
 };
 
 const redirectToFrontend = (res, path, params = {}) => {
-  const frontendBaseUrl = getFrontendBaseUrl();
+  const frontendConfig = getFrontendBaseConfig();
+  const frontendBaseUrl = frontendConfig.value;
+  if (!frontendBaseUrl) {
+    const error = new Error('FRONTEND_REDIRECT_RESOLUTION_FAILED');
+    error.code = 'FRONTEND_REDIRECT_RESOLUTION_FAILED';
+    error.meta = { frontendBaseUrlSource: frontendConfig.source };
+    throw error;
+  }
   const url = new URL(path, `${frontendBaseUrl}/`);
   Object.entries(params).forEach(([key, value]) => {
     if (value != null && value !== '') {
@@ -127,16 +287,22 @@ const redirectToFrontend = (res, path, params = {}) => {
 const verifyGoogleIdToken = async (idToken) => {
   const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
   if (!response.ok) {
-    throw new Error('GOOGLE_ID_TOKEN_INVALID');
+    const error = new Error('GOOGLE_ID_TOKEN_INVALID');
+    error.code = 'GOOGLE_ID_TOKEN_INVALID';
+    throw error;
   }
   const payload = await response.json();
   const aud = String(payload.aud || '');
   const iss = String(payload.iss || '');
   if (aud !== String(process.env.GOOGLE_CLIENT_ID || '').trim()) {
-    throw new Error('GOOGLE_ID_TOKEN_AUDIENCE_MISMATCH');
+    const error = new Error('GOOGLE_ID_TOKEN_AUDIENCE_MISMATCH');
+    error.code = 'GOOGLE_ID_TOKEN_AUDIENCE_MISMATCH';
+    throw error;
   }
   if (!['accounts.google.com', 'https://accounts.google.com'].includes(iss)) {
-    throw new Error('GOOGLE_ID_TOKEN_ISSUER_MISMATCH');
+    const error = new Error('GOOGLE_ID_TOKEN_ISSUER_MISMATCH');
+    error.code = 'GOOGLE_ID_TOKEN_ISSUER_MISMATCH';
+    throw error;
   }
   return payload;
 };
@@ -148,7 +314,9 @@ const fetchGoogleUserInfo = async (accessToken) => {
     }
   });
   if (!response.ok) {
-    throw new Error('GOOGLE_USERINFO_FETCH_FAILED');
+    const error = new Error('GOOGLE_USERINFO_FETCH_FAILED');
+    error.code = 'GOOGLE_USERINFO_FETCH_FAILED';
+    throw error;
   }
   return response.json();
 };
@@ -784,24 +952,39 @@ export const verifyLoginOtp = async (req, res) => {
 
 export const oauthGoogle = async (_req, res) => {
   const req = _req;
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
+  const callbackHost = getHostFromUrl(envSnapshot.googleCallbackUrl);
+  const stateCookieOptions = getGoogleStateCookieOptions(req);
+
   if (!isOauthConfigured('google')) {
-    console.warn('GOOGLE_AUTH_START_FAIL', { reason: 'missing_google_env' });
+    console.warn('GOOGLE_AUTH_START_FAIL', {
+      reason: 'missing_google_env',
+      env: envSnapshot
+    });
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
 
-  const callbackUrl = getGoogleCallbackUrl(req);
+  const callbackUrl = envSnapshot.googleCallbackUrl;
   if (!callbackUrl) {
-    console.warn('GOOGLE_AUTH_START_FAIL', { reason: 'invalid_callback_url' });
+    console.warn('GOOGLE_AUTH_START_FAIL', {
+      reason: 'invalid_callback_url',
+      env: envSnapshot
+    });
     return res.status(500).json({ success: false, code: 'INVALID_CALLBACK_URL' });
   }
 
+  if (requestHost && callbackHost && requestHost !== callbackHost) {
+    console.warn('GOOGLE_AUTH_CONFIG_MISMATCH', {
+      reason: 'request_host_callback_host_mismatch',
+      requestHost,
+      callbackHost,
+      env: envSnapshot
+    });
+  }
+
   const state = crypto.randomBytes(24).toString('hex');
-  res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: GOOGLE_OAUTH_STATE_MAX_AGE
-  });
+  res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -813,31 +996,59 @@ export const oauthGoogle = async (_req, res) => {
 
   console.info('GOOGLE_AUTH_START', {
     callbackUrl,
-    frontendBaseUrl: getFrontendBaseUrl()
+    frontendBaseUrl: envSnapshot.frontendBaseUrl,
+    callbackUrlSource: envSnapshot.googleCallbackUrlSource,
+    frontendBaseUrlSource: envSnapshot.frontendBaseUrlSource,
+    requestBaseUrl: envSnapshot.requestBaseUrl,
+    nodeEnv: envSnapshot.nodeEnv,
+    stateCookieDomain: stateCookieOptions.domain || 'host_only'
   });
 
   return res.redirect(authUrl.toString());
 };
 
 export const oauthGoogleCallback = async (req, res) => {
-  const fail = (reason) => {
-    console.warn('GOOGLE_AUTH_CALLBACK_FAIL', { reason });
-    res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME);
-    return redirectToFrontend(res, '/login', {
-      error: 'google_auth_failed',
-      reason
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const stateCookieOptions = getGoogleStateCookieOptions(req);
+  const fail = (reason, meta = {}) => {
+    console.error('GOOGLE_AUTH_FAILURE', {
+      reason,
+      ...meta,
+      env: envSnapshot
     });
+    res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+
+    try {
+      return redirectToFrontend(res, '/login', {
+        error: 'google_auth_failed',
+        reason
+      });
+    } catch (redirectError) {
+      console.error('GOOGLE_AUTH_FAILURE', {
+        reason: 'frontend_redirect_resolution_failed',
+        sourceReason: reason,
+        redirectError: redirectError?.message || 'unknown_redirect_error',
+        env: envSnapshot
+      });
+      return res.status(500).json({
+        success: false,
+        code: 'GOOGLE_AUTH_FAILED',
+        reason
+      });
+    }
   };
 
   if (!isOauthConfigured('google')) {
     return res.status(501).json({ success: false, code: 'OAUTH_NOT_CONFIGURED' });
   }
 
-  console.info('GOOGLE_AUTH_CALLBACK_HIT');
+  console.info('GOOGLE_AUTH_CALLBACK_HIT', envSnapshot);
 
-  const callbackUrl = getGoogleCallbackUrl(req);
+  const callbackUrl = envSnapshot.googleCallbackUrl;
   if (!callbackUrl) {
-    return fail('invalid_callback_url');
+    return fail('invalid_redirect_uri', {
+      stage: 'callback_url_resolution'
+    });
   }
 
   const providerError = String(req.query?.error || '').trim();
@@ -846,18 +1057,33 @@ export const oauthGoogleCallback = async (req, res) => {
   const expectedState = String(req.cookies?.[GOOGLE_OAUTH_STATE_COOKIE_NAME] || '').trim();
 
   if (providerError) {
-    return fail(`provider_${providerError}`);
+    return fail(`provider_${providerError}`, {
+      stage: 'provider_redirect'
+    });
   }
   if (!code) {
-    return fail('missing_code');
+    return fail('missing_code', {
+      stage: 'callback_query_validation'
+    });
   }
   if (!state || !expectedState || state !== expectedState) {
-    return fail('invalid_state');
+    return fail('invalid_state', {
+      stage: 'state_validation',
+      hasState: Boolean(state),
+      hasExpectedState: Boolean(expectedState)
+    });
   }
 
-  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME);
+  console.info('GOOGLE_AUTH_STATE_VALIDATED', {
+    callbackUrl,
+    callbackUrlSource: envSnapshot.googleCallbackUrlSource
+  });
+  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
 
   try {
+    console.info('GOOGLE_AUTH_TOKEN_EXCHANGE_START', {
+      redirectUri: callbackUrl
+    });
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -873,28 +1099,58 @@ export const oauthGoogleCallback = async (req, res) => {
     });
 
     if (!tokenResponse.ok) {
-      console.warn('GOOGLE_AUTH_TOKEN_EXCHANGE_FAIL', { status: tokenResponse.status });
-      return fail('token_exchange_failed');
+      const errorBody = await readSafeResponseBody(tokenResponse);
+      const lowerCombined = `${errorBody.error} ${errorBody.error_description}`.toLowerCase();
+      const reason = lowerCombined.includes('redirect_uri')
+        ? 'invalid_redirect_uri'
+        : 'token_exchange_failed';
+
+      return fail(reason, {
+        stage: 'token_exchange',
+        status: tokenResponse.status,
+        googleError: errorBody.error || '',
+        googleErrorDescription: errorBody.error_description || '',
+        redirectUri: callbackUrl
+      });
     }
 
+    console.info('GOOGLE_AUTH_TOKEN_EXCHANGE_OK', {
+      redirectUri: callbackUrl
+    });
     const tokenData = await tokenResponse.json();
     const idToken = String(tokenData.id_token || '').trim();
     const accessToken = String(tokenData.access_token || '').trim();
     if (!idToken || !accessToken) {
-      return fail('missing_google_tokens');
+      return fail('token_exchange_failed', {
+        stage: 'token_exchange',
+        missingIdToken: !idToken,
+        missingAccessToken: !accessToken
+      });
     }
 
+    console.info('GOOGLE_AUTH_ID_TOKEN_VALIDATION_START');
     const idTokenPayload = await verifyGoogleIdToken(idToken);
+    console.info('GOOGLE_AUTH_ID_TOKEN_VALIDATION_OK', {
+      emailPresent: Boolean(idTokenPayload?.email)
+    });
     const userInfo = await fetchGoogleUserInfo(accessToken);
+    console.info('GOOGLE_AUTH_USERINFO_OK', {
+      emailPresent: Boolean(userInfo?.email)
+    });
     const email = normalizeEmail(userInfo.email || idTokenPayload.email);
     const emailVerified =
       String(userInfo.email_verified || idTokenPayload.email_verified || '').toLowerCase() === 'true';
 
     if (!email) {
-      return fail('missing_email');
+      return fail('missing_email', {
+        stage: 'userinfo_validation'
+      });
     }
     if (!emailVerified) {
-      return fail('email_not_verified');
+      return fail('email_not_verified', {
+        stage: 'userinfo_validation',
+        email: maskEmailForLog(email)
+      });
     }
 
     let user = await User.findOne({ email });
@@ -913,15 +1169,20 @@ export const oauthGoogleCallback = async (req, res) => {
         email: maskEmailForLog(email)
       });
     } else {
-      const generatedPassword = crypto.randomBytes(32).toString('hex');
-      user = await User.create({
-        name: String(userInfo.name || email.split('@')[0] || 'Kullanici').trim() || 'Kullanici',
-        email,
-        emailVerified: true,
-        avatarUrl: String(userInfo.picture || '').trim() || undefined,
-        password: generatedPassword,
-        lastLoginAt: new Date()
-      });
+      try {
+        const generatedPassword = crypto.randomBytes(32).toString('hex');
+        user = await User.create({
+          name: String(userInfo.name || email.split('@')[0] || 'Kullanici').trim() || 'Kullanici',
+          email,
+          emailVerified: true,
+          avatarUrl: String(userInfo.picture || '').trim() || undefined,
+          password: generatedPassword,
+          lastLoginAt: new Date()
+        });
+      } catch (createError) {
+        createError.code = 'GOOGLE_USER_CREATE_FAILED';
+        throw createError;
+      }
       created = true;
       console.info('GOOGLE_AUTH_USER_CREATED', {
         userId: String(user._id),
@@ -937,10 +1198,12 @@ export const oauthGoogleCallback = async (req, res) => {
 
     return redirectToFrontend(res, '/auth/callback', { token });
   } catch (error) {
-    console.error('GOOGLE_AUTH_CALLBACK_EXCEPTION', {
-      message: error?.message || 'unknown_error'
+    const reason = mapGoogleCallbackErrorToReason(error);
+    return fail(reason, {
+      stage: 'callback_exception',
+      errorCode: String(error?.code || '').trim(),
+      errorMessage: String(error?.message || 'unknown_error').trim()
     });
-    return fail(error?.message || 'unknown_error');
   }
 };
 
