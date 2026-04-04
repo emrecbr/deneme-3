@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProviderAuthUrl } from '../api/axios';
 
 function Register() {
   const navigate = useNavigate();
-  const apiBase = (import.meta.env.VITE_API_URL || 'https://api.talepet.net.tr/api')
-    .trim()
-    .replace(/\/$/, '');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,7 +59,7 @@ function Register() {
   };
 
   const buildAuthUrl = (provider) => {
-    return `${apiBase}/auth/${provider}`;
+    return buildProviderAuthUrl(provider);
   };
 
   const handleProviderLogin = (provider) => {

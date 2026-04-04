@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProviderAuthUrl } from '../api/axios';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -21,9 +21,6 @@ const normalizePhone = (value) => toE164TR(normalizePhoneDigits(value));
 function RegisterOtp() {
   const navigate = useNavigate();
   const location = useLocation();
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
-    .trim()
-    .replace(/\/$/, '');
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState('email');
   const [email, setEmail] = useState('');
@@ -167,7 +164,7 @@ function RegisterOtp() {
   };
 
   const buildAuthUrl = (provider) => {
-    return `${apiBase}/auth/${provider}`;
+    return buildProviderAuthUrl(provider);
   };
 
   const handleProviderLogin = (provider) => {

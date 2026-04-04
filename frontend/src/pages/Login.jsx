@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { API_BASE_URL } from '../api/axios';
+import api, { buildProviderAuthUrl } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
-  const apiBase = API_BASE_URL;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState('login');
   const [activeTab, setActiveTab] = useState('email');
@@ -214,7 +213,7 @@ function Login() {
   };
 
   const buildAuthUrl = (provider) => {
-    return `${apiBase}/auth/${provider}`;
+    return buildProviderAuthUrl(provider);
   };
 
   const handleProviderLogin = (provider) => {

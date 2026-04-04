@@ -12,6 +12,27 @@ const PROD_FALLBACK = '/api';
 const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
 export const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
 
+const getBrowserOrigin = () =>
+  typeof window !== 'undefined' && window.location?.origin ? window.location.origin.replace(/\/$/, '') : '';
+
+export const buildProviderAuthUrl = (provider) => {
+  const normalizedProvider = String(provider || '').trim().toLowerCase();
+  if (!normalizedProvider) {
+    return '/api/auth/google';
+  }
+
+  if (import.meta.env.DEV) {
+    return `${API_BASE_URL}/auth/${normalizedProvider}`;
+  }
+
+  const browserOrigin = getBrowserOrigin();
+  if (browserOrigin) {
+    return `${browserOrigin}/api/auth/${normalizedProvider}`;
+  }
+
+  return `/api/auth/${normalizedProvider}`;
+};
+
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
 } else if (!ENV_API_BASE) {
