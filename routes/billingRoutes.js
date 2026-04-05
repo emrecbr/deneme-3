@@ -245,6 +245,7 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
   try {
     const userId = req.user?.id;
     const planCode = String(req.body?.planCode || '').trim();
+    logBillingLifecycle('BILLING_CHECKOUT_HIT', { userId, planCode, route: 'billing/checkout' });
     logBillingLifecycle('CHECKOUT_INITIATED', { userId, planCode, route: 'billing/checkout' });
     if (!planCode) {
       return res.status(400).json({
@@ -262,6 +263,13 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
     }
 
     const monetizationInfo = await resolveMonetizationByPlanCode(planCode);
+    logBillingLifecycle('BILLING_CHECKOUT_PLAN_RESOLVED', {
+      userId,
+      planCode,
+      foundPlan: Boolean(plan),
+      monetizationPlan: monetizationInfo?.plan?.key || null,
+      mode: monetizationInfo?.mode || null
+    });
     if (monetizationInfo?.plan) {
       if (monetizationInfo.blockedReason) {
         return res.status(400).json({
@@ -298,6 +306,12 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
         message: 'Kullanici bulunamadi.'
       });
     }
+    logBillingLifecycle('BILLING_CHECKOUT_AUTH_OK', {
+      userId,
+      planCode,
+      hasEmail: Boolean(user.email),
+      mode: plan.isRecurring ? 'subscription' : 'one_time'
+    });
 
     const mode = plan.isRecurring ? 'subscription' : 'one_time';
     const snapshotTitle = monetizationInfo?.plan?.title || plan.name;
@@ -320,6 +334,13 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
       contextType: plan.code === 'listing_extra' ? 'listing_extra' : undefined
     });
 
+    logBillingLifecycle('BILLING_CHECKOUT_PROVIDER_REQUEST', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      mode,
+      returnPath: '/premium/return'
+    });
     const checkout = await iyzico.createCheckout({ user, plan, mode, paymentId: payment._id.toString() });
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
@@ -327,6 +348,28 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
     payment.lifecycleStatus = 'pending';
     payment.lastErrorCode = '';
     await payment.save();
+    logBillingLifecycle('BILLING_CHECKOUT_PROVIDER_RESPONSE_SHAPE', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      hasCheckoutUrl: Boolean(checkout.checkoutUrl),
+      responseKeys: checkout.raw ? Object.keys(checkout.raw) : [],
+      returnUrlHost: (() => {
+        try {
+          return new URL(checkout.returnUrl).host;
+        } catch (_error) {
+          return null;
+        }
+      })()
+    });
+    logBillingLifecycle('BILLING_CHECKOUT_PROVIDER_RESPONSE', {
+      userId,
+      paymentId: payment._id.toString(),
+      planCode: payment.planCode,
+      providerPaymentId: payment.providerPaymentId || null,
+      hasCheckoutUrl: Boolean(checkout.checkoutUrl),
+      usedFallback: Boolean(checkout.raw?.fallback)
+    });
     logBillingLifecycle('CHECKOUT_PENDING', {
       userId,
       paymentId: payment._id.toString(),
@@ -337,13 +380,33 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
     return res.status(200).json({
       success: true,
       checkoutUrl: checkout.checkoutUrl,
-      paymentId: payment._id
+      paymentId: payment._id,
+      code: 'CHECKOUT_READY'
     });
   } catch (error) {
+    const statusCode = Number(error?.statusCode || error?.status || error?.response?.status || 500);
+    const publicCode = String(error?.publicCode || error?.code || 'billing_checkout_failed');
+    logBillingLifecycle('BILLING_CHECKOUT_FAILURE', {
+      route: 'billing/checkout',
+      planCode: String(req.body?.planCode || '').trim(),
+      status: statusCode,
+      code: publicCode,
+      context: error?.context || null,
+      message: error?.message || 'billing_checkout_failure',
+      providerResponseKeys: Array.isArray(error?.payload?.responseKeys) ? error.payload.responseKeys : []
+    });
+    if (error?.context === 'createCheckout') {
+      return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 502).json({
+        success: false,
+        code: publicCode,
+        reason: publicCode,
+        message: 'Ödeme başlatılamadı. Lütfen daha sonra tekrar deneyin.'
+      });
+    }
     logBillingLifecycle('CHECKOUT_ERROR', {
       route: 'billing/checkout',
       planCode: String(req.body?.planCode || '').trim(),
-      status: error?.status || error?.response?.status || null,
+      status: statusCode,
       message: error?.message || 'checkout_error'
     });
     return next(error);

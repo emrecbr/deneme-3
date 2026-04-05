@@ -82,17 +82,38 @@ function Premium() {
       console.info('PREMIUM_CHECKOUT_REQUEST', {
         source: 'premium_page',
         endpoint: '/billing/checkout',
-        planCode
+        planCode,
+        hasUser: Boolean(user),
+        hasStoredToken
       });
       const response = await api.post('/billing/checkout', { planCode }, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
+      console.info('PREMIUM_CHECKOUT_RESPONSE_STATUS', {
+        source: 'premium_page',
+        planCode,
+        status: response.status
+      });
+      console.info('PREMIUM_CHECKOUT_RESPONSE_BODY_SHAPE', {
+        source: 'premium_page',
+        planCode,
+        hasSuccess: Object.prototype.hasOwnProperty.call(response.data || {}, 'success'),
+        hasCheckoutUrl: Object.prototype.hasOwnProperty.call(response.data || {}, 'checkoutUrl'),
+        hasPaymentId: Object.prototype.hasOwnProperty.call(response.data || {}, 'paymentId'),
+        hasCode: Object.prototype.hasOwnProperty.call(response.data || {}, 'code')
+      });
       console.info('PREMIUM_CHECKOUT_RESPONSE', {
         source: 'premium_page',
         planCode,
         status: response.status,
-        hasCheckoutUrl: Boolean(url)
+        hasCheckoutUrl: Boolean(url),
+        bodyKeys: Object.keys(response.data || {})
       });
       if (url) {
+        console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
+          source: 'premium_page',
+          planCode,
+          target: url
+        });
         window.location.href = url;
       }
     } catch (requestError) {
@@ -107,6 +128,8 @@ function Premium() {
         planCode,
         status: status || null,
         reason: status === 401 || status === 403 ? 'auth_failed' : 'payment_init_failed',
+        responseKeys: requestError?.response?.data ? Object.keys(requestError.response.data) : [],
+        responseCode: requestError?.response?.data?.code || null,
         hasUser: Boolean(user),
         hasStoredToken
       });

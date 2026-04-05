@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '../api/axios';
+import api, { buildProtectedRequestConfig } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 
@@ -33,14 +33,22 @@ function PremiumReturn() {
         return;
       }
       try {
-        const response = await api.get(`/billing/payment/${paymentId}`);
+        console.info('PREMIUM_CHECKOUT_RESPONSE', {
+          source: 'premium_return_poll',
+          endpoint: `/billing/payment/${paymentId}`
+        });
+        const response = await api.get(`/billing/payment/${paymentId}`, buildProtectedRequestConfig());
         const paymentStatus = response.data?.data?.status;
         const responsePlanCode = response.data?.data?.planCode || '';
         const responseConsent = response.data?.data?.saveCardConsent ?? null;
         setPlanCode(responsePlanCode);
         setSaveCardConsent(responseConsent);
         if (paymentStatus === 'paid') {
-          await api.get('/billing/me');
+          console.info('PREMIUM_BILLING_ME_REFRESH_START', {
+            source: 'premium_return_poll',
+            paymentId
+          });
+          await api.get('/billing/me', buildProtectedRequestConfig());
           await checkAuth();
           if (active) {
             setStatus('success');
@@ -49,6 +57,11 @@ function PremiumReturn() {
               setSavePromptOpen(true);
             } else {
               timer = window.setTimeout(() => {
+                console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
+                  source: 'premium_return_poll',
+                  paymentId,
+                  target: '/premium'
+                });
                 navigate('/premium');
               }, 1500);
             }
@@ -67,6 +80,14 @@ function PremiumReturn() {
           timer = window.setTimeout(poll, 1500);
         }
       } catch (requestError) {
+        if (requestError?.response?.status === 401 || requestError?.response?.status === 403) {
+          console.warn('PREMIUM_BILLING_ME_REFRESH_FAILURE', {
+            source: 'premium_return_poll',
+            paymentId,
+            status: requestError?.response?.status,
+            reason: 'auth_failed'
+          });
+        }
         if (active) {
           setStatus('error');
           setMessage(requestError.response?.data?.message || 'Sunucuya baglanilamadi.');
@@ -90,12 +111,21 @@ function PremiumReturn() {
     }
     try {
       setSaveLoading(true);
-      await api.post('/billing/payment-method/consent', {
-        paymentId,
-        saveCard: shouldSave
-      });
+      await api.post(
+        '/billing/payment-method/consent',
+        {
+          paymentId,
+          saveCard: shouldSave
+        },
+        buildProtectedRequestConfig()
+      );
       setSaveCardConsent(shouldSave);
       setSavePromptOpen(false);
+      console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
+        source: 'premium_return_consent',
+        paymentId,
+        target: '/profile'
+      });
       navigate('/profile');
     } catch (requestError) {
       setSaveLoading(false);

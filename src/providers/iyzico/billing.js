@@ -1,14 +1,33 @@
 import crypto from 'crypto';
 import { createConversationId, requestIyzico } from './client.js';
 
-const fallbackCheckoutUrl = (paymentId) => {
-  const baseUrl = process.env.APP_BASE_URL || 'http://localhost:5173';
-  return `${baseUrl}/premium/return?paymentId=${paymentId}`;
+const resolveAppBaseUrl = () => {
+  const candidates = [process.env.FRONTEND_URL, process.env.CLIENT_ORIGIN, process.env.APP_BASE_URL]
+    .map((value) => String(value || '').trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  if (candidates.length) {
+    return candidates[0];
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return 'http://localhost:5173';
+  }
+
+  return '';
 };
 
 export const createCheckout = async ({ user, plan, mode, paymentId }) => {
   const conversationId = createConversationId();
-  const returnUrl = `${process.env.APP_BASE_URL || 'http://localhost:5173'}/premium/return?paymentId=${paymentId}`;
+  const appBaseUrl = resolveAppBaseUrl();
+  if (!appBaseUrl) {
+    const error = new Error('APP_BASE_URL is not configured');
+    error.code = 'app_base_url_missing';
+    error.context = 'createCheckout';
+    throw error;
+  }
+
+  const returnUrl = `${appBaseUrl}/premium/return?paymentId=${paymentId}`;
   const payload = {
     conversationId,
     price: plan.price,
@@ -25,21 +44,27 @@ export const createCheckout = async ({ user, plan, mode, paymentId }) => {
 
   try {
     const response = await requestIyzico('/payment/checkout', payload);
+    const checkoutUrl = response?.paymentPageUrl || response?.checkoutFormContent || '';
+    if (!checkoutUrl) {
+      const error = new Error('Provider checkout URL missing');
+      error.code = 'provider_checkout_url_missing';
+      error.context = 'createCheckout';
+      error.payload = {
+        responseKeys: response ? Object.keys(response) : []
+      };
+      throw error;
+    }
     return {
-      checkoutUrl: response?.paymentPageUrl || response?.checkoutFormContent || fallbackCheckoutUrl(paymentId),
+      checkoutUrl,
       providerPaymentId: response?.paymentId || response?.paymentReferenceCode || null,
       conversationId,
       returnUrl,
       raw: response
     };
-  } catch (_error) {
-    return {
-      checkoutUrl: fallbackCheckoutUrl(paymentId),
-      providerPaymentId: null,
-      conversationId,
-      returnUrl,
-      raw: { fallback: true }
-    };
+  } catch (error) {
+    error.context = error.context || 'createCheckout';
+    error.publicCode = error.publicCode || error.code || 'provider_checkout_failed';
+    throw error;
   }
 };
 
