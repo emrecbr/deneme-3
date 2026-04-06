@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import ReportIssueSheet from '../components/ReportIssueSheet';
+import ProfileLegalSection from '../components/ProfileLegalSection';
 
 function Profile() {
   const navigate = useNavigate();
@@ -386,6 +387,8 @@ function Profile() {
                 </button>
               </div>
             </section>
+
+            <ProfileLegalSection />
           </>
         ) : null}
       </div>

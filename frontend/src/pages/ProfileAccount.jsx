@@ -448,6 +448,14 @@ function ProfileAccount() {
     return parts.length ? parts.join(' / ') : 'Kategori takibi';
   };
 
+  const buildMatchReason = (match) => {
+    if (match?.matchedBy === 'keyword') return 'Anahtar kelime eşleşti';
+    if (match?.matchedBy === 'category_city_district') return 'Kategori + şehir + ilçe eşleşti';
+    if (match?.matchedBy === 'category_city') return 'Kategori + şehir eşleşti';
+    if (match?.matchedBy === 'category') return 'Kategori eşleşti';
+    return 'Takip eşleşmesi';
+  };
+
   const toggleAlert = async (alertId, isActive) => {
     try {
       const response = await api.patch(`/me/alerts/${alertId}`, { isActive: !isActive });
@@ -519,7 +527,12 @@ function ProfileAccount() {
       if (response.data?.data) {
         setAlerts((prev) => [response.data.data, ...prev]);
       }
-      showToast('Takip eklendi');
+      const backfilledCount = Number(response.data?.backfilledCount || 0);
+      showToast(
+        backfilledCount > 0
+          ? `Takip eklendi. ${backfilledCount} uygun talep listene eklendi.`
+          : 'Takip eklendi.'
+      );
       resetAlertForm();
     } catch (requestError) {
       const status = requestError.response?.status;
@@ -839,10 +852,12 @@ function ProfileAccount() {
                             onClick={() => handleOpenMatch(match)}
                           >
                             <div className="alert-match-title">{match.title}</div>
+                            {match.categoryName ? <div className="alert-match-meta">{match.categoryName}</div> : null}
                             <div className="alert-match-meta">
                               {match.cityName || match.districtName ? `${match.cityName}${match.districtName ? ` / ${match.districtName}` : ''}` : ''}
                               {match.createdAt ? ` • ${new Date(match.createdAt).toLocaleDateString('tr-TR')}` : ''}
                             </div>
+                            <div className="alert-match-meta">{buildMatchReason(match)}</div>
                           </button>
                         ))}
                       </div>

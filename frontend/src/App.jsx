@@ -82,6 +82,11 @@ const Premium = lazy(() => import('./pages/Premium'));
 const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
 const Categories = lazy(() => import('./pages/Categories'));
 const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const DistanceSalesPage = lazy(() => import('./pages/DistanceSalesPage'));
+const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 
 function App() {
@@ -175,6 +180,7 @@ function App() {
   }
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
+  const defaultAuthenticatedPath = isAdminRole ? '/admin' : '/';
   const maintenanceBlocking =
     !maintenance.loading &&
     maintenance.enabled &&
@@ -275,7 +281,7 @@ function App() {
         path="/login"
         element={
           user ? (
-            <Navigate to="/" replace />
+            <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
               <Login />
@@ -315,7 +321,7 @@ function App() {
         path="/register"
         element={
           user ? (
-            <Navigate to="/" replace />
+            <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
               <RegisterOtp />
@@ -328,7 +334,7 @@ function App() {
         path="/sms-verify"
         element={
           user ? (
-            <Navigate to="/" replace />
+            <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
               <SmsVerify />
@@ -341,7 +347,7 @@ function App() {
         path="/email-verify"
         element={
           user ? (
-            <Navigate to="/" replace />
+            <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
               <EmailVerify />
@@ -354,7 +360,7 @@ function App() {
         path="/login-otp"
         element={
           user ? (
-            <Navigate to="/" replace />
+            <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
               <LoginOtp />
@@ -530,6 +536,51 @@ function App() {
         element={
           <Layout theme={theme} onToggleTheme={toggleTheme}>
             <Categories />
+          </Layout>
+        }
+      />
+
+      <Route
+        path="/hakkimizda"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <AboutPage />
+          </Layout>
+        }
+      />
+
+      <Route
+        path="/gizlilik-sozlesmesi"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <PrivacyPolicyPage />
+          </Layout>
+        }
+      />
+
+      <Route
+        path="/mesafeli-satis-sozlesmesi"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <DistanceSalesPage />
+          </Layout>
+        }
+      />
+
+      <Route
+        path="/teslimat-ve-iade"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <DeliveryReturnsPage />
+          </Layout>
+        }
+      />
+
+      <Route
+        path="/iletisim"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <ContactPage />
           </Layout>
         }
       />

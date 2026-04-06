@@ -1,8 +1,12 @@
+import mongoose from 'mongoose';
+import Category from '../../models/Category.js';
 import NotificationSubscription from '../../models/NotificationSubscription.js';
 import NotificationLog from '../../models/NotificationLog.js';
 import Notification from '../../models/Notification.js';
 import SubscriptionMatch from '../../models/SubscriptionMatch.js';
 import AppSetting from '../../models/AppSetting.js';
+import RFQ from '../../models/RFQ.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../utils/rfqExpiry.js';
 import { sendPushToUser } from './pushNotificationService.js';
 
 const ALLOWED_TYPES = new Set(['category', 'category_city', 'category_city_district', 'keyword']);
@@ -11,29 +15,31 @@ const DEFAULT_DAILY_PUSH_LIMIT = 5;
 const DAILY_LIMIT_CACHE_TTL_MS = 60 * 1000;
 let dailyLimitCache = { value: DEFAULT_DAILY_PUSH_LIMIT, ts: 0 };
 
+const toIdString = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object' && value._id) {
+    return String(value._id);
+  }
+  return String(value);
+};
+
 const normalizeText = (value) => {
   let text = String(value || '').trim().toLowerCase();
   text = text
-    .replace(/[İI]/g, 'i')
-    .replace(/ı/g, 'i')
-    .replace(/ğ/g, 'g')
-    .replace(/ş/g, 's')
-    .replace(/ç/g, 'c')
-    .replace(/ö/g, 'o')
-    .replace(/ü/g, 'u');
+    .replace(/[Ä°I]/g, 'i')
+    .replace(/Ä±/g, 'i')
+    .replace(/ÄŸ/g, 'g')
+    .replace(/ÅŸ/g, 's')
+    .replace(/Ã§/g, 'c')
+    .replace(/Ã¶/g, 'o')
+    .replace(/Ã¼/g, 'u');
   text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   text = text.replace(/\s+/g, ' ').trim();
   return text;
 };
 
 const buildSubscriptionKey = ({ type, categoryId, cityId, districtId, keywordNormalized }) => {
-  return [
-    type || '',
-    categoryId || '',
-    cityId || '',
-    districtId || '',
-    keywordNormalized || ''
-  ].join('|');
+  return [type || '', categoryId || '', cityId || '', districtId || '', keywordNormalized || ''].join('|');
 };
 
 const inferType = ({ categoryId, cityId, districtId, keyword }) => {
@@ -42,6 +48,191 @@ const inferType = ({ categoryId, cityId, districtId, keyword }) => {
   if (categoryId && cityId) return 'category_city';
   if (categoryId) return 'category';
   return null;
+};
+
+const buildActiveRfqQuery = (extra = {}) => {
+  const query = {
+    status: 'open',
+    isDeleted: { $ne: true }
+  };
+  applyExpiryFilter(query, new Date());
+  if (extra.segment) {
+    query.segment = extra.segment;
+  }
+  if (extra.city) {
+    query.city = extra.city;
+  }
+  if (extra.district) {
+    query.district = extra.district;
+  }
+  return query;
+};
+
+const ensureRfqLifecycle = async () => {
+  const now = new Date();
+  const expiryDays = await getListingExpiryDays();
+  await backfillMissingExpiresAt(expiryDays);
+  await markExpiredRfqs(now);
+};
+
+const loadCategoryContext = async () => {
+  const categories = await Category.find({ isActive: { $ne: false } })
+    .select('_id name slug parent segment')
+    .lean();
+
+  const byId = new Map();
+  const bySlug = new Map();
+  const byName = new Map();
+
+  categories.forEach((category) => {
+    const id = String(category._id);
+    const slug = String(category.slug || '').trim().toLowerCase();
+    const normalizedName = normalizeText(category.name);
+    byId.set(id, category);
+    if (slug) bySlug.set(slug, category);
+    if (normalizedName && !byName.has(normalizedName)) {
+      byName.set(normalizedName, category);
+    }
+  });
+
+  return { byId, bySlug, byName };
+};
+
+const resolveCategoryDescriptor = (rawCategory, context) => {
+  if (!rawCategory) return null;
+
+  const directId = toIdString(rawCategory);
+  if (directId && mongoose.isValidObjectId(directId) && context.byId.has(directId)) {
+    return context.byId.get(directId);
+  }
+
+  const slugCandidate =
+    typeof rawCategory === 'string'
+      ? String(rawCategory).trim().toLowerCase()
+      : typeof rawCategory === 'object' && rawCategory.slug
+        ? String(rawCategory.slug).trim().toLowerCase()
+        : '';
+  if (slugCandidate && context.bySlug.has(slugCandidate)) {
+    return context.bySlug.get(slugCandidate);
+  }
+
+  const nameCandidate =
+    typeof rawCategory === 'string'
+      ? normalizeText(rawCategory)
+      : typeof rawCategory === 'object' && rawCategory.name
+        ? normalizeText(rawCategory.name)
+        : '';
+  if (nameCandidate && context.byName.has(nameCandidate)) {
+    return context.byName.get(nameCandidate);
+  }
+
+  return null;
+};
+
+const buildCategoryChain = (category, context) => {
+  const ids = new Set();
+  let current = category;
+  while (current?._id) {
+    const currentId = String(current._id);
+    if (ids.has(currentId)) break;
+    ids.add(currentId);
+    const parentId = toIdString(current.parent);
+    current = parentId ? context.byId.get(parentId) : null;
+  }
+  return ids;
+};
+
+const buildRfqDescriptor = (rfq, context) => {
+  const category = resolveCategoryDescriptor(rfq?.category, context);
+  const categoryChain = category ? buildCategoryChain(category, context) : new Set();
+  const segment = String(rfq?.segment || category?.segment || '').trim().toLowerCase();
+  return {
+    rfq,
+    category,
+    categoryChain,
+    categoryId: category?._id ? String(category._id) : '',
+    cityId: toIdString(rfq?.city),
+    districtId: toIdString(rfq?.district),
+    buyerId: toIdString(rfq?.buyer),
+    segment,
+    searchText: normalizeText(`${rfq?.title || ''} ${rfq?.description || ''}`)
+  };
+};
+
+const matchSubscriptionAgainstRfq = (subscription, rfqDescriptor, context) => {
+  if (!subscription?.isActive || !rfqDescriptor?.rfq?._id) {
+    return null;
+  }
+
+  if (subscription.type === 'keyword') {
+    if (!subscription.keywordNormalized || !rfqDescriptor.searchText) {
+      return null;
+    }
+    return rfqDescriptor.searchText.includes(subscription.keywordNormalized) ? 'keyword' : null;
+  }
+
+  const subscriptionCategory = resolveCategoryDescriptor(subscription.category, context);
+  const subscriptionCategoryId = subscriptionCategory?._id ? String(subscriptionCategory._id) : '';
+  if (!subscriptionCategoryId) {
+    return null;
+  }
+
+  const subscriptionSegment = String(subscriptionCategory.segment || '').trim().toLowerCase();
+  if (subscriptionSegment && rfqDescriptor.segment && subscriptionSegment !== rfqDescriptor.segment) {
+    return null;
+  }
+
+  if (!rfqDescriptor.categoryChain.has(subscriptionCategoryId)) {
+    return null;
+  }
+
+  const subscriptionCityId = toIdString(subscription.city);
+  const subscriptionDistrictId = toIdString(subscription.district);
+
+  if (subscription.type === 'category') {
+    return 'category';
+  }
+  if (subscription.type === 'category_city') {
+    return subscriptionCityId && subscriptionCityId === rfqDescriptor.cityId ? 'category_city' : null;
+  }
+  if (subscription.type === 'category_city_district') {
+    return subscriptionCityId &&
+      subscriptionDistrictId &&
+      subscriptionCityId === rfqDescriptor.cityId &&
+      subscriptionDistrictId === rfqDescriptor.districtId
+      ? 'category_city_district'
+      : null;
+  }
+  return null;
+};
+
+const buildMatchInsert = ({ subscription, rfqDescriptor, matchedBy }) => ({
+  subscription: subscription._id,
+  user: subscription.user,
+  rfq: rfqDescriptor.rfq._id,
+  category: rfqDescriptor.category?._id || undefined,
+  city: rfqDescriptor.rfq?.city || undefined,
+  district: rfqDescriptor.rfq?.district || undefined,
+  matchedBy,
+  isNotified: false
+});
+
+const upsertMatchRecord = async ({ subscription, rfqDescriptor, matchedBy }) => {
+  const existing = await SubscriptionMatch.findOne({
+    subscription: subscription._id,
+    rfq: rfqDescriptor.rfq._id
+  }).lean();
+  if (existing) {
+    return { inserted: false, matchId: existing._id };
+  }
+
+  const created = await SubscriptionMatch.create(buildMatchInsert({ subscription, rfqDescriptor, matchedBy }));
+  return { inserted: true, matchId: created._id };
+};
+
+const shouldThrottle = (subscription) => {
+  if (!subscription?.lastTriggeredAt) return false;
+  return Date.now() - new Date(subscription.lastTriggeredAt).getTime() < THROTTLE_WINDOW_MS;
 };
 
 export const buildSubscriptionPayload = ({ type, categoryId, cityId, districtId, keyword, notifyPush, notifyInApp }) => {
@@ -90,29 +281,43 @@ export const buildSubscriptionPayload = ({ type, categoryId, cityId, districtId,
 
 export const listUserSubscriptions = async (userId) => {
   return NotificationSubscription.find({ user: userId })
-    .populate('category', 'name')
+    .populate('category', 'name slug parent segment')
     .populate('city', 'name')
     .populate('district', 'name')
     .sort({ createdAt: -1 })
     .lean();
 };
 
-export const listUserSubscriptionsWithMatches = async (userId, limit = 3) => {
+export const listUserSubscriptionsWithMatches = async (userId, limit = 10) => {
+  await ensureRfqLifecycle();
   const subs = await listUserSubscriptions(userId);
   if (!subs.length) return [];
+
   const subIds = subs.map((s) => s._id);
   const matches = await SubscriptionMatch.find({ user: userId, subscription: { $in: subIds } })
-    .populate('rfq', 'title city district createdAt')
-    .populate('city', 'name')
-    .populate('district', 'name')
     .sort({ createdAt: -1 })
     .lean();
 
+  const rfqIds = [...new Set(matches.map((item) => toIdString(item.rfq)).filter(Boolean))];
+  const activeRfqQuery = buildActiveRfqQuery();
+  activeRfqQuery._id = { $in: rfqIds };
+
+  const rfqs = await RFQ.find(activeRfqQuery)
+    .populate('category', 'name slug parent segment')
+    .populate('city', 'name')
+    .populate('district', 'name')
+    .select('title category city district createdAt status expiresAt isDeleted segment')
+    .lean();
+
+  const rfqMap = new Map(rfqs.map((rfq) => [String(rfq._id), rfq]));
+
   const grouped = new Map();
   matches.forEach((item) => {
-    const key = String(item.subscription);
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(item);
+    const subscriptionKey = String(item.subscription);
+    const rfq = rfqMap.get(toIdString(item.rfq));
+    if (!rfq) return;
+    if (!grouped.has(subscriptionKey)) grouped.set(subscriptionKey, []);
+    grouped.get(subscriptionKey).push({ ...item, rfq });
   });
 
   return subs.map((sub) => {
@@ -126,8 +331,9 @@ export const listUserSubscriptionsWithMatches = async (userId, limit = 3) => {
         subscriptionId: m.subscription,
         rfqId: m.rfq?._id || m.rfq,
         title: m.rfq?.title || 'Yeni talep',
-        cityName: m.city?.name || '',
-        districtName: m.district?.name || '',
+        categoryName: m.rfq?.category?.name || '',
+        cityName: m.rfq?.city?.name || '',
+        districtName: m.rfq?.district?.name || '',
         createdAt: m.createdAt,
         isSeen: m.isSeen,
         matchedBy: m.matchedBy
@@ -135,6 +341,11 @@ export const listUserSubscriptionsWithMatches = async (userId, limit = 3) => {
       unreadCount
     };
   });
+};
+
+export const hydrateSubscriptionWithMatches = async (userId, subscriptionId, limit = 10) => {
+  const items = await listUserSubscriptionsWithMatches(userId, limit);
+  return items.find((item) => String(item._id) === String(subscriptionId)) || null;
 };
 
 const hasDuplicateNotification = async ({ userId, rfqId, subscriptionId }) => {
@@ -146,11 +357,6 @@ const hasDuplicateNotification = async ({ userId, rfqId, subscriptionId }) => {
     'payload.subscriptionId': String(subscriptionId)
   }).lean();
   return Boolean(existing);
-};
-
-const shouldThrottle = (subscription) => {
-  if (!subscription?.lastTriggeredAt) return false;
-  return Date.now() - new Date(subscription.lastTriggeredAt).getTime() < THROTTLE_WINDOW_MS;
 };
 
 const getDailyPushLimit = async () => {
@@ -220,125 +426,166 @@ const logSkippedPush = async ({ userId, payload, reason, meta }) => {
   });
 };
 
-const matchCategorySubscriptions = (subscriptions, rfq) => {
-  const categoryId = String(rfq?.category?._id || rfq?.category || '');
-  const cityId = String(rfq?.city?._id || rfq?.city || '');
-  const districtId = String(rfq?.district?._id || rfq?.district || '');
+export const backfillSubscriptionMatches = async (subscriptionInput) => {
+  const subscription =
+    subscriptionInput?._id
+      ? subscriptionInput
+      : await NotificationSubscription.findById(subscriptionInput)
+        .populate('category', 'name slug parent segment')
+        .populate('city', 'name')
+        .populate('district', 'name')
+        .lean();
 
-  return subscriptions.filter((sub) => {
-    const subCategoryId = String(sub.category?._id || sub.category || '');
-    const subCityId = String(sub.city?._id || sub.city || '');
-    const subDistrictId = String(sub.district?._id || sub.district || '');
-    if (subCategoryId !== categoryId) return false;
-    if (sub.type === 'category') return true;
-    if (sub.type === 'category_city') return subCityId === cityId;
-    if (sub.type === 'category_city_district') {
-      return subCityId === cityId && subDistrictId === districtId;
-    }
-    return false;
-  });
-};
+  if (!subscription?._id || !subscription.isActive) {
+    return { matched: 0, inserted: 0 };
+  }
 
-const matchKeywordSubscriptions = (subscriptions, rfq) => {
-  const text = normalizeText(`${rfq?.title || ''} ${rfq?.description || ''}`);
-  if (!text) return [];
-  return subscriptions.filter((sub) => {
-    if (!sub.keywordNormalized) return false;
-    return text.includes(sub.keywordNormalized);
+  await ensureRfqLifecycle();
+  const categoryContext = await loadCategoryContext();
+  const subscriptionCategory = resolveCategoryDescriptor(subscription.category, categoryContext);
+  const query = buildActiveRfqQuery({
+    segment: subscriptionCategory?.segment || undefined,
+    city: subscription.type === 'category_city' || subscription.type === 'category_city_district' ? subscription.city : undefined,
+    district: subscription.type === 'category_city_district' ? subscription.district : undefined
   });
+
+  const rfqs = await RFQ.find(query)
+    .select('title description category segment city district buyer createdAt status expiresAt isDeleted')
+    .lean();
+
+  const operations = [];
+  let matched = 0;
+
+  rfqs.forEach((rfq) => {
+    const descriptor = buildRfqDescriptor(rfq, categoryContext);
+    if (!descriptor.rfq?._id) return;
+    if (descriptor.buyerId && descriptor.buyerId === toIdString(subscription.user)) return;
+    const matchedBy = matchSubscriptionAgainstRfq(subscription, descriptor, categoryContext);
+    if (!matchedBy) return;
+    matched += 1;
+    operations.push({
+      updateOne: {
+        filter: {
+          subscription: subscription._id,
+          rfq: descriptor.rfq._id
+        },
+        update: {
+          $setOnInsert: buildMatchInsert({
+            subscription,
+            rfqDescriptor: descriptor,
+            matchedBy
+          })
+        },
+        upsert: true
+      }
+    });
+  });
+
+  if (!operations.length) {
+    return { matched, inserted: 0 };
+  }
+
+  const result = await SubscriptionMatch.bulkWrite(operations, { ordered: false });
+  return {
+    matched,
+    inserted: result?.upsertedCount || 0
+  };
 };
 
 export const triggerMatchingAlertsForRfq = async (rfq) => {
   if (!rfq?._id) return { matched: 0, sent: 0 };
-  const ownerId = String(rfq?.buyer?._id || rfq?.buyer || '');
+  await ensureRfqLifecycle();
 
-  const [categorySubs, keywordSubs] = await Promise.all([
-    NotificationSubscription.find({
-      isActive: true,
-      type: { $in: ['category', 'category_city', 'category_city_district'] },
-      category: rfq?.category?._id || rfq?.category || undefined
-    })
-      .populate('category', 'name')
-      .populate('city', 'name')
-      .populate('district', 'name')
-      .lean(),
-    NotificationSubscription.find({ isActive: true, type: 'keyword' })
-      .populate('category', 'name')
-      .populate('city', 'name')
-      .populate('district', 'name')
-      .lean()
-  ]);
+  const categoryContext = await loadCategoryContext();
+  const rfqDescriptor = buildRfqDescriptor(rfq, categoryContext);
+  const ownerId = rfqDescriptor.buyerId;
 
-  const matchedCategory = matchCategorySubscriptions(categorySubs, rfq).map((sub) => ({ sub, matchedBy: sub.type }));
-  const matchedKeyword = matchKeywordSubscriptions(keywordSubs, rfq).map((sub) => ({ sub, matchedBy: 'keyword' }));
-  const matched = [...matchedCategory, ...matchedKeyword];
+  const subscriptionQuery = {
+    isActive: true,
+    type: { $in: ['category', 'category_city', 'category_city_district', 'keyword'] }
+  };
+  if (rfqDescriptor.segment) {
+    subscriptionQuery.$or = [
+      { category: { $exists: false } },
+      { category: { $ne: null } }
+    ];
+  }
 
+  const subscriptions = await NotificationSubscription.find(subscriptionQuery)
+    .populate('category', 'name slug parent segment')
+    .populate('city', 'name')
+    .populate('district', 'name')
+    .lean();
+
+  let matched = 0;
   let sent = 0;
-  for (const { sub: subscription, matchedBy } of matched) {
-    const userId = String(subscription.user || '');
+
+  for (const subscription of subscriptions) {
+    const userId = toIdString(subscription.user);
     if (!userId || userId === ownerId) continue;
-    if (!subscription.isActive) continue;
-    if (!subscription.notifyPush && !subscription.notifyInApp) continue;
-    if (shouldThrottle(subscription)) continue;
 
-    const existingMatch = await SubscriptionMatch.findOne({
-      subscription: subscription._id,
-      rfq: rfq._id
-    }).lean();
-    if (existingMatch) {
-      continue;
-    }
+    const matchedBy = matchSubscriptionAgainstRfq(subscription, rfqDescriptor, categoryContext);
+    if (!matchedBy) continue;
+    matched += 1;
 
-    if (await hasDuplicateNotification({ userId, rfqId: rfq._id, subscriptionId: subscription._id })) {
+    const { inserted, matchId } = await upsertMatchRecord({
+      subscription,
+      rfqDescriptor,
+      matchedBy
+    });
+
+    if (!inserted) {
       continue;
     }
 
     const title = rfq?.title || 'Yeni ilan';
-    const categoryName = subscription?.category?.name || '';
+    const categoryName = rfqDescriptor.category?.name || subscription?.category?.name || '';
     const cityName = subscription?.city?.name || '';
     const body = categoryName
       ? `${categoryName}${cityName ? ` - ${cityName}` : ''} kategorisinde yeni ilan var.`
-      : 'Takip ettiğin kriterle eşleşen yeni ilan var.';
+      : 'Takip ettiÄŸin kriterle eÅŸleÅŸen yeni ilan var.';
 
     const payload = {
       rfqId: String(rfq._id),
-      categoryId: String(rfq?.category?._id || rfq?.category || ''),
-      cityId: String(rfq?.city?._id || rfq?.city || ''),
-      districtId: String(rfq?.district?._id || rfq?.district || ''),
+      categoryId: rfqDescriptor.categoryId,
+      cityId: rfqDescriptor.cityId,
+      districtId: rfqDescriptor.districtId,
       subscriptionId: String(subscription._id),
       source: 'subscription_match',
       screen: 'subscriptions'
     };
-
-    const matchRecord = await SubscriptionMatch.create({
-      subscription: subscription._id,
-      user: userId,
-      rfq: rfq._id,
-      category: rfq?.category?._id || rfq?.category || undefined,
-      city: rfq?.city?._id || rfq?.city || undefined,
-      district: rfq?.district?._id || rfq?.district || undefined,
-      matchedBy,
-      isNotified: false
-    });
 
     if (subscription.notifyInApp) {
       await Notification.create({
         user: userId,
         message: `Yeni ilan: ${title}`,
         type: 'system',
-        data: { ...payload, matchId: String(matchRecord._id) },
+        data: { ...payload, matchId: String(matchId) },
         relatedId: rfq._id
       });
     }
 
     if (subscription.notifyPush) {
+      if (shouldThrottle(subscription)) {
+        continue;
+      }
+
+      const duplicateNotification = await hasDuplicateNotification({
+        userId,
+        rfqId: rfq._id,
+        subscriptionId: subscription._id
+      });
+      if (duplicateNotification) {
+        continue;
+      }
+
       const limitReached = await hasReachedDailyLimit(userId);
       if (limitReached) {
         const limit = await getDailyPushLimit();
         const count = await getDailySentCount(userId);
         await logSkippedPush({
           userId,
-          payload: { ...payload, matchId: String(matchRecord._id), title: `Yeni ilan: ${title}`, body },
+          payload: { ...payload, matchId: String(matchId), title: `Yeni ilan: ${title}`, body },
           reason: 'daily_limit',
           meta: { limit, count }
         });
@@ -348,10 +595,10 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
           type: 'new_matching_rfq',
           title: `Yeni ilan: ${title}`,
           body,
-          payload: { ...payload, matchId: String(matchRecord._id) }
+          payload: { ...payload, matchId: String(matchId) }
         });
         if (pushResult?.ok) {
-          await SubscriptionMatch.updateOne({ _id: matchRecord._id }, { $set: { isNotified: true } });
+          await SubscriptionMatch.updateOne({ _id: matchId }, { $set: { isNotified: true } });
         }
       }
     }
@@ -364,5 +611,5 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
     sent += 1;
   }
 
-  return { matched: matched.length, sent };
+  return { matched, sent };
 };

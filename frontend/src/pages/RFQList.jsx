@@ -1165,11 +1165,16 @@ function RFQList() {
       setToast('Takip icin once kategori veya arama sec.');
       return;
     }
-    try {
-      setAlertSubmitting(true);
-      await api.post('/me/alerts', payload);
-      setToast('Takip oluşturuldu. Yeni ilanlarda bildirim alacaksın.');
-    } catch (requestError) {
+      try {
+        setAlertSubmitting(true);
+        const response = await api.post('/me/alerts', payload);
+        const backfilledCount = Number(response.data?.backfilledCount || 0);
+        setToast(
+          backfilledCount > 0
+            ? `Takip oluşturuldu. ${backfilledCount} mevcut talep eklendi.`
+            : 'Takip oluşturuldu. Yeni ilanlarda bildirim alacaksın.'
+        );
+      } catch (requestError) {
       const status = requestError.response?.status;
       if (status === 409) {
         setToast('Bu takip zaten var.');

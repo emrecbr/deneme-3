@@ -1,7 +1,12 @@
 import mongoose from 'mongoose';
 import NotificationSubscription from '../models/NotificationSubscription.js';
 import SubscriptionMatch from '../models/SubscriptionMatch.js';
-import { buildSubscriptionPayload, listUserSubscriptionsWithMatches } from '../src/services/alertSubscriptionService.js';
+import {
+  backfillSubscriptionMatches,
+  buildSubscriptionPayload,
+  hydrateSubscriptionWithMatches,
+  listUserSubscriptionsWithMatches
+} from '../src/services/alertSubscriptionService.js';
 
 const buildDisplay = (item) => ({
   ...item,
@@ -65,15 +70,13 @@ export const createMyAlert = async (req, res, next) => {
       ...payload
     });
 
-    const populated = await NotificationSubscription.findById(subscription._id)
-      .populate('category', 'name')
-      .populate('city', 'name')
-      .populate('district', 'name')
-      .lean();
+    const backfill = await backfillSubscriptionMatches(subscription._id);
+    const populated = await hydrateSubscriptionWithMatches(req.user.id, subscription._id);
 
     return res.status(201).json({
       success: true,
-      data: buildDisplay(populated)
+      data: buildDisplay(populated),
+      backfilledCount: backfill.inserted || 0
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -100,18 +103,20 @@ export const updateMyAlert = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Takip bulunamadi.' });
     }
 
+    const wasInactive = subscription.isActive === false;
     if (typeof isActive === 'boolean') subscription.isActive = isActive;
     if (typeof notifyPush === 'boolean') subscription.notifyPush = notifyPush;
     if (typeof notifyInApp === 'boolean') subscription.notifyInApp = notifyInApp;
 
     await subscription.save();
-    const populated = await NotificationSubscription.findById(subscription._id)
-      .populate('category', 'name')
-      .populate('city', 'name')
-      .populate('district', 'name')
-      .lean();
+    let backfillCount = 0;
+    if (wasInactive && subscription.isActive) {
+      const backfill = await backfillSubscriptionMatches(subscription._id);
+      backfillCount = backfill.inserted || 0;
+    }
+    const populated = await hydrateSubscriptionWithMatches(req.user.id, subscription._id);
 
-    return res.status(200).json({ success: true, data: buildDisplay(populated) });
+    return res.status(200).json({ success: true, data: buildDisplay(populated), backfilledCount: backfillCount });
   } catch (error) {
     return next(error);
   }
@@ -127,6 +132,7 @@ export const deleteMyAlert = async (req, res, next) => {
     if (!removed) {
       return res.status(404).json({ success: false, message: 'Takip bulunamadi.' });
     }
+    await SubscriptionMatch.deleteMany({ subscription: removed._id });
     return res.status(200).json({ success: true });
   } catch (error) {
     return next(error);

@@ -176,7 +176,7 @@ function Login() {
           navigate('/admin', { replace: true });
           return;
         }
-        navigate('/app');
+        navigate('/', { replace: true });
         return;
       }
 
