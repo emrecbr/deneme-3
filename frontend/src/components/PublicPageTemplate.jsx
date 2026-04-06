@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import PublicTopBar from './PublicTopBar';
 import PublicFooter from './PublicFooter';
 
 const ensureMetaDescription = () => {
@@ -28,6 +29,8 @@ function PublicPageTemplate({ title, description, lead, sections }) {
 
   return (
     <div className="public-page-shell">
+      <PublicTopBar title={title} fallbackTo="/profile" />
+
       <section className="public-hero">
         <p className="public-eyebrow">Kurumsal Bilgilendirme</p>
         <h1>{title}</h1>
