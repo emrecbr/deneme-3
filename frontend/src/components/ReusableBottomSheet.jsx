@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import useBottomSheetDrag from '../hooks/useBottomSheetDrag';
 
 function ReusableBottomSheet({
   open,
@@ -9,25 +10,20 @@ function ReusableBottomSheet({
   initialSnap = 'mid',
   className = '',
   contentClassName = '',
-  overlayClassName = ''
+  overlayClassName = '',
+  enableBodyDrag = false
 }) {
   const [mounted, setMounted] = useState(false);
   const [snap, setSnap] = useState(initialSnap);
-  const [dragging, setDragging] = useState(false);
   const [snapping, setSnapping] = useState(false);
   const translateRef = useRef(0);
   const snapPointsRef = useRef({ full: 0, half: 0, closed: 0 });
-  const draggingRef = useRef(false);
-  const startYRef = useRef(0);
-  const startTranslateRef = useRef(0);
   const sheetRef = useRef(null);
-  const handleRef = useRef(null);
   const previousFocusRef = useRef(null);
   const closeTimerRef = useRef(null);
-  const rafRef = useRef(null);
   const snapTimerRef = useRef(null);
 
-  const computeSnapPoints = () => {
+  const computeSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
     const sheetHeight = sheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
     const halfVisible = Math.min(Math.max(vh * 0.7, 520), 720);
@@ -36,33 +32,20 @@ function ReusableBottomSheet({
     const closed = Math.max(sheetHeight - 96, half);
     snapPointsRef.current = { full, half, closed };
     return snapPointsRef.current;
-  };
+  }, []);
 
-  const applyTranslate = (value) => {
+  const applyTranslate = useCallback((value) => {
     translateRef.current = value;
     if (sheetRef.current) {
       sheetRef.current.style.transform = `translate3d(-50%, ${value}px, 0)`;
     }
-  };
+  }, []);
 
-  const scheduleTranslate = (value) => {
-    translateRef.current = value;
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-    }
-    rafRef.current = requestAnimationFrame(() => {
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = `translate3d(-50%, ${translateRef.current}px, 0)`;
-      }
-    });
-  };
-
-  const snapTo = (nextSnap, { animate = true } = {}) => {
+  const snapTo = useCallback((nextSnap, { animate = true } = {}) => {
     const points = snapPointsRef.current;
     const target = points[nextSnap] ?? points.half;
     setSnap(nextSnap);
     setSnapping(Boolean(animate));
-    setDragging(false);
     applyTranslate(target);
     if (snapTimerRef.current) {
       window.clearTimeout(snapTimerRef.current);
@@ -74,7 +57,36 @@ function ReusableBottomSheet({
     } else {
       setSnapping(false);
     }
-  };
+  }, [applyTranslate]);
+
+  const { dragging, onSurfacePointerDown, resetDragState } = useBottomSheetDrag({
+    sheetRef,
+    getSnapPoints: computeSnapPoints,
+    getCurrentTranslate: () => translateRef.current,
+    onTranslate: applyTranslate,
+    getSnapCandidates: (points) => [
+      { key: 'full', value: points.full },
+      { key: 'half', value: points.half },
+      { key: 'closed', value: points.closed }
+    ],
+    onDragStart: () => {
+      setSnapping(false);
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = 'none';
+      }
+    },
+    onResolveSnap: ({ nearestKey }) => {
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+      }
+      if (nearestKey === 'closed') {
+        snapTo('closed');
+        onClose?.();
+        return;
+      }
+      snapTo(nearestKey);
+    }
+  });
 
   useEffect(() => {
     if (open) {
@@ -92,7 +104,7 @@ function ReusableBottomSheet({
         window.clearTimeout(closeTimerRef.current);
       }
     };
-  }, [open, initialSnap, mounted]);
+  }, [computeSnapPoints, mounted, open, snapTo]);
 
   useEffect(() => {
     if (!mounted) {
@@ -131,7 +143,7 @@ function ReusableBottomSheet({
     const points = computeSnapPoints();
     const nextSnap = points[initialSnap] != null ? initialSnap : 'half';
     snapTo(nextSnap, { animate: false });
-  }, [mounted, initialSnap]);
+  }, [computeSnapPoints, initialSnap, mounted, snapTo]);
 
   useEffect(() => {
     if (!mounted) {
@@ -143,105 +155,14 @@ function ReusableBottomSheet({
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [mounted, snap]);
+  }, [computeSnapPoints, mounted, snap, snapTo]);
 
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-      if (snapTimerRef.current) {
-        window.clearTimeout(snapTimerRef.current);
-      }
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-    };
-  }, []);
-
-  const onPointerMove = (event) => {
-    if (!draggingRef.current) {
-      return;
+  useEffect(() => () => {
+    if (snapTimerRef.current) {
+      window.clearTimeout(snapTimerRef.current);
     }
-    if (import.meta.env?.DEV) {
-      console.log('[sheet] move', { y: event.clientY });
-    }
-    const currentY = event.clientY;
-    const deltaY = currentY - startYRef.current;
-    const points = snapPointsRef.current;
-    const minY = points.full;
-    const maxY = points.closed;
-    let next = startTranslateRef.current + deltaY;
-    next = Math.min(maxY, Math.max(minY, next));
-    scheduleTranslate(next);
-  };
-
-  const onPointerUp = (event) => {
-    if (!draggingRef.current) {
-      return;
-    }
-    if (import.meta.env?.DEV) {
-      console.log('[sheet] up');
-    }
-    draggingRef.current = false;
-    setDragging(false);
-    document.body.classList.remove('rb-dragging');
-    if (handleRef.current && event?.pointerId != null) {
-      handleRef.current.releasePointerCapture?.(event.pointerId);
-    }
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
-    }
-    const points = snapPointsRef.current;
-    const currentTranslate = translateRef.current;
-    const candidates = [
-      { key: 'full', value: points.full },
-      { key: 'half', value: points.half },
-      { key: 'closed', value: points.closed }
-    ];
-    let nearest = candidates[0];
-    let minDistance = Math.abs(currentTranslate - candidates[0].value);
-    candidates.forEach((candidate) => {
-      const dist = Math.abs(currentTranslate - candidate.value);
-      if (dist < minDistance) {
-        minDistance = dist;
-        nearest = candidate;
-      }
-    });
-    if (nearest.key === 'closed') {
-      snapTo('closed');
-      onClose?.();
-      return;
-    }
-    snapTo(nearest.key);
-  };
-
-  const onHandlePointerDown = (event) => {
-    if (!handleRef.current) {
-      return;
-    }
-    if (event.button !== undefined && event.button !== 0) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (import.meta.env?.DEV) {
-      console.log('[sheet] handle down', { y: event.clientY, pointerId: event.pointerId });
-    }
-    handleRef.current.setPointerCapture?.(event.pointerId);
-    draggingRef.current = true;
-    setDragging(true);
-    setSnapping(false);
-    document.body.classList.add('rb-dragging');
-    startYRef.current = event.clientY;
-    startTranslateRef.current = translateRef.current;
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = 'none';
-    }
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
-    window.addEventListener('pointerup', onPointerUp, { passive: true });
-    window.addEventListener('pointercancel', onPointerUp, { passive: true });
-  };
+    resetDragState();
+  }, [resetDragState]);
 
   if (!mounted) {
     return null;
@@ -262,19 +183,27 @@ function ReusableBottomSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <div
-          ref={handleRef}
           className={`rb-sheet-handle-wrap ${dragging ? 'is-dragging' : ''}`}
-          onPointerDown={onHandlePointerDown}
+          onPointerDown={onSurfacePointerDown}
+          data-rb-drag-surface="handle"
           role="button"
           aria-label="Sheet sürükleme çentiği"
         >
           <div className="rb-sheet-handle" />
         </div>
-        <div className={`rb-sheet-header ${className}`}>
+        <div
+          className={`rb-sheet-header ${className}`}
+          data-rb-drag-surface="header"
+          onPointerDown={onSurfacePointerDown}
+        >
           <strong>{title}</strong>
           {headerRight}
         </div>
-        <div className={`rb-sheet-body ${snap === 'collapsed' ? 'collapsed' : ''}`}>
+        <div
+          className={`rb-sheet-body ${snap === 'collapsed' ? 'collapsed' : ''}`}
+          data-rb-scroll-lock="true"
+          {...(enableBodyDrag ? { 'data-rb-drag-surface': 'body', onPointerDown: onSurfacePointerDown } : {})}
+        >
           {children}
         </div>
       </div>

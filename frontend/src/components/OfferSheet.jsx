@@ -95,7 +95,7 @@ function OfferSheet({
         </button>
       }
     >
-      <form className="offer-sheet-form" onSubmit={handleSubmit}>
+      <form className="offer-sheet-form" onSubmit={handleSubmit} data-rb-no-drag="true">
         {isAuction ? (
           <div className="rfq-sub">Acik arttirma: Yeni teklif mevcut en iyi tekliften dusuk olmali.</div>
         ) : null}

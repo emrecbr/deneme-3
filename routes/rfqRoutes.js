@@ -12,6 +12,7 @@ import Chat from '../models/Chat.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
+import { getRecommendedRfqsForDetail } from '../src/services/rfqRecommendationService.js';
 import { emitToRoom } from '../config/socket.js';
 import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
@@ -944,6 +945,30 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
       data: rfqData
     });
   } catch (error) {
+    return next(error);
+  }
+});
+
+rfqRoutes.get('/:id/recommendations', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 24);
+    const result = await getRecommendedRfqsForDetail({
+      rfqId: req.params.id,
+      userId: req.user?.id || null,
+      limit
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    if (error?.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message
+      });
+    }
     return next(error);
   }
 });

@@ -1,0 +1,15 @@
+{
+  "name": "jarvis-agent",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.6.5",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "corepack pnpm --filter @jarvis/desktop dev",
+    "build": "corepack pnpm --filter @jarvis/desktop build",
+    "typecheck": "corepack pnpm --filter @jarvis/desktop typecheck"
+  }
+}

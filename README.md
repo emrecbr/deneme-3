@@ -36,7 +36,7 @@ Not: `/Users/c1/talepet/backend` bu proje için eski/yanlış klasör.
   - Prod: `VITE_API_URL=https://api.talepet.net.tr/api`
 - Not: Client tarafı `/api` yolunu otomatik ekler.
 - Socket.io için (opsiyonel):
-  - `VITE_SOCKET_URL=https://deneme-3-1le0.onrender.com`
+  - `VITE_SOCKET_URL=https://api.talepet.net.tr`
 - Vercel’de **Root Directory**: `frontend`
 
 ### Backend (Express)
@@ -86,13 +86,13 @@ curl -i -X POST "http://localhost:3001/api/auth/sms/send" \
 ### OTP Send (Email/SMS) - Prod (Render)
 
 ```
-curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/send" \
+curl -i --max-time 20 -X POST "https://api.talepet.net.tr/api/auth/otp/send" \
   -H "Content-Type: application/json" \
   -d '{"channel":"sms","phone":"+905XXXXXXXXX"}'
 ```
 
 ```
-curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/send" \
+curl -i --max-time 20 -X POST "https://api.talepet.net.tr/api/auth/otp/send" \
   -H "Content-Type: application/json" \
   -d '{"channel":"email","email":"talepet0@gmail.com"}'
 ```
@@ -100,7 +100,7 @@ curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/otp/s
 ### SMS Send (Legacy Endpoint) - Prod (Render)
 
 ```
-curl -i --max-time 20 -X POST "https://deneme-3-1le0.onrender.com/api/auth/sms/send" \
+curl -i --max-time 20 -X POST "https://api.talepet.net.tr/api/auth/sms/send" \
   -H "Content-Type: application/json" \
   -d '{"phone":"05394590853"}'
 ```

@@ -170,7 +170,7 @@ function PremiumReturn() {
         }
         initialSnap="mid"
       >
-        <div className="payment-sheet-body">
+        <div className="payment-sheet-body" data-rb-no-drag="true">
           <div className="account-muted">
             Bu karti sonraki odemeler icin kaydetmek ister misin?
           </div>

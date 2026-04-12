@@ -315,7 +315,7 @@ function Layout({ children, showBottomNav = true }) {
         contentClassName="notif-sheet"
         initialSnap="mid"
       >
-        <div className="notif-list">
+        <div className="notif-list" data-rb-no-drag="true">
           {notifications.length ? (
             notifications.map((item) => (
               <button

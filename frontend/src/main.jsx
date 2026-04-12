@@ -4,7 +4,10 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
+import { resolveSurfaceLabel } from "./config/surfaces";
 import "./styles.css";
+
+document.documentElement.dataset.surface = resolveSurfaceLabel(window.location.pathname);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter

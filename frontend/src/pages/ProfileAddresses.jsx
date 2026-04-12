@@ -358,7 +358,7 @@ function ProfileAddresses() {
           </button>
         }
       >
-        <form className="offer-sheet-form" onSubmit={handleSubmit}>
+        <form className="offer-sheet-form" onSubmit={handleSubmit} data-rb-no-drag="true">
           <label className="offer-field">
             <input
               name="title"

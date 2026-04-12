@@ -100,7 +100,7 @@ export default function ReportIssueSheet({
       }
       initialSnap="mid"
     >
-      <form onSubmit={handleSubmit} className="report-form">
+      <form onSubmit={handleSubmit} className="report-form" data-rb-no-drag="true">
         {relatedRfqTitle ? (
           <div className="report-meta">
             <span className="report-label">İlgili İlan</span>

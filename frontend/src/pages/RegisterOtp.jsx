@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
+import { APP_HOME_PATH } from '../config/surfaces';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -148,7 +149,7 @@ function RegisterOtp() {
         localStorage.setItem('token', data.token);
       }
       setSuccess('Kayıt tamamlandı.');
-      navigate('/app');
+      navigate(APP_HOME_PATH);
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {

@@ -1,13 +1,11 @@
 import crypto from 'crypto';
 import { createConversationId, requestIyzico } from './client.js';
+import { buildSurfaceUrl, getAppSurfaceConfig } from '../../config/surfaceConfig.js';
 
 const resolveAppBaseUrl = () => {
-  const candidates = [process.env.FRONTEND_URL, process.env.CLIENT_ORIGIN, process.env.APP_BASE_URL]
-    .map((value) => String(value || '').trim().replace(/\/$/, ''))
-    .filter(Boolean);
-
-  if (candidates.length) {
-    return candidates[0];
+  const appSurface = getAppSurfaceConfig();
+  if (appSurface.value) {
+    return appSurface.value;
   }
 
   if (process.env.NODE_ENV !== 'production') {
@@ -27,7 +25,7 @@ export const createCheckout = async ({ user, plan, mode, paymentId }) => {
     throw error;
   }
 
-  const returnUrl = `${appBaseUrl}/premium/return?paymentId=${paymentId}`;
+  const returnUrl = buildSurfaceUrl('app', '/premium/return', { paymentId }) || `${appBaseUrl}/premium/return?paymentId=${paymentId}`;
   const payload = {
     conversationId,
     price: plan.price,

@@ -10,6 +10,11 @@ import { sendOtpSms } from '../src/services/sms.js';
 import PhoneOtp from '../models/PhoneOtp.js';
 import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
 import { logAuthEvent } from '../src/utils/authLog.js';
+import {
+  buildSurfaceUrl,
+  getApiSurfaceConfig,
+  getAppSurfaceConfig
+} from '../src/config/surfaceConfig.js';
 
 const TOKEN_COOKIE_NAME = 'token';
 const TOKEN_EXPIRES_IN = '7d';
@@ -94,18 +99,9 @@ const getRequestBaseUrl = (req) => {
 };
 
 const getFrontendBaseConfig = () => {
-  const candidates = [
-    ['FRONTEND_URL', process.env.FRONTEND_URL],
-    ['CLIENT_ORIGIN', process.env.CLIENT_ORIGIN],
-    ['APP_BASE_URL', process.env.APP_BASE_URL]
-  ];
-
-  const matched = candidates.find(([, value]) => String(value || '').trim());
-  if (matched) {
-    return {
-      value: String(matched[1]).trim().replace(/\/$/, ''),
-      source: matched[0]
-    };
+  const resolved = getAppSurfaceConfig();
+  if (resolved.value) {
+    return resolved;
   }
 
   if (process.env.NODE_ENV !== 'production') {
@@ -123,12 +119,42 @@ const getFrontendBaseConfig = () => {
 
 const getFrontendBaseUrl = () => getFrontendBaseConfig().value;
 
+const getApiBaseConfig = (req) => {
+  const resolved = getApiSurfaceConfig();
+  if (resolved.value) {
+    return resolved;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    const requestBase = getRequestBaseUrl(req);
+    if (requestBase) {
+      return {
+        value: `${requestBase}/api`,
+        source: 'request_fallback'
+      };
+    }
+  }
+
+  return {
+    value: '',
+    source: 'missing'
+  };
+};
+
 const getGoogleCallbackConfig = (req) => {
   const configured = String(process.env.GOOGLE_CALLBACK_URL || '').trim();
   if (configured && configured.includes('/api/auth/google/callback')) {
     return {
       value: configured,
       source: 'GOOGLE_CALLBACK_URL'
+    };
+  }
+
+  const apiBaseConfig = getApiBaseConfig(req);
+  if (apiBaseConfig.value) {
+    return {
+      value: `${apiBaseConfig.value}/auth/google/callback`,
+      source: `${apiBaseConfig.source}_google_callback`
     };
   }
 
@@ -156,6 +182,14 @@ const getAppleCallbackConfig = (req) => {
     return {
       value: configured,
       source: 'APPLE_CALLBACK_URL'
+    };
+  }
+
+  const apiBaseConfig = getApiBaseConfig(req);
+  if (apiBaseConfig.value) {
+    return {
+      value: `${apiBaseConfig.value}/auth/apple/callback`,
+      source: `${apiBaseConfig.source}_apple_callback`
     };
   }
 
@@ -334,19 +368,24 @@ const mapGoogleCallbackErrorToReason = (error) => {
 const redirectToFrontend = (res, path, params = {}) => {
   const frontendConfig = getFrontendBaseConfig();
   const frontendBaseUrl = frontendConfig.value;
-  if (!frontendBaseUrl) {
+  const redirectUrl = frontendBaseUrl
+    ? buildSurfaceUrl('app', path, params) || (() => {
+        const url = new URL(path, `${frontendBaseUrl}/`);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value != null && value !== '') {
+            url.searchParams.set(key, String(value));
+          }
+        });
+        return url.toString();
+      })()
+    : '';
+  if (!redirectUrl) {
     const error = new Error('FRONTEND_REDIRECT_RESOLUTION_FAILED');
     error.code = 'FRONTEND_REDIRECT_RESOLUTION_FAILED';
     error.meta = { frontendBaseUrlSource: frontendConfig.source };
     throw error;
   }
-  const url = new URL(path, `${frontendBaseUrl}/`);
-  Object.entries(params).forEach(([key, value]) => {
-    if (value != null && value !== '') {
-      url.searchParams.set(key, String(value));
-    }
-  });
-  return res.redirect(url.toString());
+  return res.redirect(redirectUrl);
 };
 
 const verifyGoogleIdToken = async (idToken) => {

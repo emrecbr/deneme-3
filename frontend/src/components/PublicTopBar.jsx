@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
+import { WEB_HOME_PATH } from '../config/surfaces';
 
-function PublicTopBar({ title, fallbackTo = '/profile' }) {
+function PublicTopBar({ title, fallbackTo = WEB_HOME_PATH }) {
   const navigate = useNavigate();
 
   const handleBack = () => {

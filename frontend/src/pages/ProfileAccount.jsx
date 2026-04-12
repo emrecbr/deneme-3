@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
+import CategorySelector from '../components/CategorySelector';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { useAuth } from '../context/AuthContext';
 
@@ -48,6 +49,21 @@ const formatExpiry = (value) => {
 
 const formatCvv = (value) => String(value || '').replace(/\D/g, '').slice(0, 4);
 
+const ALERT_SEGMENT_OPTIONS = [
+  { value: 'goods', label: 'Eşya' },
+  { value: 'service', label: 'Hizmet' },
+  { value: 'auto', label: 'Otomobil' },
+  { value: 'jobseeker', label: 'İş Arayan' }
+];
+
+const inferAlertType = ({ categoryId, cityId, districtId, keyword }) => {
+  if (categoryId && cityId && districtId) return 'category_city_district';
+  if (categoryId && cityId) return 'category_city';
+  if (categoryId) return 'category';
+  if (String(keyword || '').trim()) return 'keyword';
+  return '';
+};
+
 function ProfileAccount() {
   const { checkAuth } = useAuth();
   const location = useLocation();
@@ -90,15 +106,16 @@ function ProfileAccount() {
   const [alertsError, setAlertsError] = useState('');
   const [alertsSheetOpen, setAlertsSheetOpen] = useState(false);
   const [alertForm, setAlertForm] = useState({
-    type: 'category',
+    segment: '',
     categoryId: '',
+    categoryName: '',
     cityId: '',
     districtId: '',
     keyword: ''
   });
   const [alertFormLoading, setAlertFormLoading] = useState(false);
   const [alertFormError, setAlertFormError] = useState('');
-  const [categories, setCategories] = useState([]);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [cities, setCities] = useState([]);
   const [districts, setDistricts] = useState([]);
 
@@ -200,12 +217,10 @@ function ProfileAccount() {
     };
     const fetchMeta = async () => {
       try {
-        const [categoryRes, cityRes] = await Promise.all([
-          api.get('/categories'),
+        const [cityRes] = await Promise.all([
           api.get('/location/cities?limit=200')
         ]);
         if (!active) return;
-        setCategories(categoryRes.data?.data || []);
         setCities(cityRes.data?.items || []);
       } catch (_error) {
         // ignore
@@ -245,7 +260,16 @@ function ProfileAccount() {
 
   const phoneDisplay = useMemo(() => formatPhone(form.phoneDigits), [form.phoneDigits]);
   const phoneError =
-    form.phoneDigits && form.phoneDigits.length !== 10 ? 'Telefon 10 hane olmalı (5xx...)' : '';
+    form.phoneDigits && form.phoneDigits.length !== 10 ? 'Telefon 10 hane olmalÄ± (5xx...)' : '';
+
+  const selectedCity = useMemo(
+    () => cities.find((city) => String(city._id || city.id) === String(alertForm.cityId || '')),
+    [cities, alertForm.cityId]
+  );
+  const selectedDistrict = useMemo(
+    () => districts.find((district) => String(district._id || district.id) === String(alertForm.districtId || '')),
+    [districts, alertForm.districtId]
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -284,17 +308,17 @@ function ProfileAccount() {
           phoneDigits: response.data.data.phone ? response.data.data.phone.replace('+90', '') : prev.phoneDigits
         }));
       }
-      showToast('Bilgilerin güncellendi');
+      showToast('Bilgilerin gÃ¼ncellendi');
       await checkAuth();
     } catch (requestError) {
       const status = requestError.response?.status;
-      const message = requestError.response?.data?.message || 'Güncelleme başarısız';
+      const message = requestError.response?.data?.message || 'GÃ¼ncelleme baÅŸarÄ±sÄ±z';
       if (!requestError.response) {
         setError('Sunucuya baglanilamadi');
-        showToast('Sunucuya bağlanılamadı');
+        showToast('Sunucuya baÄŸlanÄ±lamadÄ±');
       } else if (status === 409) {
         setError('Bu e-posta zaten kullaniliyor');
-        showToast('Bu e-posta zaten kullanılıyor');
+        showToast('Bu e-posta zaten kullanÄ±lÄ±yor');
       } else {
         setError(message);
         showToast(message);
@@ -314,7 +338,7 @@ function ProfileAccount() {
     setPasswordError('');
     const { currentPassword, newPassword, confirmPassword } = passwordForm;
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Tüm alanları doldur');
+      setPasswordError('TÃ¼m alanlarÄ± doldur');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -322,7 +346,7 @@ function ProfileAccount() {
       return;
     }
     if (!passwordPolicy(newPassword)) {
-      setPasswordError('Şifre en az 3 karakter, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli');
+      setPasswordError('Åifre en az 3 karakter, 1 bÃ¼yÃ¼k harf, 1 sayÄ± ve 1 Ã¶zel karakter iÃ§ermeli');
       return;
     }
 
@@ -334,19 +358,19 @@ function ProfileAccount() {
       });
       setPasswordOpen(false);
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      showToast('Şifre güncellendi');
+      showToast('Åifre gÃ¼ncellendi');
     } catch (requestError) {
       const code = requestError.response?.data?.code;
       if (code === 'BAD_PASSWORD') {
         setPasswordError('Mevcut sifre yanlis');
       } else if (code === 'WEAK_PASSWORD') {
-        setPasswordError('Şifre kurallarını sağlamıyor');
+        setPasswordError('Åifre kurallarÄ±nÄ± saÄŸlamÄ±yor');
       } else if (code === 'SAME_PASSWORD') {
         setPasswordError('Yeni sifre eski sifre ile ayni olamaz');
       } else if (!requestError.response) {
         setPasswordError('Sunucuya baglanilamadi');
       } else {
-        setPasswordError(requestError.response?.data?.message || 'Şifre güncellenemedi');
+        setPasswordError(requestError.response?.data?.message || 'Åifre gÃ¼ncellenemedi');
       }
     } finally {
       setPasswordLoading(false);
@@ -362,7 +386,7 @@ function ProfileAccount() {
         window.location.href = url;
       }
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Ödeme başlatılamadı.';
+      const message = requestError.response?.data?.message || 'Ã–deme baÅŸlatÄ±lamadÄ±.';
       setError(message);
       showToast(message);
     } finally {
@@ -378,19 +402,19 @@ function ProfileAccount() {
     const expMonth = Number(expiryParts[0] || 0);
     const expYear = Number(expiryParts[1] || 0);
     if (paymentForm.name.trim().length < 2) {
-      setPaymentFormError('Kart üzerindeki isim en az 2 karakter olmalı.');
+      setPaymentFormError('Kart Ã¼zerindeki isim en az 2 karakter olmalÄ±.');
       return;
     }
     if (rawNumber.length < 12) {
-      setPaymentFormError('Kart numarası geçersiz.');
+      setPaymentFormError('Kart numarasÄ± geÃ§ersiz.');
       return;
     }
     if (!expMonth || expMonth < 1 || expMonth > 12 || expiryParts[1]?.length !== 2) {
-      setPaymentFormError('Son kullanma tarihi geçersiz.');
+      setPaymentFormError('Son kullanma tarihi geÃ§ersiz.');
       return;
     }
     if (paymentForm.cvv.length < 3) {
-      setPaymentFormError('CVV geçersiz.');
+      setPaymentFormError('CVV geÃ§ersiz.');
       return;
     }
     try {
@@ -401,7 +425,7 @@ function ProfileAccount() {
         window.location.href = url;
       }
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Kart ekleme başlatılamadı.';
+      const message = requestError.response?.data?.message || 'Kart ekleme baÅŸlatÄ±lamadÄ±.';
       setPaymentError(message);
       showToast(message);
     } finally {
@@ -415,40 +439,44 @@ function ProfileAccount() {
       await api.patch(`/users/me/payment-methods/${methodId}/default`);
       const methodsRes = await api.get('/users/me/payment-methods');
       setPaymentMethods(methodsRes.data?.items || []);
-      showToast('Varsayılan kart güncellendi');
+      showToast('VarsayÄ±lan kart gÃ¼ncellendi');
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Varsayılan kart güncellenemedi.';
+      const message = requestError.response?.data?.message || 'VarsayÄ±lan kart gÃ¼ncellenemedi.';
       setPaymentError(message);
     }
   };
 
   const handleRemoveMethod = async (methodId) => {
-    const confirmed = window.confirm('Bu kartı kaldırmak istediğine emin misin?');
+    const confirmed = window.confirm('Bu kartÄ± kaldÄ±rmak istediÄŸine emin misin?');
     if (!confirmed) return;
     try {
       setPaymentError('');
       await api.delete(`/users/me/payment-methods/${methodId}`);
       const methodsRes = await api.get('/users/me/payment-methods');
       setPaymentMethods(methodsRes.data?.items || []);
-      showToast('Kart kaldırıldı');
+      showToast('Kart kaldÄ±rÄ±ldÄ±');
     } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Kart kaldırılamadı.';
+      const message = requestError.response?.data?.message || 'Kart kaldÄ±rÄ±lamadÄ±.';
       setPaymentError(message);
     }
   };
 
   const buildAlertLabel = (item) => {
-    if (item.type === 'keyword') {
-      return item.keyword ? `"${item.keyword}" geçen ilanlar` : 'Anahtar kelime';
-    }
     const parts = [];
     if (item.categoryName) parts.push(item.categoryName);
     if (item.cityName) parts.push(item.cityName);
     if (item.districtName) parts.push(item.districtName);
+    if (item.keyword) parts.push(`"${item.keyword}"`);
+    if (item.type === 'keyword') {
+      return item.keyword ? `"${item.keyword}" geçen ilanlar` : 'Anahtar kelime';
+    }
     return parts.length ? parts.join(' / ') : 'Kategori takibi';
   };
 
   const buildMatchReason = (match) => {
+    if (match?.matchedBy === 'category_city_district_keyword') return 'Kategori + şehir + ilçe + anahtar kelime eşleşti';
+    if (match?.matchedBy === 'category_city_keyword') return 'Kategori + şehir + anahtar kelime eşleşti';
+    if (match?.matchedBy === 'category_keyword') return 'Kategori + anahtar kelime eşleşti';
     if (match?.matchedBy === 'keyword') return 'Anahtar kelime eşleşti';
     if (match?.matchedBy === 'category_city_district') return 'Kategori + şehir + ilçe eşleşti';
     if (match?.matchedBy === 'category_city') return 'Kategori + şehir eşleşti';
@@ -463,12 +491,12 @@ function ProfileAccount() {
       setAlerts((prev) => prev.map((item) => (item._id === alertId ? updated : item)));
       showToast(!isActive ? 'Takip aktif edildi' : 'Takip pasif edildi');
     } catch (requestError) {
-      showToast(requestError.response?.data?.message || 'Takip güncellenemedi.');
+      showToast(requestError.response?.data?.message || 'Takip gÃ¼ncellenemedi.');
     }
   };
 
   const deleteAlert = async (alertId) => {
-    const confirmed = window.confirm('Bu takibi silmek istediğine emin misin?');
+    const confirmed = window.confirm('Bu takibi silmek istediÄŸine emin misin?');
     if (!confirmed) return;
     try {
       await api.delete(`/me/alerts/${alertId}`);
@@ -503,25 +531,57 @@ function ProfileAccount() {
 
   const resetAlertForm = () => {
     setAlertForm({
-      type: 'category',
+      segment: '',
       categoryId: '',
+      categoryName: '',
       cityId: '',
       districtId: '',
       keyword: ''
     });
     setAlertFormError('');
+    setDistricts([]);
+  };
+
+  const handleAlertCategorySelect = (selection) => {
+    setAlertForm((prev) => ({
+      ...prev,
+      segment: selection?.segment || prev.segment || '',
+      categoryId: selection?._id || '',
+      categoryName: selection?.path?.length ? selection.path.join(' > ') : selection?.name || '',
+      cityId: prev.cityId,
+      districtId: prev.districtId,
+      keyword: prev.keyword
+    }));
+    setCategoryPickerOpen(false);
+  };
+
+  const handleAlertCategoryClear = () => {
+    setAlertForm((prev) => ({
+      ...prev,
+      categoryId: '',
+      categoryName: '',
+      cityId: '',
+      districtId: ''
+    }));
+    setDistricts([]);
+    setCategoryPickerOpen(false);
   };
 
   const handleCreateAlert = async () => {
     try {
       setAlertFormError('');
       setAlertFormLoading(true);
+      const nextType = inferAlertType(alertForm);
+      if (!nextType) {
+        setAlertFormError('Kategori veya anahtar kelime seçmelisin.');
+        return;
+      }
       const payload = {
-        type: alertForm.type,
+        type: nextType,
         categoryId: alertForm.categoryId || undefined,
         cityId: alertForm.cityId || undefined,
         districtId: alertForm.districtId || undefined,
-        keyword: alertForm.keyword || undefined
+        keyword: alertForm.keyword.trim() || undefined
       };
       const response = await api.post('/me/alerts', payload);
       if (response.data?.data) {
@@ -550,7 +610,7 @@ function ProfileAccount() {
     <div className="account-page">
       <div className="account-header">
         <BackIconButton />
-        <h1>Hesabım</h1>
+        <h1>HesabÄ±m</h1>
       </div>
 
       <section className="card account-card">
@@ -558,18 +618,18 @@ function ProfileAccount() {
           <div>
             <h2>Takiplerim</h2>
             <div className="account-muted">
-              İlgilendiğin kategori ve aramalar için yeni ilan bildirimlerini yönet.
+              Ä°lgilendiÄŸin kategori ve aramalar iÃ§in yeni ilan bildirimlerini yÃ¶net.
             </div>
           </div>
           <button type="button" className="primary-btn account-entry-btn" onClick={() => setAlertsSheetOpen(true)}>
-            Takiplerimi Aç
+            Takiplerimi AÃ§
           </button>
         </div>
       </section>
 
       <section className="card account-card">
         <h2>Bilgilerim</h2>
-        {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
+        {loading ? <div className="refresh-text">YÃ¼kleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}
         <form onSubmit={handleSave} className="account-form">
           <label className="account-field">
@@ -615,7 +675,7 @@ function ProfileAccount() {
               <strong>{billingSummary.premiumActive ? 'Aktif' : 'Pasif'}</strong>
             </div>
             <div className="account-row">
-              <span>Premium bitiş</span>
+              <span>Premium bitiÅŸ</span>
               <strong>
                 {billingSummary.premiumUntil
                   ? new Date(billingSummary.premiumUntil).toLocaleDateString('tr-TR')
@@ -623,12 +683,12 @@ function ProfileAccount() {
               </strong>
             </div>
             <div className="account-row">
-              <span>Öne çıkarma kredisi</span>
+              <span>Ã–ne Ã§Ä±karma kredisi</span>
               <strong>{Number(billingSummary.featuredCredits || 0)}</strong>
             </div>
             {billingSummary.subscription?.cancelAtPeriodEnd ? (
               <div className="account-muted">
-                Abonelik dönem sonunda iptal olacak. Bitiş tarihi:{' '}
+                Abonelik dÃ¶nem sonunda iptal olacak. BitiÅŸ tarihi:{' '}
                 {billingSummary.subscription.currentPeriodEnd
                   ? new Date(billingSummary.subscription.currentPeriodEnd).toLocaleDateString('tr-TR')
                   : 'Belirtilmedi'}
@@ -636,40 +696,40 @@ function ProfileAccount() {
             ) : null}
           </div>
         ) : (
-          <div className="refresh-text">Paket bilgisi alınamadı.</div>
+          <div className="refresh-text">Paket bilgisi alÄ±namadÄ±.</div>
         )}
       </section>
 
       <section className="card account-card">
-        <h2>İlan Hakkım</h2>
+        <h2>Ä°lan HakkÄ±m</h2>
         {listingQuota ? (
           <div className="account-rows">
             <div className="account-row">
-              <span>Kalan ücretsiz hak</span>
+              <span>Kalan Ã¼cretsiz hak</span>
               <strong>
                 {listingQuota.remainingFree}/{listingQuota.maxFree}
               </strong>
             </div>
             <div className="account-row">
-              <span>Dönem bitiş</span>
+              <span>DÃ¶nem bitiÅŸ</span>
               <strong>
                 {listingQuota.windowEnd
                   ? new Date(listingQuota.windowEnd).toLocaleDateString('tr-TR')
-                  : 'İlk ilanla başlar'}
+                  : 'Ä°lk ilanla baÅŸlar'}
               </strong>
             </div>
             <div className="account-row">
-              <span>Ücretli ilan hakkı</span>
+              <span>Ãœcretli ilan hakkÄ±</span>
               <strong>{listingQuota.paidListingCredits || 0}</strong>
             </div>
             {listingQuota.remainingFree === 0 ? (
               <div className="account-muted">
-                Bu dönem için ücretsiz hakkın doldu. Ek ilan ücreti: {listingQuota.extraPrice} {listingQuota.currency}
+                Bu dÃ¶nem iÃ§in Ã¼cretsiz hakkÄ±n doldu. Ek ilan Ã¼creti: {listingQuota.extraPrice} {listingQuota.currency}
               </div>
             ) : null}
           </div>
         ) : (
-          <div className="refresh-text">Kota bilgisi alınamadı.</div>
+          <div className="refresh-text">Kota bilgisi alÄ±namadÄ±.</div>
         )}
       </section>
 
@@ -737,87 +797,100 @@ function ProfileAccount() {
         contentClassName="alerts-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setAlertsSheetOpen(false)} aria-label="Kapat">
-            ✕
+            ×
           </button>
         }
         initialSnap="mid"
       >
-        <div className="alert-form">
+        <div className="alert-form" data-rb-no-drag="true">
           <div className="alert-form-title">Yeni takip ekle</div>
           <div className="alert-form-grid">
-            <label className="account-field">
-              <span>Takip tipi</span>
-              <select
-                value={alertForm.type}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setAlertForm((prev) => ({
-                    ...prev,
-                    type: value,
-                    cityId: value === 'category' ? '' : prev.cityId,
-                    districtId: value !== 'category_city_district' ? '' : prev.districtId
-                  }));
-                }}
+            <div className="alert-form-segment-block">
+              <span className="alert-form-label">Segment</span>
+              <div className="alert-form-segment-row">
+                {ALERT_SEGMENT_OPTIONS.map((segment) => (
+                  <button
+                    key={segment.value}
+                    type="button"
+                    className={`cats-inline-chip ${alertForm.segment === segment.value ? 'active' : ''}`}
+                    onClick={() => setAlertForm((prev) => ({
+                      ...prev,
+                      segment: segment.value,
+                      categoryId: '',
+                      categoryName: '',
+                      cityId: '',
+                      districtId: ''
+                    }))}
+                  >
+                    {segment.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="alert-form-category-block">
+              <div className="alert-form-category-head">
+                <span className="alert-form-label">Kategori</span>
+                {alertForm.categoryId ? (
+                  <button type="button" className="link-btn" onClick={handleAlertCategoryClear}>
+                    Temizle
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="secondary-btn alert-form-picker-btn"
+                onClick={() => setCategoryPickerOpen(true)}
               >
-                <option value="category">Kategori</option>
-                <option value="category_city">Kategori + Şehir</option>
-                <option value="category_city_district">Kategori + Şehir + İlçe</option>
-                <option value="keyword">Anahtar Kelime</option>
+                {alertForm.categoryName || (alertForm.segment ? 'Kategori seç' : 'Önce segment seç')}
+              </button>
+              <div className="account-muted">
+                Ana sayfadaki kategori ağacının aynısı kullanılır. Segment seçince yalnız o segmente ait kategoriler açılır.
+              </div>
+            </div>
+
+            <label className="account-field">
+              <span>Şehir</span>
+              <select
+                value={alertForm.cityId}
+                onChange={(event) => setAlertForm((prev) => ({ ...prev, cityId: event.target.value, districtId: '' }))}
+                disabled={!alertForm.categoryId}
+              >
+                <option value="">{alertForm.categoryId ? 'Şehir seç' : 'Önce kategori seç'}</option>
+                {cities.map((city) => (
+                  <option key={city._id || city.id} value={city._id || city.id}>{city.name || city}</option>
+                ))}
               </select>
             </label>
 
-            {alertForm.type !== 'keyword' ? (
-              <label className="account-field">
-                <span>Kategori</span>
-                <select
-                  value={alertForm.categoryId}
-                  onChange={(event) => setAlertForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                >
-                  <option value="">Kategori seç</option>
-                  {categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>{cat.name}</option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <label className="account-field">
-                <span>Anahtar kelime</span>
-                <input
-                  value={alertForm.keyword}
-                  placeholder="Örn: iPhone"
-                  onChange={(event) => setAlertForm((prev) => ({ ...prev, keyword: event.target.value }))}
-                />
-              </label>
-            )}
+            <label className="account-field">
+              <span>İlçe</span>
+              <select
+                value={alertForm.districtId}
+                onChange={(event) => setAlertForm((prev) => ({ ...prev, districtId: event.target.value }))}
+                disabled={!alertForm.cityId}
+              >
+                <option value="">{alertForm.cityId ? 'İlçe seç' : 'Önce şehir seç'}</option>
+                {districts.map((district) => (
+                  <option key={district._id || district.id} value={district._id || district.id}>{district.name || district}</option>
+                ))}
+              </select>
+            </label>
 
-            {alertForm.type === 'category_city' || alertForm.type === 'category_city_district' ? (
-              <label className="account-field">
-                <span>Şehir</span>
-                <select
-                  value={alertForm.cityId}
-                  onChange={(event) => setAlertForm((prev) => ({ ...prev, cityId: event.target.value, districtId: '' }))}
-                >
-                  <option value="">Şehir seç</option>
-                  {cities.map((city) => (
-                    <option key={city._id || city.id} value={city._id || city.id}>{city.name || city}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+            <label className="account-field">
+              <span>Anahtar kelime</span>
+              <input
+                value={alertForm.keyword}
+                placeholder="Örn: kombi, iPhone, parça eşya"
+                onChange={(event) => setAlertForm((prev) => ({ ...prev, keyword: event.target.value }))}
+              />
+            </label>
 
-            {alertForm.type === 'category_city_district' ? (
-              <label className="account-field">
-                <span>İlçe</span>
-                <select
-                  value={alertForm.districtId}
-                  onChange={(event) => setAlertForm((prev) => ({ ...prev, districtId: event.target.value }))}
-                >
-                  <option value="">İlçe seç</option>
-                  {districts.map((district) => (
-                    <option key={district._id || district.id} value={district._id || district.id}>{district.name || district}</option>
-                  ))}
-                </select>
-              </label>
+            {selectedCity || selectedDistrict ? (
+              <div className="account-muted">
+                {selectedCity?.name || selectedCity || ''}
+                {selectedDistrict?.name || selectedDistrict ? ` / ${selectedDistrict?.name || selectedDistrict}` : ''}
+              </div>
             ) : null}
           </div>
           {alertFormError ? <div className="error">{alertFormError}</div> : null}
@@ -825,6 +898,18 @@ function ProfileAccount() {
             {alertFormLoading ? 'Ekleniyor…' : 'Takip Ekle'}
           </button>
         </div>
+
+        <CategorySelector
+          mode="modal"
+          open={categoryPickerOpen}
+          onClose={() => setCategoryPickerOpen(false)}
+          onSelect={handleAlertCategorySelect}
+          onClear={handleAlertCategoryClear}
+          title="Takip kategorisi"
+          selectedCategoryId={alertForm.categoryId}
+          selectedSegment={alertForm.segment}
+          onSegmentChange={(value) => setAlertForm((prev) => ({ ...prev, segment: value, categoryId: '', categoryName: '', cityId: '', districtId: '' }))}
+        />
 
         {alertsLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
         {alertsError ? <div className="error">{alertsError}</div> : null}
@@ -889,16 +974,16 @@ function ProfileAccount() {
         contentClassName="payment-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setPaymentSheetOpen(false)} aria-label="Kapat">
-            ✕
+            âœ•
           </button>
         }
         initialSnap="mid"
       >
-        <div className="payment-sheet-body">
+        <div className="payment-sheet-body" data-rb-no-drag="true">
           <div className="payment-sheet-card">
             <div className="payment-sheet-brand">Talepet</div>
             <div className="payment-sheet-number">
-              {paymentForm.number ? paymentForm.number : '•••• •••• •••• 1234'}
+              {paymentForm.number ? paymentForm.number : 'â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢ â€¢â€¢â€¢â€¢ 1234'}
             </div>
             <div className="payment-sheet-meta">
               <span>{paymentForm.name || 'Ad Soyad'}</span>
@@ -907,7 +992,7 @@ function ProfileAccount() {
           </div>
           <div className="payment-sheet-form">
             <label className="account-field">
-              <span>Kart Üzerindeki İsim</span>
+              <span>Kart Ãœzerindeki Ä°sim</span>
               <input
                 name="cardName"
                 placeholder="Ad Soyad"
@@ -918,7 +1003,7 @@ function ProfileAccount() {
               />
             </label>
             <label className="account-field">
-              <span>Kart Numarası</span>
+              <span>Kart NumarasÄ±</span>
               <input
                 name="cardNumber"
                 inputMode="numeric"
@@ -957,41 +1042,41 @@ function ProfileAccount() {
             </div>
           </div>
           <div className="account-muted">
-            Kart bilgilerin uygulamada saklanmaz. Güvenli ödeme sağlayıcısının ekranında tekrar doğrulanacaktır.
+            Kart bilgilerin uygulamada saklanmaz. GÃ¼venli Ã¶deme saÄŸlayÄ±cÄ±sÄ±nÄ±n ekranÄ±nda tekrar doÄŸrulanacaktÄ±r.
           </div>
           {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
           {paymentError ? <div className="error">{paymentError}</div> : null}
           <button type="button" className="primary-btn" onClick={handleAddPaymentMethod} disabled={paymentLoading}>
-            {paymentLoading ? 'Yönlendiriliyor…' : 'Ödemeye Geç'}
+            {paymentLoading ? 'YÃ¶nlendiriliyorâ€¦' : 'Ã–demeye GeÃ§'}
           </button>
         </div>
       </ReusableBottomSheet>
 
       <section className="card account-card">
-        <h2>Şifre</h2>
-        <p className="rfq-sub">Şifreni güvenli tutmak için düzenli olarak değiştir.</p>
+        <h2>Åifre</h2>
+        <p className="rfq-sub">Åifreni gÃ¼venli tutmak iÃ§in dÃ¼zenli olarak deÄŸiÅŸtir.</p>
         <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(true)}>
-          Şifreyi Değiştir
+          Åifreyi DeÄŸiÅŸtir
         </button>
         <button type="button" className="link-btn" onClick={() => navigate('/forgot-password')}>
-          Şifremi unuttum / Şifre oluştur
+          Åifremi unuttum / Åifre oluÅŸtur
         </button>
       </section>
 
       <ReusableBottomSheet
         open={passwordOpen}
         onClose={() => setPasswordOpen(false)}
-        title="Şifreyi Değiştir"
+        title="Åifreyi DeÄŸiÅŸtir"
         contentClassName="offer-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setPasswordOpen(false)} aria-label="Kapat">
-            ✕
+            âœ•
           </button>
         }
       >
-        <form className="offer-sheet-form" onSubmit={handlePasswordSubmit}>
+        <form className="offer-sheet-form" onSubmit={handlePasswordSubmit} data-rb-no-drag="true">
           <label className="offer-field">
-            <span>Mevcut Şifre</span>
+            <span>Mevcut Åifre</span>
             <input
               type="password"
               name="currentPassword"
@@ -1002,7 +1087,7 @@ function ProfileAccount() {
             />
           </label>
           <label className="offer-field">
-            <span>Yeni Şifre</span>
+            <span>Yeni Åifre</span>
             <input
               type="password"
               name="newPassword"
@@ -1013,10 +1098,10 @@ function ProfileAccount() {
             />
           </label>
           <div className="rfq-sub">
-            Şifre en az 3 karakter olmalı, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli.
+            Åifre en az 3 karakter olmalÄ±, 1 bÃ¼yÃ¼k harf, 1 sayÄ± ve 1 Ã¶zel karakter iÃ§ermeli.
           </div>
           <label className="offer-field">
-            <span>Yeni Şifre (Tekrar)</span>
+            <span>Yeni Åifre (Tekrar)</span>
             <input
               type="password"
               name="confirmPassword"
@@ -1030,7 +1115,7 @@ function ProfileAccount() {
           <div className="offer-sheet-footer">
             <div className="offer-sheet-actions">
               <button type="submit" className="primary-btn" disabled={passwordLoading}>
-                {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                {passwordLoading ? 'GÃ¼ncelleniyor...' : 'Åifreyi GÃ¼ncelle'}
               </button>
               <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(false)}>
                 Vazgec
@@ -1046,3 +1131,4 @@ function ProfileAccount() {
 }
 
 export default ProfileAccount;
+

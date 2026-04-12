@@ -43,10 +43,10 @@ const buildSubscriptionKey = ({ type, categoryId, cityId, districtId, keywordNor
 };
 
 const inferType = ({ categoryId, cityId, districtId, keyword }) => {
-  if (keyword) return 'keyword';
   if (categoryId && cityId && districtId) return 'category_city_district';
   if (categoryId && cityId) return 'category_city';
   if (categoryId) return 'category';
+  if (keyword) return 'keyword';
   return null;
 };
 
@@ -142,20 +142,41 @@ const buildCategoryChain = (category, context) => {
   return ids;
 };
 
+const buildCategoryNames = (category, context) => {
+  const names = [];
+  const visited = new Set();
+  let current = category;
+
+  while (current?._id) {
+    const currentId = String(current._id);
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    if (current.name) {
+      names.push(current.name);
+    }
+    const parentId = toIdString(current.parent);
+    current = parentId ? context.byId.get(parentId) : null;
+  }
+
+  return names;
+};
+
 const buildRfqDescriptor = (rfq, context) => {
   const category = resolveCategoryDescriptor(rfq?.category, context);
   const categoryChain = category ? buildCategoryChain(category, context) : new Set();
+  const categoryNames = category ? buildCategoryNames(category, context) : [];
   const segment = String(rfq?.segment || category?.segment || '').trim().toLowerCase();
   return {
     rfq,
     category,
     categoryChain,
+    categoryNames,
     categoryId: category?._id ? String(category._id) : '',
     cityId: toIdString(rfq?.city),
     districtId: toIdString(rfq?.district),
     buyerId: toIdString(rfq?.buyer),
     segment,
-    searchText: normalizeText(`${rfq?.title || ''} ${rfq?.description || ''}`)
+    searchText: normalizeText(`${rfq?.title || ''} ${rfq?.description || ''} ${categoryNames.join(' ')}`)
   };
 };
 
@@ -164,11 +185,16 @@ const matchSubscriptionAgainstRfq = (subscription, rfqDescriptor, context) => {
     return null;
   }
 
+  const keywordNormalized = normalizeText(subscription.keywordNormalized || subscription.keyword);
+  const keywordMatches = !keywordNormalized || (
+    rfqDescriptor.searchText && rfqDescriptor.searchText.includes(keywordNormalized)
+  );
+
   if (subscription.type === 'keyword') {
-    if (!subscription.keywordNormalized || !rfqDescriptor.searchText) {
+    if (!keywordNormalized || !rfqDescriptor.searchText) {
       return null;
     }
-    return rfqDescriptor.searchText.includes(subscription.keywordNormalized) ? 'keyword' : null;
+    return keywordMatches ? 'keyword' : null;
   }
 
   const subscriptionCategory = resolveCategoryDescriptor(subscription.category, context);
@@ -189,18 +215,24 @@ const matchSubscriptionAgainstRfq = (subscription, rfqDescriptor, context) => {
   const subscriptionCityId = toIdString(subscription.city);
   const subscriptionDistrictId = toIdString(subscription.district);
 
+  if (!keywordMatches) {
+    return null;
+  }
+
   if (subscription.type === 'category') {
-    return 'category';
+    return keywordNormalized ? 'category_keyword' : 'category';
   }
   if (subscription.type === 'category_city') {
-    return subscriptionCityId && subscriptionCityId === rfqDescriptor.cityId ? 'category_city' : null;
+    return subscriptionCityId && subscriptionCityId === rfqDescriptor.cityId
+      ? keywordNormalized ? 'category_city_keyword' : 'category_city'
+      : null;
   }
   if (subscription.type === 'category_city_district') {
     return subscriptionCityId &&
       subscriptionDistrictId &&
       subscriptionCityId === rfqDescriptor.cityId &&
       subscriptionDistrictId === rfqDescriptor.districtId
-      ? 'category_city_district'
+      ? keywordNormalized ? 'category_city_district_keyword' : 'category_city_district'
       : null;
   }
   return null;

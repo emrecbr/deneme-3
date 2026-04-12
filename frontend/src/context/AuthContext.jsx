@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api, { setUnauthorizedHandler } from '../api/axios';
+import { buildCurrentSurfaceHref } from '../config/surfaces';
 
 const AuthContext = createContext(null);
 
@@ -42,7 +43,7 @@ export function AuthProvider({ children }) {
       clearSession();
       api.post('/auth/logout').catch(() => null);
       if (redirect && window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        window.location.href = buildCurrentSurfaceHref(window.location.pathname, '/login');
       }
     },
     [clearSession]

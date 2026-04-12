@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api, { buildProtectedRequestConfig } from '../api/axios';
+import api, { API_BASE_URL, buildProtectedRequestConfig } from '../api/axios';
 import { getSocket } from '../lib/socket';
 import { getProductSchema } from '../lib/rfqProductSchemas';
 import { triggerHaptic } from '../utils/haptic';
@@ -43,6 +43,15 @@ function RFQDetail() {
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatListRef = useRef(null);
+  const recommendationsTrackRef = useRef(null);
+  const recommendationsDragRef = useRef({
+    active: false,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+    pointerId: null
+  });
+  const suppressRecommendationClickRef = useRef(false);
   const tabInitializedRef = useRef(false);
   const viewedOffersRef = useRef(new Set());
   const [activeTab, setActiveTab] = useState('offers');
@@ -57,7 +66,14 @@ function RFQDetail() {
   const [featureLoading, setFeatureLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [monetizationPlans, setMonetizationPlans] = useState([]);
+  const [recommendedRfqs, setRecommendedRfqs] = useState([]);
+  const [recommendationImageMap, setRecommendationImageMap] = useState({});
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState('');
+  const [canScrollRecommendationsPrev, setCanScrollRecommendationsPrev] = useState(false);
+  const [canScrollRecommendationsNext, setCanScrollRecommendationsNext] = useState(false);
   const OFFER_UPDATABLE = ['sent', 'viewed', 'countered'];
+  const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
   const OFFER_FINAL = ['accepted', 'rejected', 'withdrawn', 'completed'];
   const currentUserId = currentUser?.id || currentUser?._id || null;
   const buyerId = typeof rfq?.buyer === 'object' ? rfq?.buyer?._id : rfq?.buyer;
@@ -91,6 +107,36 @@ function RFQDetail() {
       setError(fetchError.response?.data?.message || 'RFQ detayi alinamadi.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecommendations = async () => {
+    if (!id) {
+      setRecommendedRfqs([]);
+      return;
+    }
+
+    try {
+      setRecommendationsLoading(true);
+      setRecommendationsError('');
+      const response = await api.get(`/rfq/${id}/recommendations`, {
+        params: { limit: 10 },
+        ...buildProtectedRequestConfig()
+      });
+      const items = response.data?.data?.items || [];
+      setRecommendedRfqs(
+        items.filter((item) => {
+          const itemId = item?._id || item?.id;
+          return itemId && String(itemId) !== String(id);
+        })
+      );
+    } catch (requestError) {
+      setRecommendedRfqs([]);
+      setRecommendationsError(
+        requestError.response?.data?.message || 'Önerilen talepler yüklenemedi.'
+      );
+    } finally {
+      setRecommendationsLoading(false);
     }
   };
 
@@ -150,6 +196,150 @@ function RFQDetail() {
     fetchRFQ();
     fetchCurrentUser();
   }, [id]);
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, [id]);
+
+  useEffect(() => {
+    let active = true;
+
+    const normalizeImageUrl = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) {
+        return '';
+      }
+      if (/^https?:\/\//i.test(raw)) {
+        return raw;
+      }
+      if (raw.startsWith('/')) {
+        return `${BACKEND_ORIGIN}${raw}`;
+      }
+      return `${BACKEND_ORIGIN}/${raw}`;
+    };
+
+    const collectImageCandidates = (item) => {
+      const directCandidates = [];
+
+      if (Array.isArray(item?.images)) {
+        directCandidates.push(...item.images);
+      }
+      if (Array.isArray(item?.photos)) {
+        directCandidates.push(...item.photos);
+      }
+      if (item?.image) {
+        directCandidates.push(item.image);
+      }
+      if (item?.photo) {
+        directCandidates.push(item.photo);
+      }
+
+      const normalized = directCandidates
+        .map(normalizeImageUrl)
+        .filter(Boolean);
+
+      return [...new Set(normalized)];
+    };
+
+    const hydrateRecommendationImages = async () => {
+      if (!recommendedRfqs.length) {
+        if (active) {
+          setRecommendationImageMap({});
+        }
+        return;
+      }
+
+      const nextMap = {};
+      const missingIds = [];
+
+      recommendedRfqs.forEach((item) => {
+        const itemId = String(item?._id || item?.id || '');
+        if (!itemId) {
+          return;
+        }
+        const images = collectImageCandidates(item);
+        if (images.length) {
+          nextMap[itemId] = images[0];
+        } else {
+          missingIds.push(itemId);
+        }
+      });
+
+      if (active) {
+        setRecommendationImageMap(nextMap);
+      }
+
+      if (!missingIds.length) {
+        return;
+      }
+
+      const details = await Promise.all(
+        missingIds.map(async (itemId) => {
+          try {
+            const response = await api.get(`/rfq/${itemId}`);
+            const rfqData = response.data?.data || null;
+            const images = collectImageCandidates(rfqData);
+            return [itemId, images[0] || ''];
+          } catch (_error) {
+            return [itemId, ''];
+          }
+        })
+      );
+
+      if (!active) {
+        return;
+      }
+
+      setRecommendationImageMap((prev) => {
+        const merged = { ...prev };
+        details.forEach(([itemId, imageUrl]) => {
+          if (imageUrl) {
+            merged[itemId] = imageUrl;
+          }
+        });
+        return merged;
+      });
+    };
+
+    hydrateRecommendationImages();
+
+    return () => {
+      active = false;
+    };
+  }, [BACKEND_ORIGIN, recommendedRfqs]);
+
+  useEffect(() => {
+    const track = recommendationsTrackRef.current;
+    if (!track) {
+      setCanScrollRecommendationsPrev(false);
+      setCanScrollRecommendationsNext(false);
+      return undefined;
+    }
+
+    const updateRecommendationNavState = () => {
+      const maxScroll = Math.max(track.scrollWidth - track.clientWidth, 0);
+      setCanScrollRecommendationsPrev(track.scrollLeft > 4);
+      setCanScrollRecommendationsNext(track.scrollLeft < maxScroll - 4);
+    };
+
+    updateRecommendationNavState();
+    track.addEventListener('scroll', updateRecommendationNavState, { passive: true });
+    window.addEventListener('resize', updateRecommendationNavState);
+
+    return () => {
+      track.removeEventListener('scroll', updateRecommendationNavState);
+      window.removeEventListener('resize', updateRecommendationNavState);
+    };
+  }, [recommendedRfqs.length]);
+
+  useEffect(() => {
+    const track = recommendationsTrackRef.current;
+    if (!track) {
+      return;
+    }
+    track.scrollTo({ left: 0, behavior: 'auto' });
+    setCanScrollRecommendationsPrev(false);
+  }, [id, recommendedRfqs.length]);
 
   useEffect(() => {
     if (!currentUserId || !id) {
@@ -235,6 +425,28 @@ function RFQDetail() {
     });
   };
 
+  const formatRelativeDate = (dateValue) => {
+    if (!dateValue) {
+      return '-';
+    }
+
+    const diffMs = Date.now() - new Date(dateValue).getTime();
+    const diffMinutes = Math.floor(diffMs / (60 * 1000));
+
+    if (diffMinutes < 60) {
+      return `${Math.max(diffMinutes, 1)} dk önce`;
+    }
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) {
+      return `${diffHours} sa önce`;
+    }
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) {
+      return `${diffDays} gün önce`;
+    }
+    return formatDate(dateValue);
+  };
+
   const getCategoryName = (categoryValue) => {
     if (!categoryValue) {
       return '-';
@@ -245,6 +457,155 @@ function RFQDetail() {
     }
 
     return categoryValue.name || categoryValue.slug || '-';
+  };
+
+  const getCityName = (item) => {
+    if (!item) {
+      return '';
+    }
+    if (typeof item.city === 'string') {
+      return item.city;
+    }
+    if (item.city && typeof item.city === 'object') {
+      return item.city.name || '';
+    }
+    return item.locationData?.city || '';
+  };
+
+  const getDistrictName = (item) => {
+    if (!item) {
+      return '';
+    }
+    if (typeof item.district === 'string') {
+      return item.district;
+    }
+    if (item.district && typeof item.district === 'object') {
+      return item.district.name || '';
+    }
+    return item.locationData?.district || '';
+  };
+
+  const getRecommendationReason = (recommendation) => {
+    const reasons = recommendation?.reasons || [];
+
+    if (reasons.some((item) => item === 'Aynı kategori')) {
+      return 'Aynı kategori';
+    }
+    if (reasons.some((item) => item === 'Aynı şehir' || item === 'Yakın konum')) {
+      return 'Aynı şehir';
+    }
+    if (
+      reasons.some(
+        (item) =>
+          item === 'Kullanıcının ilgi gösterdiği kategori' ||
+          item === 'Kullanıcının ilgilendiği segment' ||
+          item === 'Arama geçmişi ile uyumlu anahtar kelime' ||
+          item === 'Kullanıcının ilgi gösterdiği ihtiyaç alanı'
+      )
+    ) {
+      return 'İlgine göre';
+    }
+    if (reasons.some((item) => item === 'Aynı üst kategori' || item === 'Aynı ihtiyaç alanı')) {
+      return 'Benzer ihtiyaç';
+    }
+    return 'Önerilen talep';
+  };
+
+  const getRecommendationExcerpt = (item) => {
+    const text = String(item?.description || '').trim();
+    if (!text) {
+      return 'Bu talep senin ilgine uygun olabilir.';
+    }
+    if (text.length <= 110) {
+      return text;
+    }
+    return `${text.slice(0, 107).trim()}...`;
+  };
+
+  const getRecommendationImage = (item) => {
+    const itemId = String(item?._id || item?.id || '');
+    return recommendationImageMap[itemId] || '';
+  };
+
+  const scrollRecommendationsByPage = (direction) => {
+    const track = recommendationsTrackRef.current;
+    if (!track) {
+      return;
+    }
+    const delta = Math.max(track.clientWidth * 0.92, 220) * direction;
+    track.scrollBy({
+      left: delta,
+      behavior: 'smooth'
+    });
+  };
+
+  const handleRecommendationsPointerDown = (event) => {
+    const track = recommendationsTrackRef.current;
+    if (!track || event.pointerType === 'touch') {
+      return;
+    }
+
+    recommendationsDragRef.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: track.scrollLeft,
+      moved: false,
+      pointerId: event.pointerId
+    };
+
+    suppressRecommendationClickRef.current = false;
+    track.setPointerCapture?.(event.pointerId);
+  };
+
+  const handleRecommendationsPointerMove = (event) => {
+    const track = recommendationsTrackRef.current;
+    const dragState = recommendationsDragRef.current;
+    if (!track || !dragState.active || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragState.startX;
+    if (Math.abs(deltaX) > 6) {
+      dragState.moved = true;
+    }
+    if (dragState.moved) {
+      event.preventDefault();
+      track.scrollLeft = dragState.startScrollLeft - deltaX;
+    }
+  };
+
+  const handleRecommendationsPointerEnd = (event) => {
+    const track = recommendationsTrackRef.current;
+    const dragState = recommendationsDragRef.current;
+    if (!dragState.active || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (dragState.moved) {
+      suppressRecommendationClickRef.current = true;
+      window.setTimeout(() => {
+        suppressRecommendationClickRef.current = false;
+      }, 180);
+    }
+
+    recommendationsDragRef.current = {
+      active: false,
+      startX: 0,
+      startScrollLeft: 0,
+      moved: false,
+      pointerId: null
+    };
+
+    track?.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handleRecommendationCardClick = (event, itemId) => {
+    if (suppressRecommendationClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    navigate(`/rfq/${itemId}`);
   };
 
   const formatDetailValue = (value) => {
@@ -1228,6 +1589,112 @@ function RFQDetail() {
               ) : null}
             </>
           ) : null}
+
+          <section className="card fade-in" style={{ animationDelay: '110ms' }}>
+            <div className="detail-title-row">
+              <h2>Önerilen Diğer Talepler</h2>
+              {!recommendationsLoading && !recommendationsError && recommendedRfqs.length ? (
+                <div className="recommendation-nav">
+                  <button
+                    type="button"
+                    className="recommendation-nav-btn"
+                    onClick={() => scrollRecommendationsByPage(-1)}
+                    disabled={!canScrollRecommendationsPrev}
+                    aria-label="Önceki öneriler"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="recommendation-nav-btn"
+                    onClick={() => scrollRecommendationsByPage(1)}
+                    disabled={!canScrollRecommendationsNext}
+                    aria-label="Sonraki öneriler"
+                  >
+                    ›
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {recommendationsLoading ? (
+              <div className="refresh-text">Öneriler yükleniyor...</div>
+            ) : null}
+
+            {!recommendationsLoading && recommendationsError ? (
+              <div className="error">{recommendationsError}</div>
+            ) : null}
+
+            {!recommendationsLoading && !recommendationsError && !recommendedRfqs.length ? (
+              <div className="empty-state">
+                <div className="empty-icon">•</div>
+                Şimdilik bu talebe yakın başka öneri bulunamadı.
+              </div>
+            ) : null}
+
+            {!recommendationsLoading && !recommendationsError && recommendedRfqs.length ? (
+              <div className="recommendation-carousel">
+                <div
+                  className="recommendation-track"
+                  ref={recommendationsTrackRef}
+                  onPointerDown={handleRecommendationsPointerDown}
+                  onPointerMove={handleRecommendationsPointerMove}
+                  onPointerUp={handleRecommendationsPointerEnd}
+                  onPointerCancel={handleRecommendationsPointerEnd}
+                  onPointerLeave={handleRecommendationsPointerEnd}
+                >
+                {recommendedRfqs.map((item) => {
+                  const cityName = getCityName(item);
+                  const districtName = getDistrictName(item);
+                  const reasonLabel = getRecommendationReason(item.recommendation);
+                  const imageUrl = getRecommendationImage(item);
+
+                  return (
+                    <article
+                      key={item._id}
+                      className="offer-card offer-card-editable recommendation-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => handleRecommendationCardClick(event, item._id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(`/rfq/${item._id}`);
+                        }
+                      }}
+                    >
+                      {imageUrl ? (
+                        <div className="recommendation-card-media">
+                          <img
+                            src={imageUrl}
+                            alt={item.title || 'Önerilen talep görseli'}
+                            className="recommendation-card-image"
+                            loading="lazy"
+                            draggable="false"
+                          />
+                        </div>
+                      ) : null}
+                      <div className="offer-top">
+                        <strong>{item.title || 'Yeni talep'}</strong>
+                        <span>{formatRelativeDate(item.createdAt)}</span>
+                      </div>
+                      <div className="rfq-sub">Kategori: {getCategoryName(item.category)}</div>
+                      {(cityName || districtName) ? (
+                        <div className="rfq-sub">
+                          Konum: {cityName || '-'}{districtName ? ` / ${districtName}` : ''}
+                        </div>
+                      ) : null}
+                      <p>{getRecommendationExcerpt(item)}</p>
+                      <div className="rfq-badges">
+                        <span className="badge open">{reasonLabel}</span>
+                      </div>
+                    </article>
+                  );
+                })}
+                </div>
+              </div>
+            ) : null}
+          </section>
 
           {isEditOpen ? (
             <div className="create-sheet-overlay open" onClick={() => setIsEditOpen(false)}>

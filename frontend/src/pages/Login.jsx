@@ -304,7 +304,7 @@ function Login() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={handleSubmit} className="auth-form" data-rb-no-drag="true">
           {activeTab === 'email' ? (
             <div className="auth-field">
               <label htmlFor="email">E-posta</label>

@@ -8,6 +8,7 @@ import FilterBar from '../components/FilterBar';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
 import LoadingOverlay from '../components/LoadingOverlay';
+import useBottomSheetDrag from '../hooks/useBottomSheetDrag';
 import RFQCreate from './RFQCreate';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, normalizeSocketCity } from '../lib/socket';
@@ -144,10 +145,7 @@ function RFQList() {
   const resultsToastHideTimerRef = useRef(null);
   const createSheetCloseTimerRef = useRef(null);
   const locationAutoApplyRef = useRef(false);
-  const createSheetDragStartYRef = useRef(0);
-  const createSheetDragStartTranslateRef = useRef(0);
   const createSheetDragTranslateRef = useRef(0);
-  const createSheetRafRef = useRef(0);
   const createSheetRef = useRef(null);
   const createSheetSnapRef = useRef({ full: 0, half: 0, closed: 0 });
   const searchInputRef = useRef(null);
@@ -181,7 +179,6 @@ function RFQList() {
   const [sortKey, setSortKey] = useState(() => localStorage.getItem('rfq_sortKey') || 'date_desc');
   const [isCreateSheetMounted, setIsCreateSheetMounted] = useState(false);
   const [createSheetState, setCreateSheetState] = useState('closed');
-  const [isCreateSheetDragging, setIsCreateSheetDragging] = useState(false);
   const [createSheetRenderTranslate, setCreateSheetRenderTranslate] = useState(0);
   const [categoryLabel, setCategoryLabel] = useState('');
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
@@ -1204,7 +1201,7 @@ function RFQList() {
     }, 250);
   }, []);
 
-  function getCreateSheetSnapPoints() {
+  const getCreateSheetSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
     const sheetHeight =
       createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
@@ -1214,7 +1211,7 @@ function RFQList() {
     const closed = Math.max(sheetHeight - 80, half);
     createSheetSnapRef.current = { full, half, closed };
     return createSheetSnapRef.current;
-  }
+  }, []);
 
   const applyCreateSheetTranslate = useCallback((value) => {
     createSheetDragTranslateRef.current = value;
@@ -1223,13 +1220,13 @@ function RFQList() {
     }
   }, []);
 
-  function setCreateSheetTranslate(value, { syncState = false } = {}) {
+  const setCreateSheetTranslate = useCallback((value, { syncState = false } = {}) => {
     createSheetDragTranslateRef.current = value;
     if (syncState) {
       setCreateSheetRenderTranslate(value);
     }
     applyCreateSheetTranslate(value);
-  }
+  }, [applyCreateSheetTranslate]);
 
   const openCreateSheet = useCallback(() => {
     if (createSheetCloseTimerRef.current) {
@@ -1243,7 +1240,7 @@ function RFQList() {
       const snap = getCreateSheetSnapPoints();
       setCreateSheetTranslate(snap.half, { syncState: true });
     });
-  }, []);
+  }, [getCreateSheetSnapPoints, setCreateSheetTranslate]);
 
   useEffect(() => {
     const handleOpenCreateSheet = () => openCreateSheet();
@@ -1255,14 +1252,13 @@ function RFQList() {
 
   const closeCreateSheet = useCallback(() => {
     setCreateSheetState('closed');
-    setIsCreateSheetDragging(false);
     const snap = getCreateSheetSnapPoints();
     setCreateSheetTranslate(snap.closed, { syncState: true });
     window.dispatchEvent(new CustomEvent('bottomnav:show'));
     createSheetCloseTimerRef.current = window.setTimeout(() => {
       setIsCreateSheetMounted(false);
     }, 350);
-  }, [getCreateSheetSnapPoints]);
+  }, [getCreateSheetSnapPoints, setCreateSheetTranslate]);
 
   useEffect(() => {
     if (isCreateSheetMounted) {
@@ -1272,100 +1268,42 @@ function RFQList() {
     }
   }, [isCreateSheetMounted]);
 
-  const handleCreateSheetDragMove = useCallback(
-    (event) => {
-      if (!isCreateSheetDragging) {
-        return;
-      }
-      const clientY = event.clientY;
-      if (typeof clientY !== 'number') {
-        return;
-      }
-      const deltaY = clientY - createSheetDragStartYRef.current;
-      const snap = getCreateSheetSnapPoints();
-      const minY = snap.full;
-      const maxY = snap.closed;
-      const next = Math.min(maxY, Math.max(minY, createSheetDragStartTranslateRef.current + deltaY));
-      if (createSheetRafRef.current) {
-        cancelAnimationFrame(createSheetRafRef.current);
-      }
-      createSheetRafRef.current = requestAnimationFrame(() => {
-        applyCreateSheetTranslate(next);
-      });
-    },
-    [applyCreateSheetTranslate, getCreateSheetSnapPoints, isCreateSheetDragging]
-  );
-
-  const handleCreateSheetDragEnd = useCallback(
-    () => {
-      if (!isCreateSheetDragging) {
-        return;
-      }
-      setIsCreateSheetDragging(false);
-      const snap = getCreateSheetSnapPoints();
-      const current = createSheetDragTranslateRef.current;
-      const candidates = [
-        { key: 'open-full', value: snap.full },
-        { key: 'open-half', value: snap.half },
-        { key: 'closed', value: snap.closed }
-      ];
-      let nearest = candidates[0];
-      let minDistance = Math.abs(current - candidates[0].value);
-      candidates.forEach((candidate) => {
-        const dist = Math.abs(current - candidate.value);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearest = candidate;
-        }
-      });
-      if (createSheetRef.current) {
-        createSheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
-      }
-      window.removeEventListener('pointermove', handleCreateSheetDragMove);
-      window.removeEventListener('pointerup', handleCreateSheetDragEnd);
-      if (nearest.key === 'closed') {
-        closeCreateSheet();
-        return;
-      }
-      setCreateSheetState(nearest.key);
-      setCreateSheetTranslate(nearest.value, { syncState: true });
-    },
-    [closeCreateSheet, getCreateSheetSnapPoints, handleCreateSheetDragMove, isCreateSheetDragging, setCreateSheetTranslate]
-  );
-
-  const handleCreateSheetDragStart = useCallback(
-    (event) => {
-      if (event.button !== undefined && event.button !== 0) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.currentTarget?.setPointerCapture && event.pointerId !== undefined) {
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }
-      const clientY = event.clientY;
-      if (typeof clientY !== 'number') {
-        return;
-      }
-      createSheetDragStartYRef.current = clientY;
-      createSheetDragStartTranslateRef.current = createSheetDragTranslateRef.current;
-      setIsCreateSheetDragging(true);
+  const {
+    dragging: isCreateSheetDragging,
+    onSurfacePointerDown: onCreateSheetSurfacePointerDown,
+    resetDragState: resetCreateSheetDrag
+  } = useBottomSheetDrag({
+    sheetRef: createSheetRef,
+    getSnapPoints: getCreateSheetSnapPoints,
+    getCurrentTranslate: () => createSheetDragTranslateRef.current,
+    onTranslate: applyCreateSheetTranslate,
+    getSnapCandidates: (points) => [
+      { key: 'open-full', value: points.full },
+      { key: 'open-half', value: points.half },
+      { key: 'closed', value: points.closed }
+    ],
+    onDragStart: () => {
       if (createSheetRef.current) {
         createSheetRef.current.style.transition = 'none';
       }
-      window.addEventListener('pointermove', handleCreateSheetDragMove, { passive: true });
-      window.addEventListener('pointerup', handleCreateSheetDragEnd, { passive: true });
     },
-    [handleCreateSheetDragEnd, handleCreateSheetDragMove]
-  );
+    onResolveSnap: ({ nearestKey, nearestValue }) => {
+      if (createSheetRef.current) {
+        createSheetRef.current.style.transition = 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+      }
+      if (nearestKey === 'closed') {
+        closeCreateSheet();
+        return;
+      }
+      setCreateSheetState(nearestKey);
+      setCreateSheetTranslate(nearestValue, { syncState: true });
+    },
+    draggingBodyClass: 'sheet-dragging'
+  });
 
-  useEffect(() => {
-    if (isCreateSheetDragging) {
-      document.body.classList.add('sheet-dragging');
-    } else {
-      document.body.classList.remove('sheet-dragging');
-    }
-  }, [isCreateSheetDragging]);
+  useEffect(() => () => {
+    resetCreateSheetDrag();
+  }, [resetCreateSheetDrag]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore || !hasMore || error) {
@@ -3056,17 +2994,20 @@ function RFQList() {
             ref={createSheetRef}
             onClick={(event) => event.stopPropagation()}
           >
-            <div
-              className="rb-sheet-handle-wrap"
-              onPointerDown={handleCreateSheetDragStart}
-              role="button"
-              aria-label="Sheet surukleme"
-            >
-              <div className="rb-sheet-handle" />
+            <div className="create-sheet-drag-zone" onPointerDown={onCreateSheetSurfacePointerDown} data-rb-drag-surface="header">
+              <div
+                className="rb-sheet-handle-wrap"
+                onPointerDown={onCreateSheetSurfacePointerDown}
+                data-rb-drag-surface="handle"
+                role="button"
+                aria-label="Sheet sürükleme"
+              >
+                <div className="rb-sheet-handle" />
+              </div>
+              <button type="button" className="create-sheet-close" onClick={closeCreateSheet} data-rb-no-drag="true">
+                Kapat
+              </button>
             </div>
-            <button type="button" className="create-sheet-close" onClick={closeCreateSheet}>
-              Kapat
-            </button>
             <RFQCreate />
           </div>
         </div>
