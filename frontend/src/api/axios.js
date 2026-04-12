@@ -26,19 +26,19 @@ export const buildProviderAuthUrl = (provider) => {
     return `${API_BASE_URL}/auth/${normalizedProvider}`;
   }
 
+  const browserOrigin = getBrowserOrigin();
+  if (browserOrigin) {
+    return `${browserOrigin}/api/auth/${normalizedProvider}`;
+  }
+
   const configuredAppSurface = buildSurfaceHref('app', '/');
   if (configuredAppSurface && configuredAppSurface !== '/') {
     try {
       const appOrigin = new URL(configuredAppSurface).origin;
       return `${appOrigin}/api/auth/${normalizedProvider}`;
     } catch (_error) {
-      // ignore malformed config and continue with browser-origin fallback
+      // ignore malformed config and continue with relative fallback
     }
-  }
-
-  const browserOrigin = getBrowserOrigin();
-  if (browserOrigin) {
-    return `${browserOrigin}/api/auth/${normalizedProvider}`;
   }
 
   return `/api/auth/${normalizedProvider}`;

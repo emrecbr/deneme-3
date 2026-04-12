@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import { APP_HOME_PATH } from '../config/surfaces';
+import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 const normalizeEmail = (v) =>
@@ -28,6 +28,15 @@ function EmailVerify() {
   const [signupName, setSignupName] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [signupToken, setSignupToken] = useState('');
+
+  const completeAuthRedirect = () => {
+    const nextHref = resolvePostAuthHref('user');
+    if (isAbsoluteHref(nextHref)) {
+      window.location.href = nextHref;
+      return;
+    }
+    navigate(nextHref, { replace: true });
+  };
 
   useEffect(() => {
     if (resendSeconds <= 0) {
@@ -91,7 +100,7 @@ function EmailVerify() {
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
-        navigate(APP_HOME_PATH);
+        completeAuthRedirect();
         return;
       }
 
@@ -134,7 +143,7 @@ function EmailVerify() {
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
-        navigate(APP_HOME_PATH);
+        completeAuthRedirect();
         return;
       }
       setInfo(data?.message || 'Kayıt tamamlandı.');

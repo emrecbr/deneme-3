@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
-import { APP_HOME_PATH } from '../config/surfaces';
+import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -19,6 +19,15 @@ function OtpVerify({ onVerified }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resendSeconds, setResendSeconds] = useState(0);
+
+  const completeAuthRedirect = () => {
+    const nextHref = resolvePostAuthHref('user');
+    if (isAbsoluteHref(nextHref)) {
+      window.location.href = nextHref;
+      return;
+    }
+    navigate(nextHref, { replace: true });
+  };
 
   const targetLabel = useMemo(() => {
     if (channel === 'email') {
@@ -101,7 +110,7 @@ function OtpVerify({ onVerified }) {
       if (typeof onVerified === 'function') {
         onVerified();
       } else {
-        navigate(APP_HOME_PATH);
+        completeAuthRedirect();
       }
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');

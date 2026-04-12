@@ -123,6 +123,26 @@ export const buildCurrentSurfaceHref = (pathname, path = '/', hostname = getBrow
   return buildSurfaceHref('app', path);
 };
 
+export const isAbsoluteHref = (value = '') => /^https?:\/\//i.test(String(value || '').trim());
+
+export const resolvePostAuthHref = (role = 'user', hostname = getBrowserHostname()) => {
+  const normalizedRole = String(role || 'user').trim().toLowerCase();
+  const hostSurface = resolveSurfaceLabelFromHostname(hostname);
+
+  if (normalizedRole === 'admin' || normalizedRole === 'moderator') {
+    if (hostSurface === SURFACE_LABELS.admin) {
+      return ADMIN_HOME_PATH;
+    }
+    return buildSurfaceHref('admin', ADMIN_HOME_PATH) || ADMIN_HOME_PATH;
+  }
+
+  if (hostSurface === SURFACE_LABELS.web) {
+    return buildSurfaceHref('app', APP_HOME_PATH) || APP_HOME_PATH;
+  }
+
+  return APP_HOME_PATH;
+};
+
 export const resolveSurfaceLabel = (pathname = '', hostname = getBrowserHostname()) => {
   const hostnameSurface = resolveSurfaceLabelFromHostname(hostname);
   if (hostnameSurface === SURFACE_LABELS.admin) {

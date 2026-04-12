@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { APP_LOGIN_PATH, APP_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
+import { APP_HOME_PATH, APP_LOGIN_PATH, APP_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
 const ensureMetaDescription = () => {
   let tag = document.querySelector('meta[name="description"]');
@@ -36,13 +36,13 @@ function LandingPage() {
           Talepet
         </Link>
 
-        <nav className="landing-topbar-actions" aria-label="Web site yönlendirmeleri">
-          <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-link-button">
-            Giriş Yap
-          </a>
-          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
-            Kayıt Ol
-          </a>
+        <nav className="landing-topbar-actions" aria-label="Website auth actions">
+          <Link to={APP_LOGIN_PATH} className="landing-link-button">
+            Giris Yap
+          </Link>
+          <Link to={APP_REGISTER_PATH} className="landing-primary-button">
+            Kayit Ol
+          </Link>
         </nav>
       </header>
 
@@ -52,22 +52,19 @@ function LandingPage() {
           <h1>{LANDING_CONTENT.hero.title}</h1>
           <p>{LANDING_CONTENT.hero.subtitle}</p>
           <div className="landing-cta-row">
-            <a href={buildSurfaceHref('app', LANDING_CONTENT.hero.primaryCta.to)} className="landing-primary-button">
+            <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
             </a>
-            <a href={buildSurfaceHref('app', LANDING_CONTENT.hero.secondaryCta.to)} className="landing-secondary-button">
+            <Link to={LANDING_CONTENT.hero.secondaryCta.to} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
-            </a>
-            <a
-              href={buildSurfaceHref('app', LANDING_CONTENT.hero.tertiaryCta.to)}
-              className="landing-link-button landing-link-button-strong"
-            >
+            </Link>
+            <Link to={LANDING_CONTENT.hero.tertiaryCta.to} className="landing-link-button landing-link-button-strong">
               {LANDING_CONTENT.hero.tertiaryCta.label}
-            </a>
+            </Link>
           </div>
         </div>
 
-        <aside className="landing-hero-card" aria-label="Talepet öne çıkan faydalar">
+        <aside className="landing-hero-card" aria-label="Talepet one cikan faydalar">
           {LANDING_CONTENT.sections.map((section) => (
             <div key={section.title} className="landing-feature-card">
               <h2>{section.title}</h2>
@@ -80,10 +77,10 @@ function LandingPage() {
       <section className="landing-section">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">Ana segmentler</p>
-          <h2>İhtiyacına göre doğru yüzeyi kullan</h2>
+          <h2>Ihtiyacina gore dogru yuzeyi kullan</h2>
           <p>
-            Talepet uygulama yüzeyi, farklı ihtiyaç alanlarını segment bazlı kategori yapısıyla yönetir ve
-            kullanıcıyı daha doğru tekliflere taşır.
+            Talepet uygulama yuzeyi, farkli ihtiyac alanlarini segment bazli kategori yapisiyla yonetir ve
+            kullaniciyi daha dogru tekliflere tasir.
           </p>
         </div>
 
@@ -99,11 +96,11 @@ function LandingPage() {
 
       <section className="landing-section landing-section-soft">
         <div className="landing-section-heading">
-          <p className="landing-eyebrow">Güven ve kolaylık</p>
-          <h2>Kurumsal görünüm değil, çalışan uygulama odağı</h2>
+          <p className="landing-eyebrow">Guven ve kolaylik</p>
+          <h2>Kurumsal gorunum degil, calisan uygulama odagi</h2>
           <p>
-            Talepet’in mevcut mobil-first akışı korunur. Web yüzeyi ise kullanıcıyı doğru giriş noktasına taşıyan,
-            güven veren ve kurumsal bilgileri görünür kılan ayrı bir katman olarak çalışır.
+            Talepet&apos;in mevcut mobil-first akisi korunur. Web yuzeyi ise kullaniciyi dogru giris noktasina tasiyan,
+            guven veren ve kurumsal bilgileri gorunur kilan ayri bir katman olarak calisir.
           </p>
         </div>
 
@@ -119,18 +116,18 @@ function LandingPage() {
 
       <section className="landing-footer-cta">
         <div>
-          <p className="landing-eyebrow">Uygulama yüzeyi</p>
+          <p className="landing-eyebrow">Uygulama yuzeyi</p>
           <h2>{LANDING_CONTENT.footerCta.title}</h2>
           <p>{LANDING_CONTENT.footerCta.body}</p>
         </div>
 
         <div className="landing-cta-row">
-          <a href={buildSurfaceHref('app', LANDING_CONTENT.footerCta.primary.to)} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
           </a>
-          <a href={buildSurfaceHref('app', LANDING_CONTENT.footerCta.secondary.to)} className="landing-secondary-button">
+          <Link to={LANDING_CONTENT.footerCta.secondary.to} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
-          </a>
+          </Link>
         </div>
       </section>
 

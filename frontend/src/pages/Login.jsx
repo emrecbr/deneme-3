@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
+import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
@@ -20,16 +21,21 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [showForgotLink, setShowForgotLink] = useState(false);
 
+  const completeAuthRedirect = (role = 'user') => {
+    const nextHref = resolvePostAuthHref(role);
+    if (isAbsoluteHref(nextHref)) {
+      window.location.href = nextHref;
+      return;
+    }
+    navigate(nextHref, { replace: true });
+  };
+
   useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
     const role = user?.role;
-    if (role === 'admin' || role === 'moderator') {
-      navigate('/admin');
-      return;
-    }
-    navigate('/');
+    completeAuthRedirect(role);
   }, [isAuthenticated, navigate, user?.role]);
 
 
@@ -171,12 +177,7 @@ function Login() {
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
-        const role = data?.user?.role;
-        if (role === 'admin' || role === 'moderator') {
-          navigate('/admin', { replace: true });
-          return;
-        }
-        navigate('/', { replace: true });
+        completeAuthRedirect(data?.user?.role);
         return;
       }
 

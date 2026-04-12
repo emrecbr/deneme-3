@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
-import { APP_HOME_PATH } from '../config/surfaces';
+import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -34,6 +34,15 @@ function RegisterOtp() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resendSeconds, setResendSeconds] = useState(0);
+
+  const completeAuthRedirect = () => {
+    const nextHref = resolvePostAuthHref('user');
+    if (isAbsoluteHref(nextHref)) {
+      window.location.href = nextHref;
+      return;
+    }
+    navigate(nextHref, { replace: true });
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -149,7 +158,7 @@ function RegisterOtp() {
         localStorage.setItem('token', data.token);
       }
       setSuccess('Kayıt tamamlandı.');
-      navigate(APP_HOME_PATH);
+      completeAuthRedirect();
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {
