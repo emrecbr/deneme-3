@@ -1,77 +1,116 @@
-# Talepet Render Deploy Checklist
+# Render Deploy Checklist
 
-## 1. Backend env
+## Final live architecture
 
-Render backend service içinde şu anahtarlar gerçekten kodda okunur:
+- `https://talepet.net.tr`
+  - web / landing surface
+- `https://www.talepet.net.tr`
+  - optional alias to web / landing surface
+- `https://app.talepet.net.tr`
+  - user app surface
+- `https://admin.talepet.net.tr`
+  - admin surface
+- `https://api.talepet.net.tr`
+  - backend API host
 
-### Zorunlu
+## Render service mapping
 
-- `NODE_ENV`
-- `HOST`
-- `PORT`
+### Backend service
+
+- Service type: Web Service
+- Root directory: repo root
+- Build command: `npm install`
+- Start command: `npm start`
+- Custom domain:
+  - `api.talepet.net.tr`
+
+### Frontend service
+
+- Service type: Static Site
+- Root directory: `frontend`
+- Build command: `npm install && npm run build`
+- Publish directory: `dist`
+- Custom domains:
+  - `talepet.net.tr`
+  - `app.talepet.net.tr`
+  - `admin.talepet.net.tr`
+
+## Backend env summary
+
+Required:
+
+- `NODE_ENV=production`
+- `HOST=0.0.0.0`
+- `PORT=3001`
 - `MONGODB_URI`
 - `JWT_SECRET`
-- `APP_SURFACE_URL`
-- `WEB_BASE_URL`
-- `ADMIN_BASE_URL`
-- `API_BASE_URL`
+- `APP_SURFACE_URL=https://app.talepet.net.tr`
+- `WEB_BASE_URL=https://talepet.net.tr`
+- `ADMIN_BASE_URL=https://admin.talepet.net.tr`
+- `API_BASE_URL=https://api.talepet.net.tr/api`
 
-### Özellik kullanıyorsan zorunlu
+Provider callbacks:
 
-- Google OAuth:
-  - `GOOGLE_CLIENT_ID`
-  - `GOOGLE_CLIENT_SECRET`
-  - `GOOGLE_CALLBACK_URL`
-- Apple OAuth:
-  - `APPLE_CLIENT_ID`
-  - `APPLE_TEAM_ID`
-  - `APPLE_KEY_ID`
-  - `APPLE_PRIVATE_KEY`
-  - `APPLE_CALLBACK_URL`
-- İyzico:
-  - `IYZICO_API_KEY`
-  - `IYZICO_SECRET_KEY`
-  - `IYZICO_BASE_URL`
-  - `IYZICO_WEBHOOK_SECRET`
+- `GOOGLE_CALLBACK_URL=https://api.talepet.net.tr/api/auth/google/callback`
+- `APPLE_CALLBACK_URL=https://api.talepet.net.tr/api/auth/apple/callback`
 
-### Opsiyonel
+Payment return:
 
-- `SIGNUP_TOKEN_SECRET`
-- `OTP_TTL_MINUTES`
-- `OTP_TTL_SECONDS`
-- `OTP_MAX_ATTEMPTS`
-- `OTP_RESEND_COOLDOWN_SECONDS`
-- `SEND_OTP_TIMEOUT_MS`
-- `MAIL_FROM`
-- `EMAIL_FROM`
-- `EMAIL_PROVIDER`
-- `BREVO_SMTP_HOST`
-- `BREVO_SMTP_PORT`
-- `BREVO_SMTP_USER`
-- `BREVO_SMTP_PASS`
-- `BREVO_API_KEY`
-- `SENDGRID_API_KEY`
-- `EMAIL_SEND_TIMEOUT_MS`
-- `SMTP_CONNECTION_TIMEOUT_MS`
-- `SMTP_GREETING_TIMEOUT_MS`
-- `SMTP_SOCKET_TIMEOUT_MS`
-- `SMTP_TLS_REJECT_UNAUTHORIZED`
-- `DRY_RUN`
-- `SMS_PROVIDER`
-- `ILETIMERKEZI_API_KEY`
-- `ILETIMERKEZI_API_HASH`
-- `ILETIMERKEZI_SENDER`
-- `ILETIMERKEZI_BASE_URL`
-- `ILETIMERKEZI_IYS`
-- `ONESIGNAL_APP_ID`
-- `ONESIGNAL_REST_API_KEY`
-- `ONESIGNAL_API_URL`
-- `REVERSE_GEOCODE_URL`
-- `REVERSE_GEOCODE_UA`
-- `ADMIN_SEED_EMAIL`
-- `ADMIN_SEED_PASSWORD`
+- iyzico return target should land on:
+  - `https://app.talepet.net.tr/premium/return`
 
-### Legacy / geçiş uyumluluğu için hâlâ okunanlar
+## Frontend env summary
+
+Required:
+
+- `VITE_WEB_URL=https://talepet.net.tr`
+- `VITE_APP_URL=https://app.talepet.net.tr`
+- `VITE_ADMIN_URL=https://admin.talepet.net.tr`
+- `VITE_API_URL=https://api.talepet.net.tr/api`
+
+Optional:
+
+- `VITE_SOCKET_URL=https://api.talepet.net.tr`
+- `VITE_ENABLE_SW=false`
+
+## DNS summary
+
+Expected host mapping:
+
+- `@`
+  - Render frontend target
+- `www`
+  - alias to frontend
+- `app`
+  - frontend custom domain
+- `admin`
+  - frontend custom domain
+- `api`
+  - backend custom domain
+
+## Rewrite and fallback
+
+See:
+
+- [render-spa-rewrites.md](/C:/Users/C1/Desktop/talepet/docs/render-spa-rewrites.md)
+
+Required Render rewrites:
+
+1. `/api/*` -> `https://api.talepet.net.tr/api/:splat`
+2. `/socket.io/*` -> `https://api.talepet.net.tr/socket.io/:splat`
+3. `/*` -> `/index.html`
+
+Without the last rule, app/admin deep-link refreshes will 404.
+
+## OAuth and payment notes
+
+- Google and Apple provider dashboards must point to the API host callbacks, not the frontend host.
+- iyzico return must land on the app surface, not the web surface.
+- If auth succeeds but user lands on the wrong surface, check frontend env first.
+
+## Deprecated and legacy env
+
+These are still read only for compatibility and should not be used as the primary prod config:
 
 - `CLIENT_ORIGIN`
 - `FRONTEND_URL`
@@ -79,92 +118,17 @@ Render backend service içinde şu anahtarlar gerçekten kodda okunur:
 - `MARKETING_SITE_URL`
 - `MONGO_URI`
 
-## 2. Frontend env
+## Old broken frontend service
 
-Render frontend service içinde şu anahtarlar gerçekten okunur:
+If an older Render static site still exists from pre-cutover testing, keep it disabled or clearly marked as deprecated.
+Do not reuse it as the live frontend origin unless its rewrite rules and custom domains fully match the final architecture.
 
-### Zorunlu
+## Rollback notes
 
-- `VITE_WEB_URL`
-- `VITE_APP_URL`
-- `VITE_ADMIN_URL`
-- `VITE_API_URL`
+If rollback is needed:
 
-### Opsiyonel
-
-- `VITE_SOCKET_URL`
-- `VITE_ENABLE_SW`
-
-## 3. Mevcut smoke test endpoint’leri
-
-Repo’da gerçekten bulunan endpoint:
-
-- `GET /health`
-
-Not:
-- frontend için ayrı health route yok
-- backend için health endpoint [src/server.js](/Users/C1/Desktop/talepet/src/server.js) içinde tanımlı
-
-## 4. Domain ve callback kontrolü
-
-### Web
-
-- `https://talepet.net.tr`
-
-### App
-
-- `https://app.talepet.net.tr/app`
-
-### Admin
-
-- `https://admin.talepet.net.tr/admin`
-
-### API
-
-- `https://api.talepet.net.tr/health`
-
-### OAuth callback
-
-- Google:
-  - `https://api.talepet.net.tr/api/auth/google/callback`
-- Apple:
-  - `https://api.talepet.net.tr/api/auth/apple/callback`
-
-### İyzico dönüş
-
-- `https://app.talepet.net.tr/premium/return`
-
-## 5. Render custom domain sırası
-
-1. Önce backend service için `api.talepet.net.tr` ekle
-2. DNS kaydını aç
-3. Verify et
-4. Sonra frontend service için sırayla:
-   - `talepet.net.tr`
-   - `app.talepet.net.tr`
-   - `admin.talepet.net.tr`
-5. DNS kayıtlarını aç
-6. Verify et
-7. TLS tamamlanmasını bekle
-
-## 6. Türkhost DNS özeti
-
-- `@`
-  - `ALIAS/ANAME` destek varsa Render frontend hostuna
-  - yoksa `A` → `216.24.57.1`
-- `app`
-  - `CNAME` → frontend Render hostname
-- `admin`
-  - `CNAME` → frontend Render hostname
-- `api`
-  - `CNAME` → backend Render hostname
-
-## 7. Geçiş öncesi kontrol
-
-- `AAAA` kayıtları kaldırılmış mı
-- eski test `onrender.com` hostları temizlenmiş mi
-- Google callback tam eşleşiyor mu
-- Apple callback tam eşleşiyor mu
-- iyzico dönüş app surface’e gidiyor mu
-- frontend build başarılı mı
-- backend syntax check başarılı mı
+1. Restore the last known-good frontend env set.
+2. Restore the last known-good backend env set.
+3. Verify callback URLs in Google, Apple, and iyzico dashboards.
+4. Confirm Render rewrites before switching traffic back.
+5. Smoke test web, app, admin, and API again.
