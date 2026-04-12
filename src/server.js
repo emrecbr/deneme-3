@@ -39,6 +39,7 @@ import Subscription from '../models/Subscription.js';
 import AppSetting from '../models/AppSetting.js';
 import iyzico from './providers/iyzico/index.js';
 import { ensureAdminSeed } from './utils/adminSeed.js';
+import { getAllowedSurfaceOrigins } from './config/surfaceConfig.js';
 
 dotenv.config();
 
@@ -62,7 +63,11 @@ const logEnvPresence = () => {
     'SENDGRID_API_KEY',
     'MAIL_FROM',
     'EMAIL_FROM',
-    'APP_BASE_URL'
+    'APP_BASE_URL',
+    'APP_SURFACE_URL',
+    'WEB_BASE_URL',
+    'ADMIN_BASE_URL',
+    'API_BASE_URL'
   ];
   console.log('ENV CHECK (masked):');
   keys.forEach((key) => {
@@ -72,15 +77,7 @@ const logEnvPresence = () => {
 logEnvPresence();
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'https://app.talepet.net.tr',
-  'https://talepet.net.tr'
-];
-if (process.env.CLIENT_ORIGIN) {
-  ALLOWED_ORIGINS.push(process.env.CLIENT_ORIGIN);
-}
+const ALLOWED_ORIGINS = getAllowedSurfaceOrigins();
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
@@ -92,7 +89,10 @@ const corsOptions = {
     if (isAllowedOrigin(origin)) return callback(null, true);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
+  optionsSuccessStatus: 204
 };
 const ROUTE_MOUNTS = [
   ['/api', mainRouter],
@@ -240,7 +240,8 @@ const startServer = async () => {
         if (isAllowedOrigin(origin)) return callback(null, true);
         return callback(new Error(`Socket CORS blocked: ${origin}`));
       },
-      credentials: true
+      credentials: true,
+      methods: ['GET', 'POST']
     }
   });
 

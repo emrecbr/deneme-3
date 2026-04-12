@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { API_BASE_URL } from '../api/axios';
 
 let socketInstance = null;
 let resolvedSocketBase = null;
@@ -12,8 +13,8 @@ const resolveSocketBase = () => {
     return resolvedSocketBase;
   }
 
-  const apiBase = (import.meta.env.VITE_API_URL || '').trim();
   const socketBaseEnv = (import.meta.env.VITE_SOCKET_URL || '').trim();
+  const apiBase = String(API_BASE_URL || '').trim();
   const sameOriginBase =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin

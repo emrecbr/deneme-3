@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { buildSurfaceHref, getBrowserOrigin, getSurfaceBaseUrl } from '../config/surfaces';
 
 let unauthorizedHandler = null;
 
@@ -10,10 +11,10 @@ const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, 
 const DEV_FALLBACK = 'http://localhost:3001/api';
 const PROD_FALLBACK = '/api';
 const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
-export const API_BASE_URL = ENV_API_BASE || (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
-
-const getBrowserOrigin = () =>
-  typeof window !== 'undefined' && window.location?.origin ? window.location.origin.replace(/\/$/, '') : '';
+export const API_BASE_URL =
+  ENV_API_BASE ||
+  getSurfaceBaseUrl('api') ||
+  (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
 
 export const buildProviderAuthUrl = (provider) => {
   const normalizedProvider = String(provider || '').trim().toLowerCase();
@@ -23,6 +24,16 @@ export const buildProviderAuthUrl = (provider) => {
 
   if (import.meta.env.DEV) {
     return `${API_BASE_URL}/auth/${normalizedProvider}`;
+  }
+
+  const configuredAppSurface = buildSurfaceHref('app', '/');
+  if (configuredAppSurface && configuredAppSurface !== '/') {
+    try {
+      const appOrigin = new URL(configuredAppSurface).origin;
+      return `${appOrigin}/api/auth/${normalizedProvider}`;
+    } catch (_error) {
+      // ignore malformed config and continue with browser-origin fallback
+    }
   }
 
   const browserOrigin = getBrowserOrigin();

@@ -55,8 +55,17 @@ const AdminChangePassword = lazy(() => import('./admin/AdminChangePassword'));
 import AdminProtectedRoute from './admin/AdminProtectedRoute';
 import PrivateRoute from './components/PrivateRoute';
 import api from './api/axios';
+import {
+  ADMIN_HOME_PATH,
+  APP_HOME_PATH,
+  SURFACE_LABELS,
+  resolveSurfaceLabel,
+  resolveSurfaceLabelFromHostname,
+  WEB_HOME_PATH
+} from './config/surfaces';
 import { useAuth } from './context/AuthContext';
 
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const OtpVerify = lazy(() => import('./pages/OtpVerify'));
@@ -89,6 +98,32 @@ const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 
+function RootSurfaceRoute({ user, authenticatedPath }) {
+  const hostSurface = resolveSurfaceLabelFromHostname();
+
+  if (hostSurface === SURFACE_LABELS.admin) {
+    return <Navigate to={ADMIN_HOME_PATH} replace />;
+  }
+
+  if (hostSurface === SURFACE_LABELS.app) {
+    return (
+      <Layout>
+        <RFQList />
+      </Layout>
+    );
+  }
+
+  if (hostSurface === SURFACE_LABELS.web) {
+    return <LandingPage />;
+  }
+
+  if (user) {
+    return <Navigate to={authenticatedPath} replace />;
+  }
+
+  return <LandingPage />;
+}
+
 function App() {
   const { user, loading, checkAuth } = useAuth();
   const location = useLocation();
@@ -105,6 +140,10 @@ function App() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.surface = resolveSurfaceLabel(location.pathname);
+  }, [location.pathname]);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -180,7 +219,7 @@ function App() {
   }
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
-  const defaultAuthenticatedPath = isAdminRole ? '/admin' : '/';
+  const defaultAuthenticatedPath = isAdminRole ? ADMIN_HOME_PATH : APP_HOME_PATH;
   const maintenanceBlocking =
     !maintenance.loading &&
     maintenance.enabled &&
@@ -379,7 +418,14 @@ function App() {
       />
 
       <Route
-        path="/"
+        path={WEB_HOME_PATH}
+        element={
+          <RootSurfaceRoute user={user} authenticatedPath={defaultAuthenticatedPath} />
+        }
+      />
+
+      <Route
+        path={APP_HOME_PATH}
         element={
           <Layout theme={theme} onToggleTheme={toggleTheme}>
             <RFQList />
@@ -399,7 +445,7 @@ function App() {
       />
 
       <Route path="/rfq/create" element={<Navigate to="/create" replace />} />
-      <Route path="/rfq" element={<Navigate to="/" replace />} />
+      <Route path="/rfq" element={<Navigate to={APP_HOME_PATH} replace />} />
 
       <Route
         path="/rfq/:id"
