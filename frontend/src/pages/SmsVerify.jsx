@@ -37,7 +37,7 @@ function SmsVerify() {
   const [signupPassword, setSignupPassword] = useState('');
 
   const completeAuthRedirect = () => {
-    const nextHref = resolvePostAuthHref('user');
+    const nextHref = resolvePostAuthHref('user', window.location.hostname);
     if (isAbsoluteHref(nextHref)) {
       window.location.href = nextHref;
       return;

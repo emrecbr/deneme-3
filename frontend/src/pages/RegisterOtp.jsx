@@ -36,7 +36,7 @@ function RegisterOtp() {
   const [resendSeconds, setResendSeconds] = useState(0);
 
   const completeAuthRedirect = () => {
-    const nextHref = resolvePostAuthHref('user');
+    const nextHref = resolvePostAuthHref('user', window.location.hostname);
     if (isAbsoluteHref(nextHref)) {
       window.location.href = nextHref;
       return;

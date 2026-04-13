@@ -22,7 +22,7 @@ function Login() {
   const [showForgotLink, setShowForgotLink] = useState(false);
 
   const completeAuthRedirect = (role = 'user') => {
-    const nextHref = resolvePostAuthHref(role);
+    const nextHref = resolvePostAuthHref(role, window.location.hostname);
     if (isAbsoluteHref(nextHref)) {
       window.location.href = nextHref;
       return;

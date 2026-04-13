@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { buildSurfaceHref, getBrowserOrigin, getSurfaceBaseUrl } from '../config/surfaces';
+import { buildSurfaceHref, getBrowserOrigin, getBrowserHostname, getSurfaceBaseUrl, resolveSurfaceLabelFromHostname, SURFACE_LABELS } from '../config/surfaces';
 
 let unauthorizedHandler = null;
 
@@ -27,7 +27,11 @@ export const buildProviderAuthUrl = (provider) => {
   }
 
   const browserOrigin = getBrowserOrigin();
+  const activeSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
   if (browserOrigin) {
+    if (activeSurface === SURFACE_LABELS.web || activeSurface === SURFACE_LABELS.admin || activeSurface === SURFACE_LABELS.app) {
+      return `${browserOrigin}/api/auth/${normalizedProvider}`;
+    }
     return `${browserOrigin}/api/auth/${normalizedProvider}`;
   }
 

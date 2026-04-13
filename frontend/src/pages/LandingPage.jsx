@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { APP_HOME_PATH, APP_LOGIN_PATH, APP_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
+import { APP_HOME_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -98,10 +98,10 @@ function LandingPage() {
         </Link>
 
         <nav className="landing-topbar-actions" aria-label="Website auth actions">
-          <Link to={APP_LOGIN_PATH} className="landing-link-button">
+          <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
             Giris Yap
           </Link>
-          <Link to={APP_REGISTER_PATH} className="landing-primary-button">
+          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
             Kayit Ol
           </Link>
         </nav>

@@ -23,13 +23,27 @@ export const APP_REGISTER_PATH = '/register';
 export const APP_AUTH_CALLBACK_PATH = '/auth/callback';
 export const APP_RESET_PASSWORD_PATH = '/reset-password';
 export const APP_EMAIL_VERIFY_PATH = '/email-verify';
+export const WEBSITE_LOGIN_PATH = '/login';
+export const WEBSITE_REGISTER_PATH = '/register';
+export const WEBSITE_AUTH_PATHS = [
+  WEBSITE_LOGIN_PATH,
+  WEBSITE_REGISTER_PATH,
+  '/login-otp',
+  '/sms-verify',
+  '/email-verify',
+  '/verify-otp',
+  '/forgot-password',
+  '/reset-password',
+  APP_AUTH_CALLBACK_PATH
+];
 export const PUBLIC_WEB_PATHS = [
   WEB_HOME_PATH,
   '/hakkimizda',
   '/gizlilik-sozlesmesi',
   '/mesafeli-satis-sozlesmesi',
   '/teslimat-ve-iade',
-  '/iletisim'
+  '/iletisim',
+  ...WEBSITE_AUTH_PATHS
 ];
 
 export const getBrowserOrigin = () =>
@@ -108,6 +122,11 @@ export const isAppSurfaceHost = (hostname = getBrowserHostname()) =>
 
 export const isAdminSurfaceHost = (hostname = getBrowserHostname()) =>
   resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.admin;
+
+export const isWebsiteAuthPath = (pathname = '') => {
+  const normalizedPath = normalizePath(pathname);
+  return WEBSITE_AUTH_PATHS.includes(normalizedPath);
+};
 
 export const buildSurfaceHref = (surface, path = '/') => {
   const normalizedPath = normalizePath(path);
