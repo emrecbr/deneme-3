@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
+  const webSurface = isWebSurfaceHost();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState('login');
   const [activeTab, setActiveTab] = useState('email');
@@ -31,16 +32,34 @@ function Login() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || isWebSurfaceHost()) {
+    if (!isAuthenticated || webSurface) {
       return;
     }
     const role = user?.role;
     completeAuthRedirect(role);
-  }, [isAuthenticated, navigate, user?.role]);
+  }, [isAuthenticated, navigate, user?.role, webSurface]);
 
+  const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
+  const normalizeTrMobileTo10Digits = (v) => {
+    let d = onlyDigits(v);
+    if (d.startsWith('90')) d = d.slice(2);
+    if (d.startsWith('0')) d = d.slice(1);
+    if (d.length > 10) d = d.slice(0, 10);
+    return d;
+  };
+  const toE164TR = (d10) => {
+    if (!/^[5]\d{9}$/.test(d10)) return null;
+    return `+90${d10}`;
+  };
+  const normalizeEmail = (v) =>
+    String(v || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '');
+  const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
   useEffect(() => {
-    if (!sheetOpen) {
+    if (!sheetOpen && !webSurface) {
       return;
     }
     let timer = null;
@@ -68,7 +87,7 @@ function Login() {
         if (found === true) {
           setShowSignupPrompt(false);
           if (sheetMode === 'register') {
-            setError('Bu hesap zaten var. Giriş yap.');
+            setError('Bu hesap zaten var. Giris yap.');
             setSheetMode('login');
           }
         } else if (found === false) {
@@ -84,26 +103,7 @@ function Login() {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [activeTab, email, phoneDigits, sheetOpen, sheetMode]);
-
-  const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
-  const normalizeTrMobileTo10Digits = (v) => {
-    let d = onlyDigits(v);
-    if (d.startsWith('90')) d = d.slice(2);
-    if (d.startsWith('0')) d = d.slice(1);
-    if (d.length > 10) d = d.slice(0, 10);
-    return d;
-  };
-  const toE164TR = (d10) => {
-    if (!/^[5]\d{9}$/.test(d10)) return null;
-    return `+90${d10}`;
-  };
-  const normalizeEmail = (v) =>
-    String(v || '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '');
-  const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  }, [activeTab, email, phoneDigits, sheetOpen, sheetMode, webSurface]);
 
   const resetForm = () => {
     setActiveTab('email');
@@ -143,15 +143,15 @@ function Login() {
       if (activeTab === 'phone') {
         const e164 = toE164TR(phoneDigits);
         if (!e164) {
-          setError('Telefon 10 hane olmalı (5xx...)');
+          setError('Telefon 10 hane olmali (5xx...)');
           return;
         }
         if (exists !== true) {
-          setError('Devam etmek için kayıtlı hesap gir.');
+          setError('Devam etmek icin kayitli hesap gir.');
           return;
         }
         if (!password.trim()) {
-          setError('Şifre zorunlu');
+          setError('Sifre zorunlu');
           return;
         }
         const res = await api.post('/auth/login', { phone: e164, password });
@@ -159,15 +159,15 @@ function Login() {
       } else {
         const em = normalizeEmail(email);
         if (!isValidEmail(em)) {
-          setError('Geçerli bir e-posta gir');
+          setError('Gecerli bir e-posta gir');
           return;
         }
         if (exists !== true) {
-          setError('Devam etmek için kayıtlı hesap gir.');
+          setError('Devam etmek icin kayitli hesap gir.');
           return;
         }
         if (!password.trim()) {
-          setError('Şifre zorunlu');
+          setError('Sifre zorunlu');
           return;
         }
         const res = await api.post('/auth/login', { email: em, password });
@@ -181,22 +181,20 @@ function Login() {
         return;
       }
 
-      // OTP akışı bu ekranda sadece kayıtlı olmayan kullanıcıya yönlendirme için kullanılır.
-
-      setError(data?.message || 'Giriş başarısız');
+      setError(data?.message || 'Giris basarisiz');
     } catch (otpError) {
       const status = otpError?.response?.status;
       if (!otpError?.response) {
-        setError('Bağlantı yok');
+        setError('Baglanti yok');
       } else if (status === 401) {
-        setError('Şifre hatalı');
+        setError('Sifre hatali');
         setShowForgotLink(true);
       } else if (status === 429) {
-        setError('Çok fazla deneme');
+        setError('Cok fazla deneme');
       } else if (status >= 500) {
-        setError('Sunucu hatası, tekrar dene');
+        setError('Sunucu hatasi, tekrar dene');
       } else {
-        setError(otpError?.response?.data?.message || otpError?.message || 'Giriş başarısız');
+        setError(otpError?.response?.data?.message || otpError?.message || 'Giris basarisiz');
       }
     } finally {
       setLoading(false);
@@ -213,22 +211,228 @@ function Login() {
     navigate(`/register?method=sms&phone=${encodeURIComponent(e164 || '')}`);
   };
 
-  const buildAuthUrl = (provider) => {
-    return buildProviderAuthUrl(provider);
+  const handleProviderLogin = (provider) => {
+    window.location.href = buildProviderAuthUrl(provider);
   };
 
-  const handleProviderLogin = (provider) => {
-    window.location.href = buildAuthUrl(provider);
-  };
+  const renderAuthForm = () => (
+    <>
+      {exists === true ? <p className="muted small">Hesabin bulundu. Sifreni gir.</p> : null}
+      {exists === false ? (
+        <p className="muted small">Bu hesap yok. Bu bilgilerle kayit olmak ister misin?</p>
+      ) : null}
+
+      <div className="auth-tabs">
+        <button
+          type="button"
+          className={`auth-tab ${activeTab === 'email' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('email');
+            setError('');
+            setExists(null);
+            setShowSignupPrompt(false);
+          }}
+        >
+          E-posta
+        </button>
+        <button
+          type="button"
+          className={`auth-tab ${activeTab === 'phone' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('phone');
+            setError('');
+            setExists(null);
+            setShowSignupPrompt(false);
+          }}
+        >
+          Telefon
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="auth-form" data-rb-no-drag="true">
+        {activeTab === 'email' ? (
+          <div className="auth-field">
+            <label htmlFor="email">E-posta</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="ornek@mail.com"
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="next"
+              required
+            />
+          </div>
+        ) : (
+          <div className="auth-field">
+            <label htmlFor="phone">Telefon</label>
+            <div className="auth-phone-wrap">
+              <span className="auth-prefix">+90</span>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                value={phoneDigits}
+                onChange={(event) => setPhoneDigits(normalizeTrMobileTo10Digits(event.target.value))}
+                placeholder="5xx xxx xx xx"
+                autoComplete="tel"
+                inputMode="tel"
+                enterKeyHint="done"
+              />
+            </div>
+          </div>
+        )}
+
+        {showSignupPrompt && exists === false ? (
+          <div className="auth-alert">
+            Bu hesap bulunamadi. Bu bilgilerle kayit olmak ister misin?
+            <div className="auth-footer-links">
+              <button type="button" className="link-btn" onClick={handlePrecheckSignup}>
+                Evet, Kayit Ol
+              </button>
+              <button type="button" className="link-btn" onClick={() => setShowSignupPrompt(false)}>
+                Vazgec
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {exists === true ? (
+          <div className="auth-field">
+            <label htmlFor="password">Sifre</label>
+            <div className="auth-input-wrap">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Sifren"
+                autoComplete="current-password"
+                enterKeyHint="done"
+              />
+              <button
+                type="button"
+                className="auth-toggle"
+                aria-label="Sifreyi goster veya gizle"
+                onClick={() => setShowPassword((prev) => !prev)}
+              >
+                {showPassword ? 'Gizle' : 'Goster'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {error ? <div className="auth-alert">{error}</div> : null}
+        {showForgotLink ? (
+          <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
+            Sifremi unuttum
+          </button>
+        ) : null}
+
+        <button
+          type="submit"
+          className="primary-btn"
+          disabled={loading || exists === null || (exists === true && !password.trim())}
+        >
+          {loading
+            ? 'Isleniyor...'
+            : exists === true
+              ? 'Giris Yap'
+              : exists === false
+                ? 'Kayit Ol'
+                : 'Devam Et'}
+        </button>
+      </form>
+    </>
+  );
+
+  if (webSurface) {
+    return (
+      <div className="page auth-page">
+        <div className="card auth-card">
+          <h1 className="auth-title">Talepet</h1>
+          <p className="auth-subtitle">Website icinden hesabina guvenle devam et.</p>
+
+          <div className="website-auth-inline-card">
+            <div className="website-auth-inline-head">
+              <h2>{sheetMode === 'login' ? 'Hesabina giris yap' : 'Yeni hesap olustur'}</h2>
+              <p>
+                {sheetMode === 'login'
+                  ? 'Talep, teklif ve profil akisina website uzerinden giris yaparak devam et.'
+                  : 'Kayit adimini website yuzeyi icinde tamamla, uygulamaya gecis zamanini sen belirle.'}
+              </p>
+            </div>
+
+            <div className="auth-social">
+              <div className="muted small">Hizli devam et</div>
+              <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+                Google ile devam et
+              </button>
+              <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+                <span className="social-icon" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="18"
+                    height="18"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z"/>
+                    <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
+                  </svg>
+                </span>
+                <span className="social-text">Apple ile devam et</span>
+              </button>
+            </div>
+
+            <div className="auth-divider">
+              <span>veya</span>
+            </div>
+
+            <div className="auth-actions auth-actions-inline">
+              <button type="button" className={`primary-btn ${sheetMode === 'login' ? 'is-active' : ''}`} onClick={() => setSheetMode('login')}>
+                Giris Yap
+              </button>
+              <button type="button" className={`secondary-btn ${sheetMode === 'register' ? 'is-active' : ''}`} onClick={() => setSheetMode('register')}>
+                Kayit Ol
+              </button>
+            </div>
+
+            {renderAuthForm()}
+
+            <div className="auth-footer">
+              <span>{sheetMode === 'login' ? 'Hesabin yok mu?' : 'Zaten hesabin var mi?'}</span>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setSheetMode((prev) => (prev === 'login' ? 'register' : 'login'));
+                  setError('');
+                  setExists(null);
+                  setShowSignupPrompt(false);
+                }}
+              >
+                {sheetMode === 'login' ? 'Kayit Ol' : 'Giris Yap'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page auth-page">
       <div className="card auth-card">
         <h1 className="auth-title">Talepet</h1>
-        <p className="auth-subtitle">Giriş yap veya yeni hesap oluştur.</p>
+        <p className="auth-subtitle">Giris yap veya yeni hesap olustur.</p>
 
         <div className="auth-social">
-          <div className="muted small">Hızlı devam et</div>
+          <div className="muted small">Hizli devam et</div>
           <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
             Google ile devam et
           </button>
@@ -251,10 +455,10 @@ function Login() {
 
         <div className="auth-actions">
           <button type="button" className="primary-btn" onClick={() => openSheet('login')}>
-            Giriş Yap
+            Giris Yap
           </button>
           <button type="button" className="secondary-btn" onClick={() => openSheet('register')}>
-            Kayıt Ol
+            Kayit Ol
           </button>
         </div>
       </div>
@@ -262,147 +466,16 @@ function Login() {
       <ReusableBottomSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        title={sheetMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+        title={sheetMode === 'login' ? 'Giris Yap' : 'Kayit Ol'}
         contentClassName="auth-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setSheetOpen(false)} aria-label="Kapat">
-            ✕
+            ×
           </button>
         }
         initialSnap="mid"
       >
-        {exists === true ? (
-          <p className="muted small">Hesabın bulundu. Şifreni gir.</p>
-        ) : null}
-        {exists === false ? (
-          <p className="muted small">Bu hesap yok. Bu bilgilerle kayıt olmak ister misin?</p>
-        ) : null}
-
-        <div className="auth-tabs">
-          <button
-            type="button"
-            className={`auth-tab ${activeTab === 'email' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('email');
-              setError('');
-              setExists(null);
-              setShowSignupPrompt(false);
-            }}
-          >
-            E-posta
-          </button>
-          <button
-            type="button"
-            className={`auth-tab ${activeTab === 'phone' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('phone');
-              setError('');
-              setExists(null);
-              setShowSignupPrompt(false);
-            }}
-          >
-            Telefon
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form" data-rb-no-drag="true">
-          {activeTab === 'email' ? (
-            <div className="auth-field">
-              <label htmlFor="email">E-posta</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="ornek@mail.com"
-                autoComplete="email"
-                inputMode="email"
-                enterKeyHint="next"
-                required
-              />
-            </div>
-          ) : (
-            <div className="auth-field">
-              <label htmlFor="phone">Telefon</label>
-              <div className="auth-phone-wrap">
-                <span className="auth-prefix">+90</span>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={phoneDigits}
-                  onChange={(event) => setPhoneDigits(normalizeTrMobileTo10Digits(event.target.value))}
-                  placeholder="5xx xxx xx xx"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  enterKeyHint="done"
-                />
-              </div>
-            </div>
-          )}
-
-          {showSignupPrompt && exists === false ? (
-            <div className="auth-alert">
-              Bu hesap bulunamadı. Bu bilgilerle kayıt olmak ister misin?
-              <div className="auth-footer-links">
-                <button type="button" className="link-btn" onClick={handlePrecheckSignup}>
-                  Evet, Kayıt Ol
-                </button>
-                <button type="button" className="link-btn" onClick={() => setShowSignupPrompt(false)}>
-                  Vazgeç
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {exists === true ? (
-            <div className="auth-field">
-              <label htmlFor="password">Şifre</label>
-              <div className="auth-input-wrap">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Şifren"
-                  autoComplete="current-password"
-                  enterKeyHint="done"
-                />
-                <button
-                  type="button"
-                  className="auth-toggle"
-                  aria-label="Şifreyi göster/gizle"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                >
-                  {showPassword ? 'Gizle' : 'Göster'}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {error ? <div className="auth-alert">{error}</div> : null}
-          {showForgotLink ? (
-            <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
-              Şifremi unuttum
-            </button>
-          ) : null}
-
-          <button
-            type="submit"
-            className="primary-btn"
-            disabled={loading || exists === null || (exists === true && !password.trim())}
-          >
-            {loading
-              ? 'İşleniyor...'
-              : exists === true
-                ? 'Giriş Yap'
-                : exists === false
-                  ? 'Kayıt Ol'
-                  : 'Devam Et'}
-          </button>
-        </form>
+        {renderAuthForm()}
       </ReusableBottomSheet>
     </div>
   );

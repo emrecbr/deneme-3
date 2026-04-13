@@ -556,6 +556,62 @@ body.dark-mode .app-logo {
   color: rgba(15, 23, 42, 0.7);
 }
 
+.website-auth-inline-card {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+}
+
+.website-auth-inline-head {
+  margin-bottom: 18px;
+}
+
+.website-auth-inline-head h2 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.website-auth-inline-head p {
+  margin: 0;
+  color: rgba(15, 23, 42, 0.68);
+  line-height: 1.6;
+}
+
+.auth-actions-inline {
+  margin: 18px 0;
+}
+
+.auth-actions-inline .primary-btn,
+.auth-actions-inline .secondary-btn {
+  min-width: 140px;
+}
+
+.website-auth-shell .auth-form {
+  margin-top: 8px;
+}
+
+.website-auth-shell .auth-field input,
+.website-auth-shell .auth-phone-wrap,
+.website-auth-shell .auth-input-wrap {
+  border-radius: 16px;
+}
+
+.website-auth-shell .auth-alert {
+  border-radius: 16px;
+  background: rgba(29, 78, 216, 0.08);
+  border: 1px solid rgba(29, 78, 216, 0.12);
+  color: #0f172a;
+}
+
+.website-auth-shell .auth-forgot {
+  align-self: flex-start;
+}
+
 @media (max-width: 900px) {
   .landing-hero,
   .landing-footer-cta,
@@ -624,7 +680,8 @@ body.dark-mode .app-logo {
   .landing-trust-pillar,
   .landing-faq-card,
   .landing-location-card,
-  .website-auth-point {
+  .website-auth-point,
+  .website-auth-inline-card {
     border-radius: 20px;
   }
 
