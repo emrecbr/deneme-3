@@ -1,14 +1,15 @@
 function EmptyStateCard({
-  title = 'Bu bölgede talep yok',
+  title = 'Bu bolgede talep yok',
   description,
-  primaryLabel = 'Km artır',
-  secondaryLabel = 'Talep oluştur',
+  primaryLabel = 'Km artir',
+  secondaryLabel = 'Talep olustur',
   onPrimary,
-  onSecondary
+  onSecondary,
+  variant = 'app'
 }) {
   return (
-    <div className="card empty-state-card">
-      <div className="empty-icon">📭</div>
+    <div className={`card empty-state-card ${variant === 'web' ? 'empty-state-card--web' : ''}`}>
+      <div className="empty-icon">Liste bos</div>
       <h3>{title}</h3>
       {description ? <p>{description}</p> : null}
       <div className="empty-actions">

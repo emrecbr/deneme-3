@@ -29,9 +29,10 @@ const EMPTY_JOBSEEKER_META = {
   expectedPay: ''
 };
 
-function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) {
+function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isWebSurface = surfaceVariant === 'web';
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     title: '',
@@ -92,6 +93,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   const [quotaError, setQuotaError] = useState('');
   const [extraPaymentLoading, setExtraPaymentLoading] = useState(false);
   const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
+  const stepLabels = ['Temel bilgi', 'Detaylar', 'Konum', 'Yayin'];
   const isEdit = mode === 'edit';
   const premiumActive = Boolean(
     user?.isPremium && (!user?.premiumUntil || new Date(user.premiumUntil) > new Date())
@@ -1203,17 +1205,57 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
   };
 
   return (
-    <div className="page">
-      <div className="card">
+    <div className={`page ${isWebSurface ? 'rfq-create-page--web' : ''}`}>
+      <div className={`card ${isWebSurface ? 'rfq-create-card--web' : ''}`}>
         <button type="button" className="icon-btn back-icon" onClick={handleBack} aria-label="Geri">
           ←
         </button>
-        <h1>{isEdit ? 'Talep Düzenle' : 'Yeni RFQ Oluştur'}</h1>
+        {isWebSurface ? (
+          <div className="rfq-create-hero">
+            <div className="rfq-create-hero__copy">
+              <p className="landing-eyebrow">Website talep olusturma</p>
+              <h1>{isEdit ? 'Talebini website uzerinden duzenle' : 'Yeni talebini web akisi ile hazirla'}</h1>
+              <p>
+                Kategori, ihtiyac detaylari ve konum bilgisini daha genis bir form alaninda tamamla. App hostuna
+                gecmeden once talebini website uzerinden netlestirebilirsin.
+              </p>
+            </div>
+            <div className="rfq-create-hero__aside">
+              <div className="rfq-create-hero__aside-card">
+                <span>Adim</span>
+                <strong>{step} / 4</strong>
+              </div>
+              <div className="rfq-create-hero__aside-card">
+                <span>Surface</span>
+                <strong>Website / web-first</strong>
+              </div>
+              <div className="rfq-create-hero__aside-card">
+                <span>Akis</span>
+                <strong>Kategori, detay, konum, yayin</strong>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <h1>{isEdit ? 'Talep Düzenle' : 'Yeni RFQ Oluştur'}</h1>
+        )}
         <div className="wizard-progress" aria-label="Adım ilerleme">
           {[1, 2, 3, 4].map((dot) => (
             <span key={dot} className={`wizard-dot ${step === dot ? 'active' : ''}`} />
           ))}
         </div>
+        {isWebSurface ? (
+          <div className="rfq-create-stepbar" aria-label="Form baglami">
+            {stepLabels.map((label, index) => (
+              <div
+                key={label}
+                className={`rfq-create-stepbar__item ${step === index + 1 ? 'is-active' : ''} ${step > index + 1 ? 'is-complete' : ''}`}
+              >
+                <span>{index + 1}</span>
+                <strong>{label}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {!isEdit ? (
           <div className="quota-card">
             {quotaLoading ? (
@@ -1254,7 +1296,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose }) 
             ) : null}
           </div>
         ) : null}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className={isWebSurface ? 'rfq-create-form--web' : ''}>
+          {isWebSurface && stepError ? <div className="rfq-create-inline-alert">{stepError}</div> : null}
+          {isWebSurface && error ? <div className="rfq-create-inline-alert rfq-create-inline-alert--error">{error}</div> : null}
           {step === 1 ? (
             <>
               <div className="form-group">

@@ -129,6 +129,7 @@ const escapeHtml = (value) => String(value || '')
 
 function RFQList({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
+  const isWebSurface = surfaceVariant === 'web';
   const { selectedCity, setSelectedCity, selectedDistrict, setSelectedDistrict } = useAuth();
   const navigate = useNavigate();
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -2677,10 +2678,38 @@ function RFQList({ surfaceVariant = 'app' }) {
           title="Bağlantı sorunu"
           message="Talepler yüklenemedi. İnterneti kontrol edip tekrar dene."
           onRetry={handleRetry}
+          variant={isWebSurface ? 'web' : 'app'}
         />
       ) : null}
 
-      <div className="home-filters">
+      {isWebSurface ? (
+        <section className="rfq-web-intro">
+          <div className="rfq-web-intro__copy">
+            <p className="landing-eyebrow">Website kesif alani</p>
+            <h2>Bulundugunuz bolgede acik talepleri web deneyimiyle tarayin.</h2>
+            <p>
+              Kategori, sehir ve alt filtreleri kullanarak aktif RFQ akisini daha genis kartlar ve masaustu
+              odakli bir kesif ritmiyle inceleyin.
+            </p>
+          </div>
+          <div className="rfq-web-intro__stats">
+            <div className="rfq-web-intro__stat">
+              <span>Aktif sehir</span>
+              <strong>{effectiveSelectedCityLabel}</strong>
+            </div>
+            <div className="rfq-web-intro__stat">
+              <span>Segment</span>
+              <strong>{filters.segment ? SEGMENT_OPTIONS.find((item) => item.value === filters.segment)?.label || 'Secili' : 'Tum segmentler'}</strong>
+            </div>
+            <div className="rfq-web-intro__stat">
+              <span>Kapsam</span>
+              <strong>{effectiveSelectedKm >= maxRadiusKm ? 'Sehir geneli' : `${effectiveSelectedKm} km`}</strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section className={`home-filters ${isWebSurface ? 'home-filters--web' : ''}`}>
         <div className="cats-header-row">
           <div className="cats-inline-wrap">
             <div className="cats-inline-scroll">
@@ -2738,10 +2767,10 @@ function RFQList({ surfaceVariant = 'app' }) {
             <span className="cats-fade right" aria-hidden="true" />
           </div>
         </div>
-      </div>
+      </section>
 
       {searchPanelEnabled ? (
-      <div className="rfq-search-area" ref={searchAreaRef}>
+      <div className={`rfq-search-area ${isWebSurface ? 'rfq-search-area--web' : ''}`} ref={searchAreaRef}>
         <div
           className={`rfq-search-trigger ${isSearchTriggerOpen ? 'is-open' : ''}`}
           role={isSearchTriggerOpen ? 'search' : 'button'}
@@ -2873,7 +2902,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       {loading ? <RFQSkeletonGrid count={6} /> : null}
 
       {!loading ? (
-        <section className="list-section">
+        <section className={`list-section ${isWebSurface ? 'list-section--web' : ''}`}>
           <div className="list-head">
             {homeContent.heroTitle ? (
               <div className="list-hero-title">{homeContent.heroTitle}</div>
@@ -2904,9 +2933,10 @@ function RFQList({ surfaceVariant = 'app' }) {
               secondaryLabel={effectiveHasCityFilter ? 'Km artır' : null}
               onPrimary={effectiveHasCityFilter ? handleCreateRFQ : handleSelectCity}
               onSecondary={effectiveHasCityFilter ? handleIncreaseKm : null}
+              variant={isWebSurface ? 'web' : 'app'}
             />
           ) : (
-            <div className="rfq-grid">
+            <div className={`rfq-grid ${isWebSurface ? 'rfq-grid--web' : ''}`}>
               {effectiveListItems.map((rfq, index) => {
                 const cardVariant = featuredIds.has(rfq._id)
                   ? 'featured'

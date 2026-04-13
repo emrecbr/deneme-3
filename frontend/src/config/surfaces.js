@@ -14,6 +14,9 @@ const normalizeHostname = (value = '') =>
     .replace(/:\d+$/, '');
 
 export const WEB_HOME_PATH = '/';
+export const WEBSITE_DISCOVERY_PATH = '/kesfet';
+export const WEBSITE_CATEGORIES_PATH = '/categories';
+export const WEBSITE_CREATE_PATH = '/create';
 export const APP_HOME_PATH = '/app';
 export const LEGACY_APP_HOME_PATH = '/';
 export const PROFILE_HOME_PATH = '/profile';
@@ -38,6 +41,9 @@ export const WEBSITE_AUTH_PATHS = [
 ];
 export const PUBLIC_WEB_PATHS = [
   WEB_HOME_PATH,
+  WEBSITE_DISCOVERY_PATH,
+  WEBSITE_CATEGORIES_PATH,
+  WEBSITE_CREATE_PATH,
   '/hakkimizda',
   '/gizlilik-sozlesmesi',
   '/mesafeli-satis-sozlesmesi',
