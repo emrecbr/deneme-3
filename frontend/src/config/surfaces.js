@@ -165,7 +165,7 @@ export const resolvePostAuthHref = (role = 'user', hostname = getBrowserHostname
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
-    return buildSurfaceHref('app', APP_HOME_PATH) || APP_HOME_PATH;
+    return WEB_HOME_PATH;
   }
 
   return APP_HOME_PATH;

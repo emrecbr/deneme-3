@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
+import WebsiteAuthShell from './components/WebsiteAuthShell';
 import AdminLayout from './admin/AdminLayout';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
@@ -152,6 +153,29 @@ function App() {
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
+
+  const renderAuthShell = useCallback(
+    (content, options = {}) => {
+      if (!websiteHost) {
+        return (
+          <Layout showBottomNav={options.showBottomNav ?? true} theme={theme} onToggleTheme={toggleTheme}>
+            {content}
+          </Layout>
+        );
+      }
+
+      return (
+        <WebsiteAuthShell
+          eyebrow={options.eyebrow}
+          title={options.title}
+          description={options.description}
+        >
+          {content}
+        </WebsiteAuthShell>
+      );
+    },
+    [theme, toggleTheme, websiteHost]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -326,9 +350,12 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-              <Login />
-            </Layout>
+            renderAuthShell(<Login />, {
+              eyebrow: 'Website girisi',
+              title: 'Talepet hesabina website uzerinden giris yap.',
+              description:
+                'Talepet website deneyimini terk etmeden hesabina giris yapabilir, kayit olabilir ve hazir oldugunda uygulamaya kontrollu sekilde gecebilirsin.'
+            })
           )
         }
       />
@@ -336,27 +363,36 @@ function App() {
       <Route
         path="/forgot-password"
         element={
-          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
-            <ForgotPassword />
-          </Layout>
+          renderAuthShell(<ForgotPassword />, {
+            showBottomNav: false,
+            eyebrow: 'Sifre yenileme',
+            title: 'Sifreni website uzerinden yenile.',
+            description: 'Sifre sifirlama adimlari website baglaminda ilerler ve mevcut auth altyapisini reuse eder.'
+          })
         }
       />
 
       <Route
         path="/reset-password"
         element={
-          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
-            <ResetPassword />
-          </Layout>
+          renderAuthShell(<ResetPassword />, {
+            showBottomNav: false,
+            eyebrow: 'Sifre sifirlama',
+            title: 'Yeni sifreni belirle.',
+            description: 'Sifre yenileme akisini website yuzeyi icinde tamamlayip daha sonra kontrollu sekilde devam edebilirsin.'
+          })
         }
       />
 
       <Route
         path="/auth/callback"
         element={
-          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
-            <AuthCallback />
-          </Layout>
+          renderAuthShell(<AuthCallback />, {
+            showBottomNav: false,
+            eyebrow: 'Auth callback',
+            title: 'Giris bilgilerin dogrulaniyor.',
+            description: 'Social auth callback tamamlanirken website baglami korunur.'
+          })
         }
       />
 
@@ -366,9 +402,12 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-              <RegisterOtp />
-            </Layout>
+            renderAuthShell(<RegisterOtp />, {
+              eyebrow: 'Website kaydi',
+              title: 'Talepet hesabini website uzerinden olustur.',
+              description:
+                'Kayit deneyimi website icinde baslar. OTP, e-posta ve telefon adimlari ayni backend auth altyapisini kullanir.'
+            })
           )
         }
       />
@@ -379,9 +418,11 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-              <SmsVerify />
-            </Layout>
+            renderAuthShell(<SmsVerify />, {
+              eyebrow: 'SMS dogrulama',
+              title: 'Telefon dogrulamani website uzerinden tamamla.',
+              description: 'SMS tabanli giris ve kayit adimlari website auth deneyiminin parcasi olarak kalir.'
+            })
           )
         }
       />
@@ -392,9 +433,11 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-              <EmailVerify />
-            </Layout>
+            renderAuthShell(<EmailVerify />, {
+              eyebrow: 'E-posta dogrulama',
+              title: 'E-posta ile hesabini dogrula.',
+              description: 'E-posta kod dogrulama adimlari website yuzeyi icinde ilerler ve ayni auth servisini reuse eder.'
+            })
           )
         }
       />
@@ -405,9 +448,11 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-              <LoginOtp />
-            </Layout>
+            renderAuthShell(<LoginOtp />, {
+              eyebrow: 'OTP ile giris',
+              title: 'OTP ile website uzerinden devam et.',
+              description: 'Telefon ve e-posta OTP giris akislari website auth katmaninda calisir.'
+            })
           )
         }
       />
@@ -415,9 +460,11 @@ function App() {
       <Route
         path="/verify-otp"
         element={
-          <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
-            <OtpVerify />
-          </Layout>
+          renderAuthShell(<OtpVerify />, {
+            eyebrow: 'Kod dogrulama',
+            title: 'Dogrulama kodunu gir.',
+            description: 'Kod dogrulama adimini website auth deneyimi icinde tamamlayabilirsin.'
+          })
         }
       />
 
