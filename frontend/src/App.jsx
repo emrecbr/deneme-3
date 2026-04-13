@@ -115,6 +115,9 @@ function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
+    if (user) {
+      return appHomeElement;
+    }
     return <LandingPage />;
   }
 

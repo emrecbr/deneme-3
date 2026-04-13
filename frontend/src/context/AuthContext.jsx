@@ -67,7 +67,8 @@ export function AuthProvider({ children }) {
           Authorization: `Bearer ${storedToken}`
         }
       });
-      const userData = response.data?.user || response.data;
+      const payload = response.data?.data || response.data || {};
+      const userData = payload?.user || response.data?.user || payload;
 
       if (!userData) {
         throw new Error('user not found in /auth/me response');
@@ -114,7 +115,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', nextToken);
       api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
       await checkAuth();
-      return response.data?.user || null;
+      return response.data?.data?.user || response.data?.user || response.data?.data || null;
     },
     [checkAuth]
   );
@@ -141,7 +142,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', nextToken);
       api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
       await checkAuth();
-      return response.data?.user || null;
+      return response.data?.data?.user || response.data?.user || response.data?.data || null;
     },
     [checkAuth]
   );

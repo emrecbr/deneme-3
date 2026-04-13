@@ -32,12 +32,12 @@ function Login() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated || webSurface) {
+    if (!isAuthenticated) {
       return;
     }
     const role = user?.role;
     completeAuthRedirect(role);
-  }, [isAuthenticated, navigate, user?.role, webSurface]);
+  }, [isAuthenticated, navigate, user?.role]);
 
   const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
   const normalizeTrMobileTo10Digits = (v) => {
