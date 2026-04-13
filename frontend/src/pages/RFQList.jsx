@@ -127,7 +127,7 @@ const escapeHtml = (value) => String(value || '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-function RFQList() {
+function RFQList({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
   const { selectedCity, setSelectedCity, selectedDistrict, setSelectedDistrict } = useAuth();
   const navigate = useNavigate();
@@ -2660,7 +2660,12 @@ function RFQList() {
   );
 
   return (
-    <div className="rfq-list-page" onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd}>
+    <div
+      className={`rfq-list-page ${surfaceVariant === 'web' ? 'rfq-list-page--web' : ''}`}
+      onTouchStart={onPullStart}
+      onTouchMove={onPullMove}
+      onTouchEnd={onPullEnd}
+    >
       <div className="ui-rev-watermark">UI REV 1</div>
       <div className="pull-indicator" style={{ height: `${pullDistance}px` }}>
         {pullDistance > 0 ? <span className="spinner" /> : null}

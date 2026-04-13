@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import WebsiteAuthShell from './components/WebsiteAuthShell';
+import WebAppShell from './components/WebAppShell';
 import AdminLayout from './admin/AdminLayout';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
@@ -61,6 +62,7 @@ import {
   APP_HOME_PATH,
   SURFACE_LABELS,
   isWebsiteAuthPath,
+  isAppSurfaceHost,
   isWebSurfaceHost,
   resolveSurfaceLabel,
   resolveSurfaceLabelFromHostname,
@@ -101,7 +103,7 @@ const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 
-function RootSurfaceRoute({ user, authenticatedPath }) {
+function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   const hostSurface = resolveSurfaceLabelFromHostname();
 
   if (hostSurface === SURFACE_LABELS.admin) {
@@ -109,11 +111,7 @@ function RootSurfaceRoute({ user, authenticatedPath }) {
   }
 
   if (hostSurface === SURFACE_LABELS.app) {
-    return (
-      <Layout>
-        <RFQList />
-      </Layout>
-    );
+    return appHomeElement;
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
@@ -131,6 +129,7 @@ function App() {
   const { user, loading, checkAuth } = useAuth();
   const location = useLocation();
   const websiteHost = isWebSurfaceHost();
+  const appHost = isAppSurfaceHost();
   const websiteAuthRoute = websiteHost && isWebsiteAuthPath(location.pathname);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -175,6 +174,28 @@ function App() {
       );
     },
     [theme, toggleTheme, websiteHost]
+  );
+
+  const renderProductShell = useCallback(
+    (content, options = {}) => {
+      if (appHost) {
+        return (
+          <WebAppShell
+            title={options.title}
+            description={options.description}
+          >
+            {content}
+          </WebAppShell>
+        );
+      }
+
+      return (
+        <Layout showBottomNav={options.showBottomNav ?? true} theme={theme} onToggleTheme={toggleTheme}>
+          {content}
+        </Layout>
+      );
+    },
+    [appHost, theme, toggleTheme]
   );
 
   useEffect(() => {
@@ -248,6 +269,16 @@ function App() {
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
   const defaultAuthenticatedPath = isAdminRole ? ADMIN_HOME_PATH : APP_HOME_PATH;
+  const productHomeElement = renderProductShell(<RFQList surfaceVariant={appHost ? 'web' : 'app'} />, {
+    title: 'Talepet kesif ana ekrani',
+    description:
+      'Ilan listesi, kategori kesfi ve sehir / ilce baglami ayni browser urun kabugu icinde toplanir.'
+  });
+  const categoriesElement = renderProductShell(<Categories />, {
+    title: 'Kategori kesfi',
+    description:
+      'Kategori secimi ve yeni talep akisi, web shell icinden yonetilmeye hazir ilk giris noktalari olarak gorunur.'
+  });
   const maintenanceBlocking =
     !maintenance.loading &&
     maintenance.enabled &&
@@ -471,17 +502,17 @@ function App() {
       <Route
         path={WEB_HOME_PATH}
         element={
-          <RootSurfaceRoute user={user} authenticatedPath={defaultAuthenticatedPath} />
+          <RootSurfaceRoute
+            user={user}
+            authenticatedPath={defaultAuthenticatedPath}
+            appHomeElement={productHomeElement}
+          />
         }
       />
 
       <Route
         path={APP_HOME_PATH}
-        element={
-          <Layout theme={theme} onToggleTheme={toggleTheme}>
-            <RFQList />
-          </Layout>
-        }
+        element={productHomeElement}
       />
 
       <Route
@@ -630,11 +661,7 @@ function App() {
 
       <Route
         path="/categories"
-        element={
-          <Layout theme={theme} onToggleTheme={toggleTheme}>
-            <Categories />
-          </Layout>
-        }
+        element={categoriesElement}
       />
 
       <Route
