@@ -92,6 +92,10 @@ function LandingPage() {
 
   return (
     <div className="landing-shell">
+      <a href="#landing-main" className="landing-skip-link">
+        Icerige gec
+      </a>
+
       <header className="landing-topbar">
         <Link to="/" className="landing-brand">
           Talepet
@@ -107,22 +111,26 @@ function LandingPage() {
         </nav>
       </header>
 
-      <section className="landing-hero">
+      <main id="landing-main">
+      <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-copy">
           <p className="landing-eyebrow">{LANDING_CONTENT.hero.eyebrow}</p>
-          <h1>{LANDING_CONTENT.hero.title}</h1>
+          <h1 id="landing-hero-title">{LANDING_CONTENT.hero.title}</h1>
           <p>{LANDING_CONTENT.hero.subtitle}</p>
 
-          <div className="landing-cta-row">
-            <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
+          <div className="landing-cta-row" aria-label="Hero eylemleri">
+            <Link to={LANDING_CONTENT.hero.primaryCta.to} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
-            </a>
+            </Link>
             <Link to={LANDING_CONTENT.hero.secondaryCta.to} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
             </Link>
-            <Link to={LANDING_CONTENT.hero.tertiaryCta.to} className="landing-link-button landing-link-button-strong">
+            <a
+              href={buildSurfaceHref('app', APP_HOME_PATH)}
+              className="landing-link-button landing-link-button-strong"
+            >
               {LANDING_CONTENT.hero.tertiaryCta.label}
-            </Link>
+            </a>
           </div>
 
           <div className="landing-metric-grid" aria-label="Platform highlights">
@@ -130,6 +138,15 @@ function LandingPage() {
               <div key={item.label} className="landing-metric-card">
                 <strong>{item.value}</strong>
                 <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="landing-highlight-list" aria-label="Temel deger onerileri">
+            {LANDING_CONTENT.hero.highlights.map((item) => (
+              <div key={item} className="landing-highlight-item">
+                <span className="landing-trust-dot" aria-hidden="true" />
+                <span>{item}</span>
               </div>
             ))}
           </div>
@@ -145,10 +162,10 @@ function LandingPage() {
         </aside>
       </section>
 
-      <section className="landing-section">
+      <section className="landing-section" id="nasil-calisir" aria-labelledby="how-it-works-title">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">Talepet nasil calisir</p>
-          <h2>Website bilgilendirir, uygulama islemi tamamlar.</h2>
+          <h2 id="how-it-works-title">Website bilgilendirir, uygulama islemi tamamlar.</h2>
           <p>
             Bu website yuzeyi kullaniciya platformun mantigini aciklar. Talep olusturma, teklif toplama ve
             profil yonetimi ise uygulama tarafinda devam eder.
@@ -166,10 +183,10 @@ function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section landing-section-soft">
+      <section className="landing-section landing-section-soft" id="kategoriler" aria-labelledby="categories-title">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">Populer kategoriler</p>
-          <h2>Farkli ihtiyaclar icin tek bir talep mantigi.</h2>
+          <h2 id="categories-title">Farkli ihtiyaclar icin tek bir talep mantigi.</h2>
           <p>
             Talepet segmentleri farkli problem tiplerini tek tasarim dili icinde toplar. Kullanim mantigi sabit
             kalir, kategori ve akisin ayrintisi ihtiyaca gore degisir.
@@ -180,16 +197,71 @@ function LandingPage() {
           {LANDING_CONTENT.categories.map((segment) => (
             <article key={segment.key} className="landing-segment-card">
               <h3>{segment.label}</h3>
+              <div className="landing-segment-cue">{segment.cue}</div>
               <p>{segment.detail}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="landing-section">
+      <section className="landing-section" id="kesif" aria-labelledby="discovery-title">
+        <div className="landing-section-heading">
+          <p className="landing-eyebrow">{LANDING_CONTENT.publicDiscovery.eyebrow}</p>
+          <h2 id="discovery-title">{LANDING_CONTENT.publicDiscovery.title}</h2>
+          <p>{LANDING_CONTENT.publicDiscovery.body}</p>
+        </div>
+
+        <div className="landing-discovery-layout">
+          <article className="landing-discovery-card landing-discovery-card--categories">
+            <div className="landing-discovery-head">
+              <h3>Kategori kesfi</h3>
+              <p>{LANDING_CONTENT.publicDiscovery.categoriesIntro}</p>
+            </div>
+
+            <div className="landing-discovery-tags">
+              {LANDING_CONTENT.categories.map((segment) => (
+                <div key={segment.key} className="landing-discovery-tag">
+                  <strong>{segment.label}</strong>
+                  <span>{segment.cue}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="landing-discovery-card landing-discovery-card--cities">
+            <div className="landing-discovery-head">
+              <h3>Sehir / ilce baglami</h3>
+              <p>{LANDING_CONTENT.publicDiscovery.cityIntro}</p>
+            </div>
+
+            <div className="landing-city-preview-list">
+              {LANDING_CONTENT.publicDiscovery.featuredCities.map((item) => (
+                <div key={item.city} className="landing-city-preview-card">
+                  <div className="landing-city-preview-badge">{item.city}</div>
+                  <p>{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <div className="landing-discovery-cta-row">
+          <Link to={LANDING_CONTENT.publicDiscovery.detailCta.to} className="landing-secondary-button">
+            {LANDING_CONTENT.publicDiscovery.detailCta.label}
+          </Link>
+          <Link to={LANDING_CONTENT.publicDiscovery.createCta.to} className="landing-primary-button">
+            {LANDING_CONTENT.publicDiscovery.createCta.label}
+          </Link>
+          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
+            {LANDING_CONTENT.publicDiscovery.appCta.label}
+          </a>
+        </div>
+      </section>
+
+      <section className="landing-section" id="konum" aria-labelledby="location-title">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">{LANDING_CONTENT.locationLogic.eyebrow}</p>
-          <h2>{LANDING_CONTENT.locationLogic.title}</h2>
+          <h2 id="location-title">{LANDING_CONTENT.locationLogic.title}</h2>
           <p>{LANDING_CONTENT.locationLogic.body}</p>
         </div>
 
@@ -212,12 +284,46 @@ function LandingPage() {
             ))}
           </div>
         </div>
+
+        <div className="landing-location-spotlight">
+          {LANDING_CONTENT.locationLogic.spotlight.map((item) => (
+            <article key={item} className="landing-location-spotlight-card">
+              <p>{item}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="landing-section landing-section-soft">
+      <section className="landing-section landing-section-soft" id="rfq-preview" aria-labelledby="rfq-preview-title">
+        <div className="landing-section-heading">
+          <p className="landing-eyebrow">Talep preview</p>
+          <h2 id="rfq-preview-title">RFQ mantigini public web icinde hisset.</h2>
+          <p>
+            Giris yapmadan tum urun akisina girmeden once, Talepet&apos;te bir talebin nasil gorunecegine ve
+            hangi baglamla zenginlesecegine dair public-safe on izleme katmani gorebilirsin.
+          </p>
+        </div>
+
+        <div className="landing-rfq-preview-grid">
+          {LANDING_CONTENT.publicDiscovery.rfqPreview.map((item) => (
+            <article key={item.title} className="landing-rfq-preview-card">
+              <div className="landing-rfq-preview-meta">{item.meta}</div>
+              <h3>{item.title}</h3>
+              <p>{item.summary}</p>
+              <div className="landing-rfq-preview-actions">
+                <Link to="/login" className="landing-secondary-button">
+                  {item.cta}
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section landing-section-soft" id="guven" aria-labelledby="trust-title">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">Guven ve kalite</p>
-          <h2>Dogrulama, moderasyon ve premium gorunurluk ayni catida.</h2>
+          <h2 id="trust-title">Dogrulama, moderasyon ve premium gorunurluk ayni catida.</h2>
           <p>
             Talepet yalnizca listeleme veya form toplama araci olarak degil; kalite, operasyon ve gorunurluk
             katmanlariyla birlikte tasarlanmis bir sistem olarak konumlanir.
@@ -234,10 +340,10 @@ function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section">
+      <section className="landing-section" id="sss" aria-labelledby="faq-title">
         <div className="landing-section-heading">
           <p className="landing-eyebrow">SSS</p>
-          <h2>Karar vermeden once en kritik sorulari cevaplayalim.</h2>
+          <h2 id="faq-title">Karar vermeden once en kritik sorulari cevaplayalim.</h2>
         </div>
 
         <div className="landing-faq-grid">
@@ -250,22 +356,26 @@ function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-footer-cta">
+      <section className="landing-footer-cta" aria-labelledby="footer-cta-title">
         <div>
           <p className="landing-eyebrow">{LANDING_CONTENT.footerCta.eyebrow}</p>
-          <h2>{LANDING_CONTENT.footerCta.title}</h2>
+          <h2 id="footer-cta-title">{LANDING_CONTENT.footerCta.title}</h2>
           <p>{LANDING_CONTENT.footerCta.body}</p>
         </div>
 
-        <div className="landing-cta-row">
-          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
+        <div className="landing-cta-row" aria-label="Footer eylemleri">
+          <Link to={LANDING_CONTENT.footerCta.primary.to} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
-          </a>
+          </Link>
           <Link to={LANDING_CONTENT.footerCta.secondary.to} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
           </Link>
+          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
+            {LANDING_CONTENT.footerCta.tertiary.label}
+          </a>
         </div>
       </section>
+      </main>
 
       <PublicFooter />
     </div>

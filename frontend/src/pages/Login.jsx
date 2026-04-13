@@ -394,10 +394,10 @@ function Login() {
             </div>
 
             <div className="auth-actions auth-actions-inline">
-              <button type="button" className={`primary-btn ${sheetMode === 'login' ? 'is-active' : ''}`} onClick={() => setSheetMode('login')}>
+              <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
                 Giris Yap
               </button>
-              <button type="button" className={`secondary-btn ${sheetMode === 'register' ? 'is-active' : ''}`} onClick={() => setSheetMode('register')}>
+              <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
                 Kayit Ol
               </button>
             </div>
@@ -405,18 +405,9 @@ function Login() {
             {renderAuthForm()}
 
             <div className="auth-footer">
-              <span>{sheetMode === 'login' ? 'Hesabin yok mu?' : 'Zaten hesabin var mi?'}</span>
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setSheetMode((prev) => (prev === 'login' ? 'register' : 'login'));
-                  setError('');
-                  setExists(null);
-                  setShowSignupPrompt(false);
-                }}
-              >
-                {sheetMode === 'login' ? 'Kayit Ol' : 'Giris Yap'}
+              <span>Hesabin yok mu?</span>
+              <button type="button" className="link-btn" onClick={() => navigate('/register')}>
+                Kayit Ol
               </button>
             </div>
           </div>

@@ -1,27 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
-import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
+import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
+import { useAuth } from '../context/AuthContext';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
-const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
-const normalizePhoneDigits = (v) => {
-  let d = onlyDigits(v);
-  if (d.startsWith('90')) d = d.slice(2);
-  if (d.startsWith('0')) d = d.slice(1);
-  if (d.length > 10) d = d.slice(0, 10);
-  return d;
+const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
+const normalizePhoneDigits = (value) => {
+  let digits = onlyDigits(value);
+  if (digits.startsWith('90')) digits = digits.slice(2);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  if (digits.length > 10) digits = digits.slice(0, 10);
+  return digits;
 };
-const toE164TR = (d10) => {
-  if (!/^[5]\d{9}$/.test(d10)) return '';
-  return `+90${d10}`;
+const toE164TR = (digits10) => {
+  if (!/^[5]\d{9}$/.test(digits10)) return '';
+  return `+90${digits10}`;
 };
 const normalizePhone = (value) => toE164TR(normalizePhoneDigits(value));
 
 function RegisterOtp() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
+  const webSurface = isWebSurfaceHost();
+
   const [step, setStep] = useState(1);
   const [method, setMethod] = useState('email');
   const [email, setEmail] = useState('');
@@ -49,6 +53,7 @@ function RegisterOtp() {
     const nextMethod = params.get('method');
     const nextEmail = params.get('email');
     const nextPhone = params.get('phone');
+
     if (nextMethod === 'sms' || nextMethod === 'email') {
       setMethod(nextMethod);
     }
@@ -88,13 +93,15 @@ function RegisterOtp() {
         return 'E-posta zorunlu.';
       }
       if (!EMAIL_REGEX.test(email.trim())) {
-        return 'E-posta formatı geçersiz.';
+        return 'E-posta formati gecersiz.';
       }
       return '';
     }
+
     if (!normalizePhone(phone)) {
       return 'Telefon zorunlu.';
     }
+
     return '';
   };
 
@@ -105,6 +112,7 @@ function RegisterOtp() {
       setError(validationError);
       return;
     }
+
     setLoadingSend(true);
     try {
       const payload =
@@ -115,16 +123,16 @@ function RegisterOtp() {
       await api.post('/auth/register/otp/send', payload);
       setStep(2);
       setResendSeconds(60);
-      setSuccess('Kod gönderildi.');
+      setSuccess('Kod gonderildi.');
     } catch (err) {
       if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
-        setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
+        setError('SMS gonderilemedi. Trial hesap sadece dogrulanmis numaralara SMS gonderir.');
       } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
-        setError('Bu ülkeye SMS gönderimi kapalı.');
+        setError('Bu ulkeye SMS gonderimi kapali.');
       } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
-        setError('Numara formatı hatalı (5XXXXXXXXX).');
+        setError('Numara formati hatali (5XXXXXXXXX).');
       } else {
-        setError(err?.response?.data?.message || err?.message || 'Kod gönderilemedi.');
+        setError(err?.response?.data?.message || err?.message || 'Kod gonderilemedi.');
       }
     } finally {
       setLoadingSend(false);
@@ -133,8 +141,9 @@ function RegisterOtp() {
 
   const verifyOtp = async () => {
     resetMessages();
+
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Kod 6 haneli olmalı.');
+      setError('Kod 6 haneli olmali.');
       return;
     }
     if (!name.trim()) {
@@ -142,9 +151,10 @@ function RegisterOtp() {
       return;
     }
     if (!password) {
-      setError('Şifre zorunlu.');
+      setError('Sifre zorunlu.');
       return;
     }
+
     setLoadingVerify(true);
     try {
       const payload =
@@ -152,15 +162,17 @@ function RegisterOtp() {
           ? { method, email: email.trim(), code: code.trim(), name: name.trim(), password }
           : { method, phone: normalizePhone(phone), code: code.trim(), name: name.trim(), password };
 
-      const res = await api.post('/auth/register/otp/verify', payload);
-      const data = res?.data;
+      const response = await api.post('/auth/register/otp/verify', payload);
+      const data = response?.data;
+
       if (data?.token) {
-        localStorage.setItem('token', data.token);
+        await login(data.token);
       }
-      setSuccess('Kayıt tamamlandı.');
+
+      setSuccess('Kayit tamamlandi.');
       completeAuthRedirect();
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
+      setError(err?.response?.data?.message || err?.message || 'Dogrulama basarisiz.');
     } finally {
       setLoadingVerify(false);
     }
@@ -173,27 +185,48 @@ function RegisterOtp() {
     await sendOtp();
   };
 
-  const buildAuthUrl = (provider) => {
-    return buildProviderAuthUrl(provider);
-  };
-
   const handleProviderLogin = (provider) => {
-    window.location.href = buildAuthUrl(provider);
+    window.location.href = buildProviderAuthUrl(provider);
   };
 
   return (
-    <div className="otp-page">
-      <div className="card otp-card">
+    <div className={`otp-page ${webSurface ? 'otp-page--website' : ''}`}>
+      <div className={`card otp-card ${webSurface ? 'otp-card--website' : ''}`}>
         <div className="auth-header">
-          <h2>Kayıt Ol</h2>
+          <div className="website-auth-inline-head website-auth-inline-head--compact">
+            <h2>Kayit Ol</h2>
+            <p>
+              Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye hazir ol.
+            </p>
+          </div>
           <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-            Giriş Yap’a dön
+            Giris Yap&apos;a don
           </button>
         </div>
-        <p className="muted">E-posta veya telefon ile kayıt doğrulaması yap.</p>
+
+        <p className="muted">
+          E-posta veya telefon ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
+        </p>
+
+        {webSurface ? (
+          <div className="website-auth-register-benefits">
+            <div className="website-auth-register-benefit">
+              <strong>Talep olustur</strong>
+              <span>Kategori ve konuma gore isabetli talep akisina hizli basla.</span>
+            </div>
+            <div className="website-auth-register-benefit">
+              <strong>Teklifleri yonet</strong>
+              <span>Gelen teklifleri ve profil gecmisini tek hesap uzerinden takip et.</span>
+            </div>
+            <div className="website-auth-register-benefit">
+              <strong>Guven katmani</strong>
+              <span>Moderasyon, dogrulama ve premium gorunurluk imkanlarini kullan.</span>
+            </div>
+          </div>
+        ) : null}
 
         <div className="auth-social">
-          <div className="muted small">Hızlı devam et</div>
+          <div className="muted small">Hizli devam et</div>
           <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
             Google ile devam et
           </button>
@@ -206,8 +239,8 @@ function RegisterOtp() {
                 fill="currentColor"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z"/>
-                <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
+                <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z" />
+                <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z" />
               </svg>
             </span>
             <span className="social-text">Apple ile devam et</span>
@@ -245,7 +278,7 @@ function RegisterOtp() {
           </button>
         </div>
 
-        {step === 1 && (
+        {step === 1 ? (
           <>
             {method === 'email' ? (
               <div className="form-group">
@@ -255,8 +288,8 @@ function RegisterOtp() {
                   inputMode="email"
                   autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@example.com"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="ornek@mail.com"
                 />
               </div>
             ) : (
@@ -267,37 +300,30 @@ function RegisterOtp() {
                   inputMode="tel"
                   autoComplete="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(event) => setPhone(event.target.value)}
                   placeholder="+90 5xx xxx xx xx"
                 />
               </div>
             )}
 
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={sendOtp}
-              disabled={loadingSend}
-            >
-              {loadingSend ? 'Gönderiliyor…' : 'Kod Gönder'}
+            <button type="button" className="primary-btn" onClick={sendOtp} disabled={loadingSend}>
+              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
             </button>
           </>
-        )}
-
-        {step === 2 && (
+        ) : (
           <>
             <p className="muted small">
-              Kod şuraya gönderildi: <strong>{targetLabel}</strong>
+              Kod suraya gonderildi: <strong>{targetLabel}</strong>
             </p>
 
             <div className="form-group">
-              <label>Doğrulama Kodu</label>
+              <label>Dogrulama Kodu</label>
               <input
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(event) => setCode(event.target.value)}
                 placeholder="123456"
                 maxLength={6}
               />
@@ -308,29 +334,24 @@ function RegisterOtp() {
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="Ad Soyad"
               />
             </div>
 
             <div className="form-group">
-              <label>Şifre</label>
+              <label>Sifre</label>
               <input
                 type="password"
                 autoComplete="new-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Şifre"
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Sifre"
               />
             </div>
 
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={verifyOtp}
-              disabled={loadingVerify}
-            >
-              {loadingVerify ? 'Doğrulanıyor…' : 'Doğrula ve Kayıt Ol'}
+            <button type="button" className="primary-btn" onClick={verifyOtp} disabled={loadingVerify}>
+              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula ve Kayit Ol'}
             </button>
 
             <button
@@ -339,18 +360,18 @@ function RegisterOtp() {
               onClick={resendOtp}
               disabled={resendSeconds > 0 || loadingSend}
             >
-              {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
+              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
             </button>
           </>
         )}
 
-        {error && <div className="alert error">{error}</div>}
-        {success && <div className="alert success">{success}</div>}
+        {error ? <div className="alert error">{error}</div> : null}
+        {success ? <div className="alert success">{success}</div> : null}
 
         <div className="auth-footer">
-          <span>Zaten hesabın var mı?</span>
+          <span>Zaten hesabin var mi?</span>
           <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-            Giriş Yap
+            Giris Yap
           </button>
         </div>
       </div>
