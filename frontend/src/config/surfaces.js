@@ -100,6 +100,15 @@ export const resolveSurfaceLabelFromHostname = (hostname = getBrowserHostname())
   return '';
 };
 
+export const isWebSurfaceHost = (hostname = getBrowserHostname()) =>
+  resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.web;
+
+export const isAppSurfaceHost = (hostname = getBrowserHostname()) =>
+  resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.app;
+
+export const isAdminSurfaceHost = (hostname = getBrowserHostname()) =>
+  resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.admin;
+
 export const buildSurfaceHref = (surface, path = '/') => {
   const normalizedPath = normalizePath(path);
   const baseUrl = getSurfaceBaseUrl(surface);

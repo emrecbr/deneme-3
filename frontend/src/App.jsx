@@ -59,6 +59,7 @@ import {
   ADMIN_HOME_PATH,
   APP_HOME_PATH,
   SURFACE_LABELS,
+  isWebSurfaceHost,
   resolveSurfaceLabel,
   resolveSurfaceLabelFromHostname,
   WEB_HOME_PATH
@@ -127,6 +128,7 @@ function RootSurfaceRoute({ user, authenticatedPath }) {
 function App() {
   const { user, loading, checkAuth } = useAuth();
   const location = useLocation();
+  const websiteHost = isWebSurfaceHost();
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [maintenance, setMaintenance] = useState({ loading: true, enabled: false, message: '' });
@@ -319,7 +321,7 @@ function App() {
       <Route
         path="/login"
         element={
-          user ? (
+          user && !websiteHost ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
@@ -359,7 +361,7 @@ function App() {
       <Route
         path="/register"
         element={
-          user ? (
+          user && !websiteHost ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
@@ -372,7 +374,7 @@ function App() {
       <Route
         path="/sms-verify"
         element={
-          user ? (
+          user && !websiteHost ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
@@ -385,7 +387,7 @@ function App() {
       <Route
         path="/email-verify"
         element={
-          user ? (
+          user && !websiteHost ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>
@@ -398,7 +400,7 @@ function App() {
       <Route
         path="/login-otp"
         element={
-          user ? (
+          user && !websiteHost ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             <Layout showBottomNav={true} theme={theme} onToggleTheme={toggleTheme}>

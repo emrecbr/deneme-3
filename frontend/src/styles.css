@@ -157,6 +157,40 @@ body.dark-mode .app-logo {
   gap: 12px;
 }
 
+.landing-metric-grid,
+.landing-process-grid,
+.landing-trust-pillar-grid,
+.landing-faq-grid,
+.landing-location-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.landing-metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.landing-metric-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.landing-metric-card strong {
+  font-size: 1.1rem;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.landing-metric-card span {
+  color: rgba(15, 23, 42, 0.66);
+  font-size: 0.93rem;
+}
+
 .landing-primary-button,
 .landing-secondary-button,
 .landing-link-button {
@@ -308,6 +342,83 @@ body.dark-mode .app-logo {
   gap: 14px;
 }
 
+.landing-process-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-process-card,
+.landing-trust-pillar,
+.landing-faq-card,
+.landing-location-card {
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.landing-process-card,
+.landing-trust-pillar,
+.landing-faq-card {
+  padding: 20px;
+}
+
+.landing-process-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(29, 78, 216, 0.1);
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.landing-process-card h3,
+.landing-trust-pillar h3,
+.landing-faq-card h3,
+.landing-location-card h3 {
+  margin: 14px 0 10px;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.landing-location-layout {
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+}
+
+.landing-location-card {
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 35%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.95));
+}
+
+.landing-location-badge {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.landing-location-points {
+  display: grid;
+  gap: 14px;
+}
+
+.landing-trust-pillar-grid,
+.landing-faq-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .landing-trust-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -339,13 +450,18 @@ body.dark-mode .app-logo {
 
 @media (max-width: 900px) {
   .landing-hero,
-  .landing-footer-cta {
+  .landing-footer-cta,
+  .landing-location-layout {
     grid-template-columns: 1fr;
     display: grid;
   }
 
+  .landing-metric-grid,
+  .landing-process-grid,
   .landing-segment-grid,
-  .landing-trust-grid {
+  .landing-trust-grid,
+  .landing-trust-pillar-grid,
+  .landing-faq-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -376,9 +492,21 @@ body.dark-mode .app-logo {
     max-width: none;
   }
 
+  .landing-metric-grid,
+  .landing-process-grid,
   .landing-segment-grid,
-  .landing-trust-grid {
+  .landing-trust-grid,
+  .landing-trust-pillar-grid,
+  .landing-faq-grid {
     grid-template-columns: 1fr;
+  }
+
+  .landing-metric-card,
+  .landing-process-card,
+  .landing-trust-pillar,
+  .landing-faq-card,
+  .landing-location-card {
+    border-radius: 20px;
   }
 }
 

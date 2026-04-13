@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 
 function AuthCallback() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [error, setError] = useState('');
+
+  const completeAuthRedirect = () => {
+    const nextHref = resolvePostAuthHref('user');
+    if (isAbsoluteHref(nextHref)) {
+      window.location.href = nextHref;
+      return;
+    }
+    navigate(nextHref, { replace: true });
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -15,7 +25,7 @@ function AuthCallback() {
       return;
     }
     login(token)
-      .then(() => navigate('/'))
+      .then(() => completeAuthRedirect())
       .catch(() => setError('Giris tamamlanamadi.'));
   }, [login, navigate]);
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
-import { isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
+import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
@@ -31,7 +31,7 @@ function Login() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || isWebSurfaceHost()) {
       return;
     }
     const role = user?.role;
