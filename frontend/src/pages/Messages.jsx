@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 
-function Messages() {
+function Messages({ surfaceVariant = 'app' }) {
+  const isWebSurface = surfaceVariant === 'web';
   const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,12 +55,22 @@ function Messages() {
   };
 
   return (
-    <div className="page">
-      <div className="profile-topbar">
-        <BackIconButton />
-        <h1>Mesajlar</h1>
-        <span className="topbar-spacer" aria-hidden="true" />
-      </div>
+    <div className={`page ${isWebSurface ? 'website-profile-module' : ''}`}>
+      {isWebSurface ? (
+        <div className="website-profile-module__header">
+          <div>
+            <p className="landing-eyebrow">Profil modülü</p>
+            <h2>Mesajlar</h2>
+            <p>Sohbet listene website içinden eriş, son mesajları takip et ve ilgili talebe dön.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="profile-topbar">
+          <BackIconButton />
+          <h1>Mesajlar</h1>
+          <span className="topbar-spacer" aria-hidden="true" />
+        </div>
+      )}
       <section className="card">
       {loading ? (
         <div>
@@ -82,10 +93,14 @@ function Messages() {
       ) : null}
 
       {!loading ? (
-        <div className="profile-list">
+        <div className={`profile-list ${isWebSurface ? 'website-profile-list' : ''}`}>
           {sortedChats.length ? (
             sortedChats.map((chat) => (
-              <article key={chat._id} className="profile-item" onClick={() => navigate(`/messages/${chat._id}`)}>
+              <article
+                key={chat._id}
+                className={`profile-item ${isWebSurface ? 'website-profile-record-card' : ''}`}
+                onClick={() => navigate(`/messages/${chat._id}`)}
+              >
                 <strong>{chat.rfq?.title || 'RFQ'}</strong>
                 <div>Son mesaj: {chat.lastMessage || 'Henüz mesaj yok'}</div>
                 <button type="button" className="secondary-btn" onClick={(event) => handleDeleteChat(chat._id, event)}>

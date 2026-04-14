@@ -20,7 +20,7 @@ const toE164TR = (digits10) => {
 };
 const normalizePhone = (value) => toE164TR(normalizePhoneDigits(value));
 
-function RegisterOtp() {
+function RegisterOtp({ embedded = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
@@ -189,192 +189,200 @@ function RegisterOtp() {
     window.location.href = buildProviderAuthUrl(provider);
   };
 
+  const registerCard = (
+    <div className={`card otp-card ${webSurface && !embedded ? 'otp-card--website' : ''}`}>
+      <div className="auth-header">
+        <div className="website-auth-inline-head website-auth-inline-head--compact">
+          <h2>Kayit Ol</h2>
+          <p>
+            Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye hazir ol.
+          </p>
+        </div>
+        <button type="button" className="link-btn" onClick={() => navigate('/login')}>
+          Giris Yap&apos;a don
+        </button>
+      </div>
+
+      <p className="muted">
+        E-posta veya telefon ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
+      </p>
+
+      {webSurface ? (
+        <div className="website-auth-register-benefits">
+          <div className="website-auth-register-benefit">
+            <strong>Talep olustur</strong>
+            <span>Kategori ve konuma gore isabetli talep akisina hizli basla.</span>
+          </div>
+          <div className="website-auth-register-benefit">
+            <strong>Teklifleri yonet</strong>
+            <span>Gelen teklifleri ve profil gecmisini tek hesap uzerinden takip et.</span>
+          </div>
+          <div className="website-auth-register-benefit">
+            <strong>Guven katmani</strong>
+            <span>Moderasyon, dogrulama ve premium gorunurluk imkanlarini kullan.</span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="auth-social">
+        <div className="muted small">Hizli devam et</div>
+        <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+          Google ile devam et
+        </button>
+        <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+          <span className="social-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z" />
+              <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z" />
+            </svg>
+          </span>
+          <span className="social-text">Apple ile devam et</span>
+        </button>
+      </div>
+
+      <div className="auth-divider">
+        <span>veya</span>
+      </div>
+
+      <div className="otp-channel">
+        <button
+          type="button"
+          className={`secondary-btn ${method === 'email' ? 'active' : ''}`}
+          onClick={() => {
+            setMethod('email');
+            setStep(1);
+            setCode('');
+            resetMessages();
+          }}
+        >
+          E-posta
+        </button>
+        <button
+          type="button"
+          className={`secondary-btn ${method === 'sms' ? 'active' : ''}`}
+          onClick={() => {
+            setMethod('sms');
+            setStep(1);
+            setCode('');
+            resetMessages();
+          }}
+        >
+          Telefon
+        </button>
+      </div>
+
+      {step === 1 ? (
+        <>
+          {method === 'email' ? (
+            <div className="form-group">
+              <label>E-posta</label>
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="ornek@mail.com"
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>Telefon</label>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="+90 5xx xxx xx xx"
+              />
+            </div>
+          )}
+
+          <button type="button" className="primary-btn" onClick={sendOtp} disabled={loadingSend}>
+            {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="muted small">
+            Kod suraya gonderildi: <strong>{targetLabel}</strong>
+          </p>
+
+          <div className="form-group">
+            <label>Dogrulama Kodu</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="123456"
+              maxLength={6}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Ad Soyad</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Ad Soyad"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Sifre</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Sifre"
+            />
+          </div>
+
+          <button type="button" className="primary-btn" onClick={verifyOtp} disabled={loadingVerify}>
+            {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula ve Kayit Ol'}
+          </button>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={resendOtp}
+            disabled={resendSeconds > 0 || loadingSend}
+          >
+            {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+          </button>
+        </>
+      )}
+
+      {error ? <div className="alert error">{error}</div> : null}
+      {success ? <div className="alert success">{success}</div> : null}
+
+      <div className="auth-footer">
+        <span>Zaten hesabin var mi?</span>
+        <button type="button" className="link-btn" onClick={() => navigate('/login')}>
+          Giris Yap
+        </button>
+      </div>
+    </div>
+  );
+
+  if (webSurface && embedded) {
+    return registerCard;
+  }
+
   return (
     <div className={`otp-page ${webSurface ? 'otp-page--website' : ''}`}>
-      <div className={`card otp-card ${webSurface ? 'otp-card--website' : ''}`}>
-        <div className="auth-header">
-          <div className="website-auth-inline-head website-auth-inline-head--compact">
-            <h2>Kayit Ol</h2>
-            <p>
-              Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye hazir ol.
-            </p>
-          </div>
-          <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-            Giris Yap&apos;a don
-          </button>
-        </div>
-
-        <p className="muted">
-          E-posta veya telefon ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
-        </p>
-
-        {webSurface ? (
-          <div className="website-auth-register-benefits">
-            <div className="website-auth-register-benefit">
-              <strong>Talep olustur</strong>
-              <span>Kategori ve konuma gore isabetli talep akisina hizli basla.</span>
-            </div>
-            <div className="website-auth-register-benefit">
-              <strong>Teklifleri yonet</strong>
-              <span>Gelen teklifleri ve profil gecmisini tek hesap uzerinden takip et.</span>
-            </div>
-            <div className="website-auth-register-benefit">
-              <strong>Guven katmani</strong>
-              <span>Moderasyon, dogrulama ve premium gorunurluk imkanlarini kullan.</span>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="auth-social">
-          <div className="muted small">Hizli devam et</div>
-          <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-            Google ile devam et
-          </button>
-          <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
-            <span className="social-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z" />
-                <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z" />
-              </svg>
-            </span>
-            <span className="social-text">Apple ile devam et</span>
-          </button>
-        </div>
-
-        <div className="auth-divider">
-          <span>veya</span>
-        </div>
-
-        <div className="otp-channel">
-          <button
-            type="button"
-            className={`secondary-btn ${method === 'email' ? 'active' : ''}`}
-            onClick={() => {
-              setMethod('email');
-              setStep(1);
-              setCode('');
-              resetMessages();
-            }}
-          >
-            E-posta
-          </button>
-          <button
-            type="button"
-            className={`secondary-btn ${method === 'sms' ? 'active' : ''}`}
-            onClick={() => {
-              setMethod('sms');
-              setStep(1);
-              setCode('');
-              resetMessages();
-            }}
-          >
-            Telefon
-          </button>
-        </div>
-
-        {step === 1 ? (
-          <>
-            {method === 'email' ? (
-              <div className="form-group">
-                <label>E-posta</label>
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="ornek@mail.com"
-                />
-              </div>
-            ) : (
-              <div className="form-group">
-                <label>Telefon</label>
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder="+90 5xx xxx xx xx"
-                />
-              </div>
-            )}
-
-            <button type="button" className="primary-btn" onClick={sendOtp} disabled={loadingSend}>
-              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="muted small">
-              Kod suraya gonderildi: <strong>{targetLabel}</strong>
-            </p>
-
-            <div className="form-group">
-              <label>Dogrulama Kodu</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="123456"
-                maxLength={6}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Ad Soyad</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Ad Soyad"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Sifre</label>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Sifre"
-              />
-            </div>
-
-            <button type="button" className="primary-btn" onClick={verifyOtp} disabled={loadingVerify}>
-              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula ve Kayit Ol'}
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={resendOtp}
-              disabled={resendSeconds > 0 || loadingSend}
-            >
-              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
-            </button>
-          </>
-        )}
-
-        {error ? <div className="alert error">{error}</div> : null}
-        {success ? <div className="alert success">{success}</div> : null}
-
-        <div className="auth-footer">
-          <span>Zaten hesabin var mi?</span>
-          <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-            Giris Yap
-          </button>
-        </div>
-      </div>
+      {registerCard}
     </div>
   );
 }

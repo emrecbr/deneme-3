@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 
-function Favorites() {
+function Favorites({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
+  const isWebSurface = surfaceVariant === 'web';
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,12 +57,22 @@ function Favorites() {
   };
 
   return (
-    <div className="page">
-      <div className="profile-topbar">
-        <BackIconButton />
-        <h1>Favorilerim</h1>
-        <span className="topbar-spacer" aria-hidden="true" />
-      </div>
+    <div className={`page ${isWebSurface ? 'website-profile-module' : ''}`}>
+      {isWebSurface ? (
+        <div className="website-profile-module__header">
+          <div>
+            <p className="landing-eyebrow">Profil modülü</p>
+            <h2>Favorilerim</h2>
+            <p>Kaydettiğin talepleri website shell içinde yeniden aç ve yönet.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="profile-topbar">
+          <BackIconButton />
+          <h1>Favorilerim</h1>
+          <span className="topbar-spacer" aria-hidden="true" />
+        </div>
+      )}
       <section className="card">
       {loading ? (
         <div>
@@ -84,7 +95,7 @@ function Favorites() {
       ) : null}
 
       {!loading ? (
-        <div className="rfq-grid">
+        <div className={`rfq-grid ${isWebSurface ? 'website-profile-grid' : ''}`}>
           {items.length ? (
             items.map((rfq) => (
               <article key={rfq._id} className="card rfq-card rfq-clickable" onClick={() => navigate(`/rfq/${rfq._id}`)}>

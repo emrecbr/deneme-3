@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 
-function ProfileRequests() {
+function ProfileRequests({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
+  const isWebSurface = surfaceVariant === 'web';
   const navigate = useNavigate();
   const location = useLocation();
   const [requests, setRequests] = useState([]);
@@ -74,19 +75,29 @@ function ProfileRequests() {
   const list = activeTab === 'approved' ? approved : pending;
 
   return (
-    <div className="page">
-      <div className="profile-topbar">
-        <BackIconButton />
-        <h1>Taleplerim</h1>
-        <span className="topbar-spacer" aria-hidden="true" />
-      </div>
+    <div className={`page ${isWebSurface ? 'website-profile-module' : ''}`}>
+      {isWebSurface ? (
+        <div className="website-profile-module__header">
+          <div>
+            <p className="landing-eyebrow">Profil modülü</p>
+            <h2>Taleplerim</h2>
+            <p>Oluşturduğun talepleri durumlarına göre website içinde takip et.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="profile-topbar">
+          <BackIconButton />
+          <h1>Taleplerim</h1>
+          <span className="topbar-spacer" aria-hidden="true" />
+        </div>
+      )}
 
       {loading ? <div className="card">Yükleniyor...</div> : null}
       {error ? <div className="error">{error}</div> : null}
 
       {!loading && !error ? (
         <>
-          <div className="detail-tabs">
+          <div className={`detail-tabs ${isWebSurface ? 'website-profile-tabs' : ''}`}>
             <button
               type="button"
               className={activeTab === 'approved' ? 'active' : ''}
@@ -105,7 +116,11 @@ function ProfileRequests() {
           {requests.length ? (
             list.length ? (
               list.map((item) => (
-                <article key={item._id} className="card profile-item premium-rfq-card" onClick={() => navigate(`/rfq/${item._id}`)}>
+                <article
+                  key={item._id}
+                  className={`card profile-item premium-rfq-card ${isWebSurface ? 'website-profile-record-card' : ''}`}
+                  onClick={() => navigate(`/rfq/${item._id}`)}
+                >
                   <div className="rfq-media">
                     <img src={getImage(item)} className="rfq-image" alt={item.title || 'rfq'} loading="lazy" />
                   </div>

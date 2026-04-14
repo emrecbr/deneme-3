@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
+import ProfileLegalSection from '../components/ProfileLegalSection';
 import { useAuth } from '../context/AuthContext';
 import BackIconButton from '../components/BackIconButton';
 
-function Premium() {
+function Premium({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const { user, checkAuth } = useAuth();
+  const isWebSurface = surfaceVariant === 'web';
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -159,14 +161,41 @@ function Premium() {
   const featuredCredits = Number(billing?.featuredCredits ?? user?.featuredCredits ?? 0);
 
   return (
-    <div className="page premium-page">
-      <div className="profile-topbar">
-        <BackIconButton />
-        <h1>Premium</h1>
-        <span className="topbar-spacer" aria-hidden="true" />
-      </div>
+    <div className={`page premium-page ${isWebSurface ? 'premium-page--web website-profile-module' : ''}`}>
+      {isWebSurface ? (
+        <div className="website-profile-module__header">
+          <div>
+            <p className="landing-eyebrow">Profil modülü</p>
+            <h2>Premium</h2>
+            <p>Paketlerin, premium görünürlüğün ve ödeme aksiyonların website shell içinde daha geniş bir düzende açılır.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="profile-topbar">
+          <BackIconButton />
+          <h1>Premium</h1>
+          <span className="topbar-spacer" aria-hidden="true" />
+        </div>
+      )}
 
       {error ? <div className="card ux-error-state">{error}</div> : null}
+
+      {isWebSurface ? (
+        <section className="premium-web-summary">
+          <article className="card premium-web-summary__card">
+            <span>Premium durumu</span>
+            <strong>{premiumActive ? 'Aktif' : 'Pasif'}</strong>
+          </article>
+          <article className="card premium-web-summary__card">
+            <span>Öne çıkarma kredisi</span>
+            <strong>{featuredCredits}</strong>
+          </article>
+          <article className="card premium-web-summary__card">
+            <span>Abonelik</span>
+            <strong>{billing?.subscription?.planCode || 'Aktif plan yok'}</strong>
+          </article>
+        </section>
+      ) : null}
 
       <section className="card premium-status-card">
         <h2>{premiumActive ? 'Premium Aktif' : 'Premium Değil'}</h2>
@@ -287,6 +316,8 @@ function Premium() {
             </div>
           ))}
       </section>
+
+      {isWebSurface ? <ProfileLegalSection /> : null}
     </div>
   );
 }

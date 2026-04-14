@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import WebsiteAuthShell from './components/WebsiteAuthShell';
+import WebsiteProfileShell from './components/WebsiteProfileShell';
 import WebsiteProductShell from './components/WebsiteProductShell';
 import AdminLayout from './admin/AdminLayout';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
@@ -69,6 +70,15 @@ import {
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
   WEBSITE_DISCOVERY_PATH,
+  WEBSITE_PROFILE_ACCOUNT_PATH,
+  WEBSITE_PROFILE_ADDRESSES_PATH,
+  WEBSITE_PROFILE_ALERTS_PATH,
+  WEBSITE_PROFILE_FAVORITES_PATH,
+  WEBSITE_PROFILE_HOME_PATH,
+  WEBSITE_PROFILE_MESSAGES_PATH,
+  WEBSITE_PROFILE_OFFERS_PATH,
+  WEBSITE_PROFILE_PREMIUM_PATH,
+  WEBSITE_PROFILE_REQUESTS_PATH,
   WEB_HOME_PATH
 } from './config/surfaces';
 import { useAuth } from './context/AuthContext';
@@ -105,6 +115,28 @@ const DistanceSalesPage = lazy(() => import('./pages/DistanceSalesPage'));
 const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
+const WebsiteProfileHome = lazy(() => import('./pages/WebsiteProfileHome'));
+
+function WebsiteProfilePlaceholder({ title, description }) {
+  if (String(title || '').toLowerCase().includes('premium')) {
+    return <Premium surfaceVariant="web" />;
+  }
+
+  if (String(title || '').toLowerCase().includes('takiplerim')) {
+    return <ProfileAccount surfaceVariant="web" focusSection="alerts" />;
+  }
+
+  return (
+    <div className="website-profile-placeholder card">
+      <div className="website-profile-placeholder__eyebrow">Faz 1 omurga</div>
+      <h2>{title}</h2>
+      <p>{description}</p>
+      <div className="website-profile-placeholder__note">
+        Bu route canlı olarak tanımlandı. Sonraki fazda ilgili modül web-first içerikle doldurulacak.
+      </div>
+    </div>
+  );
+}
 
 function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   const hostSurface = resolveSurfaceLabelFromHostname();
@@ -203,6 +235,21 @@ function App() {
       return renderProductShell(content, options);
     },
     [renderProductShell, websiteHost]
+  );
+
+  const renderWebsiteProfileShell = useCallback(
+    (content, options = {}) => {
+      if (websiteHost) {
+        return (
+          <WebsiteProfileShell title={options.title} description={options.description}>
+            {content}
+          </WebsiteProfileShell>
+        );
+      }
+
+      return <Navigate to={options.fallbackTo || '/profile'} replace />;
+    },
+    [websiteHost]
   );
 
   useEffect(() => {
@@ -399,7 +446,7 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            renderAuthShell(<Login />, {
+            renderAuthShell(<Login embedded={websiteHost} />, {
               eyebrow: 'Website girisi',
               title: 'Talepet hesabina website uzerinden giris yap.',
               description:
@@ -451,7 +498,7 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            renderAuthShell(<RegisterOtp />, {
+            renderAuthShell(<RegisterOtp embedded={websiteHost} />, {
               eyebrow: 'Website kaydi',
               title: 'Talepet hesabini website uzerinden olustur.',
               description:
@@ -701,6 +748,154 @@ function App() {
       <Route
         path={WEBSITE_CATEGORIES_PATH}
         element={categoriesElement}
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_HOME_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(<WebsiteProfileHome />, {
+              title: 'Profil alanın',
+              description:
+                'Website içinde çalışan profil omurgası burada başlar. Genel bakış, hızlı aksiyonlar ve modül navigasyonu bu fazda kuruldu.',
+              fallbackTo: '/profile'
+            })}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_ACCOUNT_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <ProfileAccount surfaceVariant="web" />,
+              {
+                title: 'Hesap',
+                description: 'Bilgilerim, güvenlik, ödeme yöntemi ve takip modülleri website shell içinde açılır.',
+                fallbackTo: '/profile/account'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_REQUESTS_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <ProfileRequests surfaceVariant="web" />,
+              {
+                title: 'Taleplerim',
+                description: 'Onaylanan ve bekleyen talepler website shell içinde gerçek veriyle açılır.',
+                fallbackTo: '/profile/requests'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_OFFERS_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <ProfileOffers surfaceVariant="web" />,
+              {
+                title: 'Tekliflerim',
+                description: 'Teklif listesi website shell içinde gerçek veriyle açılır.',
+                fallbackTo: '/profile/offers'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_FAVORITES_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <FavoritesPage surfaceVariant="web" />,
+              {
+                title: 'Favoriler',
+                description: 'Favori talepler website shell içinde gerçek içerikle açılır.',
+                fallbackTo: '/favorites'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_MESSAGES_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <Messages surfaceVariant="web" />,
+              {
+                title: 'Mesajlar',
+                description: 'Mesaj listesi website shell içinde gerçek veriyle açılır.',
+                fallbackTo: '/messages'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_ADDRESSES_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <ProfileAddresses surfaceVariant="web" />,
+              {
+                title: 'Adresler',
+                description: 'Adres kayıtları website shell içinde gerçek veriyle açılır.',
+                fallbackTo: '/profile/addresses'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_PREMIUM_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <WebsiteProfilePlaceholder
+                title="Premium alanı hazırlanıyor"
+                description="Paket, kota ve premium görünürlük bilgileri website profile shell içine taşınacak."
+              />,
+              {
+                title: 'Premium',
+                description: 'Premium paketlerin, görünürlük seçeneklerin ve ödeme bağlantıların website shell içinde açılır.',
+                fallbackTo: '/premium'
+              }
+            )}
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_ALERTS_PATH}
+        element={
+          <PrivateRoute>
+            {renderWebsiteProfileShell(
+              <WebsiteProfilePlaceholder
+                title="Takiplerim alanı hazırlanıyor"
+                description="Kategori, şehir ve anahtar kelime takipleri website shell altında sonraki fazda taşınacak."
+              />,
+              {
+                title: 'Takiplerim',
+                description: 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde gerçek veriyle yönet.',
+                fallbackTo: '/profile/account'
+              }
+            )}
+          </PrivateRoute>
+        }
       />
 
       <Route

@@ -5,7 +5,7 @@ import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
-function Login() {
+function Login({ embedded = false }) {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
   const webSurface = isWebSurfaceHost();
@@ -349,6 +349,65 @@ function Login() {
       </form>
     </>
   );
+
+  if (webSurface && embedded) {
+    return (
+      <div className="website-auth-inline-card">
+        <div className="website-auth-inline-head">
+          <h2>{sheetMode === 'login' ? 'Hesabina giris yap' : 'Yeni hesap olustur'}</h2>
+          <p>
+            {sheetMode === 'login'
+              ? 'Talep, teklif ve profil akisina website uzerinden giris yaparak devam et.'
+              : 'Kayit adimini website yuzeyi icinde tamamla, uygulamaya gecis zamanini sen belirle.'}
+          </p>
+        </div>
+
+        <div className="auth-social">
+          <div className="muted small">Hizli devam et</div>
+          <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+            Google ile devam et
+          </button>
+          <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+            <span className="social-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M16.7 13.1c0 2.1 1.8 2.8 1.9 2.9-.0.1-.3 1.2-1 2.4-.6 1.1-1.3 2.1-2.4 2.1-1 0-1.3-.6-2.5-.6-1.1 0-1.5.6-2.5.6-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.9.7-1.3 2-2.2 3.4-2.2 1.1 0 2 .7 2.5.7.5 0 1.6-.8 2.8-.7.5 0 2 .2 3 1.6-.1.1-1.8 1-1.8 3.2z"/>
+                <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
+              </svg>
+            </span>
+            <span className="social-text">Apple ile devam et</span>
+          </button>
+        </div>
+
+        <div className="auth-divider">
+          <span>veya</span>
+        </div>
+
+        <div className="auth-actions auth-actions-inline">
+          <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
+            Giris Yap
+          </button>
+          <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
+            Kayit Ol
+          </button>
+        </div>
+
+        {renderAuthForm()}
+
+        <div className="auth-footer">
+          <span>Hesabin yok mu?</span>
+          <button type="button" className="link-btn" onClick={() => navigate('/register')}>
+            Kayit Ol
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (webSurface) {
     return (
