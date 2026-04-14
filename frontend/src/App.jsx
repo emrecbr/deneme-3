@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import WebsiteAuthShell from './components/WebsiteAuthShell';
+import WebsiteProductShell from './components/WebsiteProductShell';
 import WebAppShell from './components/WebAppShell';
 import AdminLayout from './admin/AdminLayout';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
@@ -66,6 +67,9 @@ import {
   isWebSurfaceHost,
   resolveSurfaceLabel,
   resolveSurfaceLabelFromHostname,
+  WEBSITE_CATEGORIES_PATH,
+  WEBSITE_CREATE_PATH,
+  WEBSITE_DISCOVERY_PATH,
   WEB_HOME_PATH
 } from './config/surfaces';
 import { useAuth } from './context/AuthContext';
@@ -115,9 +119,6 @@ function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
-    if (user) {
-      return appHomeElement;
-    }
     return <LandingPage />;
   }
 
@@ -201,6 +202,21 @@ function App() {
     [appHost, theme, toggleTheme]
   );
 
+  const renderWebsiteProductShell = useCallback(
+    (content, options = {}) => {
+      if (websiteHost) {
+        return (
+          <WebsiteProductShell title={options.title} description={options.description}>
+            {content}
+          </WebsiteProductShell>
+        );
+      }
+
+      return renderProductShell(content, options);
+    },
+    [renderProductShell, websiteHost]
+  );
+
   useEffect(() => {
     if (!user) {
       setShowOnboarding(false);
@@ -272,16 +288,28 @@ function App() {
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
   const defaultAuthenticatedPath = isAdminRole ? ADMIN_HOME_PATH : APP_HOME_PATH;
-  const productHomeElement = renderProductShell(<RFQList surfaceVariant={appHost ? 'web' : 'app'} />, {
-    title: 'Talepet kesif ana ekrani',
+  const websiteProductHomeElement = renderWebsiteProductShell(<RFQList surfaceVariant="web" />, {
+    title: 'Talepet website kesif alani',
     description:
-      'Ilan listesi, kategori kesfi ve sehir / ilce baglami ayni browser urun kabugu icinde toplanir.'
+      'Public website icindeki kesif deneyimi landing, auth ve urun gecislerini ayni website shell baglaminda toplar.'
   });
-  const categoriesElement = renderProductShell(<Categories />, {
+  const appProductHomeElement = renderProductShell(<RFQList surfaceVariant="web" />, {
+    title: 'Talepet web urun alani',
+    description:
+      'App hostundaki urun deneyimi browser icinde calisir; website shell yerine app/web-product shell kullanilir.'
+  });
+  const websiteCategoriesElement = renderWebsiteProductShell(<Categories surfaceVariant="web" />, {
+    title: 'Website kategori kesfi',
+    description:
+      'Website tarafinda kategori gecisleri landing baglamini koruyan genis bir web shell icinde acilir.'
+  });
+  const appCategoriesElement = renderProductShell(<Categories surfaceVariant="web" />, {
     title: 'Kategori kesfi',
     description:
-      'Kategori secimi ve yeni talep akisi, web shell icinden yonetilmeye hazir ilk giris noktalari olarak gorunur.'
+      'App hostunda kategori deneyimi website shell degil, web urun shell icinde acilir.'
   });
+  const productHomeElement = websiteHost ? websiteProductHomeElement : appProductHomeElement;
+  const categoriesElement = websiteHost ? websiteCategoriesElement : appCategoriesElement;
   const maintenanceBlocking =
     !maintenance.loading &&
     maintenance.enabled &&
@@ -515,29 +543,50 @@ function App() {
 
       <Route
         path={APP_HOME_PATH}
+        element={appHost ? appProductHomeElement : <Navigate to={WEBSITE_DISCOVERY_PATH} replace />}
+      />
+
+      <Route
+        path={WEBSITE_DISCOVERY_PATH}
         element={productHomeElement}
       />
 
       <Route
-        path="/create"
+        path={WEBSITE_CREATE_PATH}
         element={
           <PrivateRoute>
-            <Layout theme={theme} onToggleTheme={toggleTheme}>
-              <RFQCreate />
-            </Layout>
-          </PrivateRoute>
-        }
-      />
+              {websiteHost
+                ? renderWebsiteProductShell(<RFQCreate surfaceVariant="web" />, {
+                    title: 'Talep olusturma akisini website icinden yonet',
+                    description:
+                      'Kategori, detay ve konum adimlari website hostunda daha genis bir form yerlesimiyle ilerler; app-first sheet hissi root domaine tasinmaz.'
+                  })
+                : renderProductShell(<RFQCreate surfaceVariant="web" />, {
+                    title: 'Talep olustur',
+                    description:
+                      'App hostunda talep olusturma akisi website shell degil, web urun shell icinde ilerler.'
+                  })}
+            </PrivateRoute>
+          }
+        />
 
       <Route path="/rfq/create" element={<Navigate to="/create" replace />} />
-      <Route path="/rfq" element={<Navigate to={APP_HOME_PATH} replace />} />
+      <Route path="/rfq" element={<Navigate to={websiteHost ? WEBSITE_DISCOVERY_PATH : APP_HOME_PATH} replace />} />
 
       <Route
         path="/rfq/:id"
         element={
-          <Layout theme={theme} onToggleTheme={toggleTheme}>
-            <RFQDetail />
-          </Layout>
+            websiteHost ? (
+              renderWebsiteProductShell(<RFQDetail surfaceVariant="web" />, {
+                title: 'Talep detayina website icinden bak',
+                description: 'Talep detayi website urun shell icinde acilir; mobil app hissi root domainde zorunlu kalmaz.'
+              })
+          ) : (
+            renderProductShell(<RFQDetail surfaceVariant="web" />, {
+              title: 'Talep detayi',
+              description: 'App hostundaki talep detayi web urun shell icinde, daha tutarli bir browser deneyimiyle acilir.'
+            })
+          )
         }
       />
 
@@ -663,7 +712,7 @@ function App() {
       />
 
       <Route
-        path="/categories"
+        path={WEBSITE_CATEGORIES_PATH}
         element={categoriesElement}
       />
 

@@ -182,10 +182,10 @@ export const resolveSurfaceLabel = (pathname = '', hostname = getBrowserHostname
   if (hostnameSurface === SURFACE_LABELS.admin) {
     return SURFACE_LABELS.admin;
   }
-  if (hostnameSurface === SURFACE_LABELS.app && pathname === WEB_HOME_PATH) {
+  if (hostnameSurface === SURFACE_LABELS.app) {
     return SURFACE_LABELS.app;
   }
-  if (hostnameSurface === SURFACE_LABELS.web && pathname === WEB_HOME_PATH) {
+  if (hostnameSurface === SURFACE_LABELS.web) {
     return SURFACE_LABELS.web;
   }
 
