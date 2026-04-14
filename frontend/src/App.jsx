@@ -3,7 +3,6 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import WebsiteAuthShell from './components/WebsiteAuthShell';
 import WebsiteProductShell from './components/WebsiteProductShell';
-import WebAppShell from './components/WebAppShell';
 import AdminLayout from './admin/AdminLayout';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
@@ -182,24 +181,13 @@ function App() {
 
   const renderProductShell = useCallback(
     (content, options = {}) => {
-      if (appHost) {
-        return (
-          <WebAppShell
-            title={options.title}
-            description={options.description}
-          >
-            {content}
-          </WebAppShell>
-        );
-      }
-
       return (
         <Layout showBottomNav={options.showBottomNav ?? true} theme={theme} onToggleTheme={toggleTheme}>
           {content}
         </Layout>
       );
     },
-    [appHost, theme, toggleTheme]
+    [theme, toggleTheme]
   );
 
   const renderWebsiteProductShell = useCallback(
@@ -293,22 +281,21 @@ function App() {
     description:
       'Public website icindeki kesif deneyimi landing, auth ve urun gecislerini ayni website shell baglaminda toplar.'
   });
-  const appProductHomeElement = renderProductShell(<RFQList surfaceVariant="web" />, {
-    title: 'Talepet web urun alani',
+  const appProductHomeElement = renderProductShell(<RFQList surfaceVariant="app" />, {
+    title: 'Talepet ana akis',
     description:
-      'App hostundaki urun deneyimi browser icinde calisir; website shell yerine app/web-product shell kullanilir.'
+      'App hostundaki urun deneyimi mobil ve uygulama odakli layout ile acilir; website shell bu hostta kullanilmaz.'
   });
   const websiteCategoriesElement = renderWebsiteProductShell(<Categories surfaceVariant="web" />, {
     title: 'Website kategori kesfi',
     description:
       'Website tarafinda kategori gecisleri landing baglamini koruyan genis bir web shell icinde acilir.'
   });
-  const appCategoriesElement = renderProductShell(<Categories surfaceVariant="web" />, {
+  const appCategoriesElement = renderProductShell(<Categories surfaceVariant="app" />, {
     title: 'Kategori kesfi',
     description:
-      'App hostunda kategori deneyimi website shell degil, web urun shell icinde acilir.'
+      'App hostunda kategori deneyimi mevcut mobil/app-first layout icinde calisir.'
   });
-  const productHomeElement = websiteHost ? websiteProductHomeElement : appProductHomeElement;
   const categoriesElement = websiteHost ? websiteCategoriesElement : appCategoriesElement;
   const maintenanceBlocking =
     !maintenance.loading &&
@@ -536,7 +523,7 @@ function App() {
           <RootSurfaceRoute
             user={user}
             authenticatedPath={defaultAuthenticatedPath}
-            appHomeElement={productHomeElement}
+            appHomeElement={appProductHomeElement}
           />
         }
       />
@@ -548,7 +535,7 @@ function App() {
 
       <Route
         path={WEBSITE_DISCOVERY_PATH}
-        element={productHomeElement}
+        element={websiteHost ? websiteProductHomeElement : <Navigate to={APP_HOME_PATH} replace />}
       />
 
       <Route
@@ -561,10 +548,10 @@ function App() {
                     description:
                       'Kategori, detay ve konum adimlari website hostunda daha genis bir form yerlesimiyle ilerler; app-first sheet hissi root domaine tasinmaz.'
                   })
-                : renderProductShell(<RFQCreate surfaceVariant="web" />, {
+                : renderProductShell(<RFQCreate surfaceVariant="app" />, {
                     title: 'Talep olustur',
                     description:
-                      'App hostunda talep olusturma akisi website shell degil, web urun shell icinde ilerler.'
+                      'App hostunda talep olusturma akisi mevcut mobil/app-first deneyimle ilerler.'
                   })}
             </PrivateRoute>
           }
@@ -582,9 +569,9 @@ function App() {
                 description: 'Talep detayi website urun shell icinde acilir; mobil app hissi root domainde zorunlu kalmaz.'
               })
           ) : (
-            renderProductShell(<RFQDetail surfaceVariant="web" />, {
+            renderProductShell(<RFQDetail surfaceVariant="app" />, {
               title: 'Talep detayi',
-              description: 'App hostundaki talep detayi web urun shell icinde, daha tutarli bir browser deneyimiyle acilir.'
+              description: 'App hostundaki talep detayi mevcut uygulama odakli shell icinde acilir.'
             })
           )
         }
