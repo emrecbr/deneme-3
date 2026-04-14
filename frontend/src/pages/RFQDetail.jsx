@@ -8,9 +8,10 @@ import RFQCreate from './RFQCreate';
 import OfferSheet from '../components/OfferSheet';
 import ReportIssueSheet from '../components/ReportIssueSheet';
 
-function RFQDetail() {
+function RFQDetail({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const isWebSurface = surfaceVariant === 'web';
   const idEq = (a, b) => {
     if (!a || !b) {
       return false;
@@ -1185,15 +1186,15 @@ function RFQDetail() {
   };
 
   return (
-    <div>
-      <div className="detail-head">
+    <div className={`rfq-detail-page ${isWebSurface ? 'rfq-detail-page--web' : ''}`}>
+      <div className={`detail-head ${isWebSurface ? 'detail-head--web' : ''}`}>
         <button type="button" className="secondary-btn" onClick={() => navigate('/')}>
           Geri
         </button>
       </div>
 
       {!loading && !userLoading && !error && rfq ? (
-        <div className="detail-tabs">
+        <div className={`detail-tabs ${isWebSurface ? 'detail-tabs--web' : ''}`}>
           <button
             type="button"
             className={activeTab === 'offers' ? 'active' : ''}
@@ -1226,7 +1227,7 @@ function RFQDetail() {
 
       {!loading && !userLoading && !error && rfq ? (
         <>
-          <section className="card fade-in" style={{ animationDelay: '0ms' }}>
+          <section className={`card fade-in ${isWebSurface ? 'rfq-detail-hero-card' : ''}`} style={{ animationDelay: '0ms' }}>
             <div className="detail-title-row">
               <h1>{rfq.title}</h1>
               {isAwarded ? <span className="badge done">Talep Tamamlandi</span> : null}
@@ -1236,6 +1237,22 @@ function RFQDetail() {
                 </button>
               ) : null}
             </div>
+            {isWebSurface ? (
+              <div className="rfq-detail-meta-grid">
+                <div className="rfq-detail-meta-card">
+                  <span>Kategori</span>
+                  <strong>{getCategoryName(rfq.category)}</strong>
+                </div>
+                <div className="rfq-detail-meta-card">
+                  <span>Konum</span>
+                  <strong>{getCityName(rfq) ? `${getCityName(rfq)}${getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}` : '-'}</strong>
+                </div>
+                <div className="rfq-detail-meta-card">
+                  <span>Termin</span>
+                  <strong>{formatDate(rfq.deadline)}</strong>
+                </div>
+              </div>
+            ) : null}
             {isOwner ? (
               <div className="detail-feature-row">
                 <div className="rfq-sub">Kredi: {featuredCredits}</div>
@@ -1312,7 +1329,7 @@ function RFQDetail() {
           {activeTab === 'offers' ? (
             <>
               {isOwner ? (
-                <section className="card fade-in" style={{ animationDelay: '50ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '50ms' }}>
                   <h2>Gelen Teklifler</h2>
                   {actionError ? <div className="error">{actionError}</div> : null}
 
@@ -1400,7 +1417,7 @@ function RFQDetail() {
                   )}
                 </section>
               ) : (
-                <section className="card fade-in" style={{ animationDelay: '50ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '50ms' }}>
                   <h2>Teklifim</h2>
                   {offerError ? <div className="error">{offerError}</div> : null}
                   {offerLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
@@ -1459,7 +1476,7 @@ function RFQDetail() {
           {activeTab === 'chat' ? (
             <>
               {isOwner ? (
-                <section className="card fade-in" style={{ animationDelay: '50ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '50ms' }}>
                   <h2>Saticilarla Sohbet</h2>
                   {offers.length ? (
                     <div className="offer-list">
@@ -1494,7 +1511,7 @@ function RFQDetail() {
               ) : null}
 
               {activeChatId ? (
-                <section className="card fade-in" style={{ animationDelay: '75ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '75ms' }}>
                   <div className="detail-title-row">
                     <h2>Sohbet</h2>
                     <button
@@ -1539,7 +1556,7 @@ function RFQDetail() {
               ) : null}
 
               {activeChatId && activeChatOffer && isOwner ? (
-                <section className="card fade-in" style={{ animationDelay: '85ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '85ms' }}>
                   <h2>Teklif</h2>
                   <div className="offer-card">
                     <div className="offer-top">
@@ -1575,7 +1592,7 @@ function RFQDetail() {
               ) : null}
 
               {!isOwner ? (
-                <section className="card fade-in" style={{ animationDelay: '90ms' }}>
+                <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '90ms' }}>
                   <h2>Teklif</h2>
                   {formError ? <div className="error">{formError}</div> : null}
                   {!isAwarded && !supplierOffer ? (
@@ -1590,7 +1607,7 @@ function RFQDetail() {
             </>
           ) : null}
 
-          <section className="card fade-in" style={{ animationDelay: '110ms' }}>
+          <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '110ms' }}>
             <div className="detail-title-row">
               <h2>Önerilen Diğer Talepler</h2>
               {!recommendationsLoading && !recommendationsError && recommendedRfqs.length ? (

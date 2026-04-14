@@ -9,9 +9,10 @@ const SEGMENT_OPTIONS = [
   { value: 'jobseeker', label: 'İş Arayan Kişi' }
 ];
 
-function Categories() {
+function Categories({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const [segment, setSegment] = useState('');
+  const isWebSurface = surfaceVariant === 'web';
 
   const handleSelect = (category) => {
     const payload = {
@@ -25,8 +26,19 @@ function Categories() {
   };
 
   return (
-    <div>
-      <div className="cats-inline-wrap" style={{ padding: '0 16px' }}>
+    <div className={`categories-page ${isWebSurface ? 'categories-page--web' : ''}`}>
+      {isWebSurface ? (
+        <section className="categories-page__hero">
+          <p className="landing-eyebrow">Kategori kesfi</p>
+          <h1>Talebinize uygun kategoriyi website icinden secin.</h1>
+          <p>
+            Esya, hizmet, otomobil ve is arayan segmentlerinde ilerleyebilir; ihtiyacinizi netlestirdikten
+            sonra urun akisina kontrollu sekilde gecis yapabilirsiniz.
+          </p>
+        </section>
+      ) : null}
+
+      <div className="cats-inline-wrap" style={{ padding: isWebSurface ? '0' : '0 16px' }}>
         <div className="cats-inline-scroll">
           {SEGMENT_OPTIONS.map((option) => {
             const isActive = segment === option.value;
@@ -43,14 +55,17 @@ function Categories() {
           })}
         </div>
       </div>
-      <CategorySelector
-        mode="page"
-        title="Kategoriler"
-        selectedSegment={segment}
-        onSegmentChange={setSegment}
-        onClose={() => navigate(-1)}
-        onSelect={handleSelect}
-      />
+
+      <div className={isWebSurface ? 'categories-page__selector' : ''}>
+        <CategorySelector
+          mode="page"
+          title="Kategoriler"
+          selectedSegment={segment}
+          onSegmentChange={setSegment}
+          onClose={() => navigate(-1)}
+          onSelect={handleSelect}
+        />
+      </div>
     </div>
   );
 }

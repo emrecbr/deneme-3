@@ -1,4 +1,4 @@
-import { APP_HOME_PATH } from '../config/surfaces';
+import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_DISCOVERY_PATH } from '../config/surfaces';
 
 export const LANDING_CONTENT = {
   title: 'Talepet | Talebini yayinla, teklifleri tek akista topla',
@@ -95,7 +95,7 @@ export const LANDING_CONTENT = {
       'Kategori secimi; talebin dili, beklentisi ve teklif kalitesi icin ilk sinyaldir. Her segment ayni temel mantikla calisir ama kendi ihtiyacina gore detaylanir.',
     cityIntro:
       'Sehir ve ilce baglami, ozellikle hizmet ve saha gerektiren taleplerde teklif kalitesini ciddi bicimde etkiler.',
-    detailCta: { label: 'Detaylari gormek icin Giris Yap', to: '/login' },
+    detailCta: { label: 'Kesfe git', to: WEBSITE_DISCOVERY_PATH },
     createCta: { label: 'Talep olusturmak icin Kayit Ol', to: '/register' },
     appCta: { label: 'Uygulamayi Ac', to: APP_HOME_PATH },
     featuredCities: [
@@ -117,19 +117,22 @@ export const LANDING_CONTENT = {
         title: 'Klima montaji icin usta araniyor',
         meta: 'Hizmet / Usta • Istanbul / Kadikoy',
         summary: 'Aynı gun icinde montaj yapabilecek ekip araniyor. Kesif ve fiyat teklifinin net olmasi bekleniyor.',
-        cta: 'Teklif mantigini gormek icin Giris Yap'
+        cta: 'Benzer talepleri kesfet',
+        to: WEBSITE_DISCOVERY_PATH
       },
       {
         title: '2. el bebek arabasi talebi',
         meta: 'Esya / Urun • Ankara / Cankaya',
         summary: 'Temiz durumda, katlanabilir ve teslim secenegi olan ilanlar oncelikli olarak gorulmek isteniyor.',
-        cta: 'Benzer urun taleplerini gormek icin Kayit Ol'
+        cta: 'Kategorileri incele',
+        to: WEBSITE_CATEGORIES_PATH
       },
       {
         title: 'Ekspertiz ve servis destegi aranıyor',
         meta: 'Otomobil • Izmir / Bornova',
         summary: 'Arac inceleme ve servis yonlendirmesi icin uzman teklifleri tek akista karsilastirilmak isteniyor.',
-        cta: 'Uygulamada tam akisi ac'
+        cta: 'Detaylar icin Giris Yap',
+        to: '/login'
       }
     ]
   },

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { APP_HOME_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
+import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -195,11 +195,11 @@ function LandingPage() {
 
         <div className="landing-segment-grid">
           {LANDING_CONTENT.categories.map((segment) => (
-            <article key={segment.key} className="landing-segment-card">
+            <Link key={segment.key} to={WEBSITE_CATEGORIES_PATH} className="landing-segment-card landing-segment-card--link">
               <h3>{segment.label}</h3>
               <div className="landing-segment-cue">{segment.cue}</div>
               <p>{segment.detail}</p>
-            </article>
+            </Link>
           ))}
         </div>
       </section>
@@ -311,7 +311,7 @@ function LandingPage() {
               <h3>{item.title}</h3>
               <p>{item.summary}</p>
               <div className="landing-rfq-preview-actions">
-                <Link to="/login" className="landing-secondary-button">
+                <Link to={item.to} className="landing-secondary-button">
                   {item.cta}
                 </Link>
               </div>
