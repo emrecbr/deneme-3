@@ -1,9 +1,11 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 import CategorySelector from '../components/CategorySelector';
+import ProfileLegalSection from '../components/ProfileLegalSection';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
+import { WEBSITE_PROFILE_ALERTS_PATH, WEBSITE_PROFILE_PREMIUM_PATH } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 const formatPhone = (digits) => {
@@ -64,7 +66,9 @@ const inferAlertType = ({ categoryId, cityId, districtId, keyword }) => {
   return '';
 };
 
-function ProfileAccount() {
+function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
+  const isWebSurface = surfaceVariant === 'web';
+  const alertsOnlyView = isWebSurface && focusSection === 'alerts';
   const { checkAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -118,6 +122,7 @@ function ProfileAccount() {
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [cities, setCities] = useState([]);
   const [districts, setDistricts] = useState([]);
+  const shouldLoadAlerts = alertsSheetOpen || alertsOnlyView;
 
   const showToast = (message) => {
     if (!message) {
@@ -197,7 +202,7 @@ function ProfileAccount() {
   }, []);
 
   useEffect(() => {
-    if (!alertsSheetOpen) {
+    if (!shouldLoadAlerts) {
       return;
     }
     let active = true;
@@ -231,10 +236,10 @@ function ProfileAccount() {
     return () => {
       active = false;
     };
-  }, [alertsSheetOpen]);
+  }, [shouldLoadAlerts]);
 
   useEffect(() => {
-    if (!alertsSheetOpen) {
+    if (!shouldLoadAlerts) {
       return;
     }
     if (!alertForm.cityId) {
@@ -256,7 +261,7 @@ function ProfileAccount() {
     return () => {
       active = false;
     };
-  }, [alertForm.cityId, alertsSheetOpen]);
+  }, [alertForm.cityId, shouldLoadAlerts]);
 
   const phoneDisplay = useMemo(() => formatPhone(form.phoneDigits), [form.phoneDigits]);
   const phoneError =
@@ -606,27 +611,353 @@ function ProfileAccount() {
     }
   };
 
-  return (
-    <div className="account-page">
-      <div className="account-header">
-        <BackIconButton />
-        <h1>HesabÄ±m</h1>
+  const renderAlertsPanel = () => (
+    <section className="card account-card website-profile-inline-card">
+      <div className="website-profile-inline-card__head">
+        <div>
+          <h2>Takiplerim</h2>
+          <p className="account-muted">
+            İlgilendiğin kategori, şehir ve anahtar kelimeler için yeni talepleri buradan yönet.
+          </p>
+        </div>
+        {!alertsOnlyView ? (
+          <Link to={WEBSITE_PROFILE_ALERTS_PATH} className="secondary-btn">
+            Ayrı sayfada aç
+          </Link>
+        ) : null}
       </div>
 
+      <div className="alert-form website-profile-inline-panel" data-rb-no-drag="true">
+        <div className="alert-form-title">Yeni takip ekle</div>
+        <div className="alert-form-grid">
+          <div className="alert-form-segment-block">
+            <span className="alert-form-label">Segment</span>
+            <div className="alert-form-segment-row">
+              {ALERT_SEGMENT_OPTIONS.map((segment) => (
+                <button
+                  key={segment.value}
+                  type="button"
+                  className={`cats-inline-chip ${alertForm.segment === segment.value ? 'active' : ''}`}
+                  onClick={() => setAlertForm((prev) => ({
+                    ...prev,
+                    segment: segment.value,
+                    categoryId: '',
+                    categoryName: '',
+                    cityId: '',
+                    districtId: ''
+                  }))}
+                >
+                  {segment.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="alert-form-category-block">
+            <div className="alert-form-category-head">
+              <span className="alert-form-label">Kategori</span>
+              {alertForm.categoryId ? (
+                <button type="button" className="link-btn" onClick={handleAlertCategoryClear}>
+                  Temizle
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="secondary-btn alert-form-picker-btn"
+              onClick={() => setCategoryPickerOpen(true)}
+            >
+              {alertForm.categoryName || (alertForm.segment ? 'Kategori seç' : 'Önce segment seç')}
+            </button>
+            <div className="account-muted">
+              Ana sayfadaki kategori ağacının aynısı kullanılır. Segment seçince yalnız o segmente ait kategoriler açılır.
+            </div>
+          </div>
+
+          <label className="account-field">
+            <span>Şehir</span>
+            <select
+              value={alertForm.cityId}
+              onChange={(event) => setAlertForm((prev) => ({ ...prev, cityId: event.target.value, districtId: '' }))}
+              disabled={!alertForm.categoryId}
+            >
+              <option value="">{alertForm.categoryId ? 'Şehir seç' : 'Önce kategori seç'}</option>
+              {cities.map((city) => (
+                <option key={city._id || city.id} value={city._id || city.id}>{city.name || city}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="account-field">
+            <span>İlçe</span>
+            <select
+              value={alertForm.districtId}
+              onChange={(event) => setAlertForm((prev) => ({ ...prev, districtId: event.target.value }))}
+              disabled={!alertForm.cityId}
+            >
+              <option value="">{alertForm.cityId ? 'İlçe seç' : 'Önce şehir seç'}</option>
+              {districts.map((district) => (
+                <option key={district._id || district.id} value={district._id || district.id}>{district.name || district}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="account-field">
+            <span>Anahtar kelime</span>
+            <input
+              value={alertForm.keyword}
+              placeholder="Örn: kombi, iPhone, parça eşya"
+              onChange={(event) => setAlertForm((prev) => ({ ...prev, keyword: event.target.value }))}
+            />
+          </label>
+
+          {selectedCity || selectedDistrict ? (
+            <div className="account-muted">
+              {selectedCity?.name || selectedCity || ''}
+              {selectedDistrict?.name || selectedDistrict ? ` / ${selectedDistrict?.name || selectedDistrict}` : ''}
+            </div>
+          ) : null}
+        </div>
+        {alertFormError ? <div className="error">{alertFormError}</div> : null}
+        <button type="button" className="primary-btn" onClick={handleCreateAlert} disabled={alertFormLoading}>
+          {alertFormLoading ? 'Ekleniyor…' : 'Takip Ekle'}
+        </button>
+      </div>
+
+      <CategorySelector
+        mode="modal"
+        open={categoryPickerOpen}
+        onClose={() => setCategoryPickerOpen(false)}
+        onSelect={handleAlertCategorySelect}
+        onClear={handleAlertCategoryClear}
+        title="Takip kategorisi"
+        selectedCategoryId={alertForm.categoryId}
+        selectedSegment={alertForm.segment}
+        onSegmentChange={(value) => setAlertForm((prev) => ({ ...prev, segment: value, categoryId: '', categoryName: '', cityId: '', districtId: '' }))}
+      />
+
+      {alertsLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
+      {alertsError ? <div className="error">{alertsError}</div> : null}
+      {!alertsLoading && !alertsError ? (
+        alerts.length ? (
+          <div className="alert-list">
+            {alerts.map((item) => (
+              <div key={item._id} className="alert-item">
+                <div>
+                  <div className="alert-title">
+                    {buildAlertLabel(item)}
+                    {item.unreadCount ? <span className="alert-badge">{item.unreadCount} yeni</span> : null}
+                  </div>
+                  <div className="alert-meta">
+                    {item.type === 'keyword' ? 'Anahtar Kelime' : 'Kategori'}
+                    {item.lastTriggeredAt ? ` • Son tetiklenme: ${new Date(item.lastTriggeredAt).toLocaleDateString('tr-TR')}` : ''}
+                  </div>
+                  {item.matches?.length ? (
+                    <div className="alert-matches">
+                      {item.matches.map((match) => (
+                        <button
+                          key={match._id}
+                          type="button"
+                          className={`alert-match ${match.isSeen ? '' : 'is-unseen'}`}
+                          onClick={() => handleOpenMatch(match)}
+                        >
+                          <div className="alert-match-title">{match.title}</div>
+                          {match.categoryName ? <div className="alert-match-meta">{match.categoryName}</div> : null}
+                          <div className="alert-match-meta">
+                            {match.cityName || match.districtName ? `${match.cityName}${match.districtName ? ` / ${match.districtName}` : ''}` : ''}
+                            {match.createdAt ? ` • ${new Date(match.createdAt).toLocaleDateString('tr-TR')}` : ''}
+                          </div>
+                          <div className="alert-match-meta">{buildMatchReason(match)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="alert-empty">Henüz bu takip için yeni talep yok.</div>
+                  )}
+                </div>
+                <div className="alert-actions">
+                  <button type="button" className="secondary-btn" onClick={() => toggleAlert(item._id, item.isActive)}>
+                    {item.isActive ? 'Pasif Yap' : 'Aktif Et'}
+                  </button>
+                  <button type="button" className="link-btn" onClick={() => deleteAlert(item._id)}>
+                    Sil
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="account-muted">Henüz takip kaydın yok.</div>
+        )
+      ) : null}
+    </section>
+  );
+
+  const renderPaymentEntryPanel = () => (
+    <div className="website-profile-inline-panel payment-sheet-body" data-rb-no-drag="true">
+      <div className="payment-sheet-card">
+        <div className="payment-sheet-brand">Talepet</div>
+        <div className="payment-sheet-number">
+          {paymentForm.number ? paymentForm.number : '•••• •••• •••• 1234'}
+        </div>
+        <div className="payment-sheet-meta">
+          <span>{paymentForm.name || 'Ad Soyad'}</span>
+          <span>{paymentForm.expiry || 'MM/YY'}</span>
+        </div>
+      </div>
+      <div className="payment-sheet-form">
+        <label className="account-field">
+          <span>Kart Üzerindeki İsim</span>
+          <input
+            name="cardName"
+            placeholder="Ad Soyad"
+            value={paymentForm.name}
+            onChange={(event) => setPaymentForm((prev) => ({ ...prev, name: event.target.value }))}
+          />
+        </label>
+        <label className="account-field">
+          <span>Kart Numarası</span>
+          <input
+            name="cardNumber"
+            inputMode="numeric"
+            placeholder="1234 5678 9012 3456"
+            value={paymentForm.number}
+            onChange={(event) => setPaymentForm((prev) => ({ ...prev, number: formatCardNumber(event.target.value) }))}
+          />
+        </label>
+        <div className="payment-sheet-row">
+          <label className="account-field">
+            <span>Son Kullanma (AA/YY)</span>
+            <input
+              name="cardExpiry"
+              inputMode="numeric"
+              placeholder="MM/YY"
+              value={paymentForm.expiry}
+              onChange={(event) => setPaymentForm((prev) => ({ ...prev, expiry: formatExpiry(event.target.value) }))}
+            />
+          </label>
+          <label className="account-field">
+            <span>CVV</span>
+            <input
+              name="cardCvv"
+              inputMode="numeric"
+              placeholder="123"
+              value={paymentForm.cvv}
+              onChange={(event) => setPaymentForm((prev) => ({ ...prev, cvv: formatCvv(event.target.value) }))}
+            />
+          </label>
+        </div>
+      </div>
+      <div className="account-muted">
+        Kart bilgilerin uygulamada saklanmaz. Güvenli ödeme sağlayıcısının ekranında tekrar doğrulanacaktır.
+      </div>
+      {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
+      {paymentError ? <div className="error">{paymentError}</div> : null}
+      <div className="website-profile-inline-actions">
+        <button type="button" className="primary-btn" onClick={handleAddPaymentMethod} disabled={paymentLoading}>
+          {paymentLoading ? 'Yönlendiriliyor…' : 'Ödemeye Geç'}
+        </button>
+        <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen(false)}>
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderPasswordPanel = () => (
+    <form className="website-profile-inline-panel offer-sheet-form" onSubmit={handlePasswordSubmit} data-rb-no-drag="true">
+      <label className="offer-field">
+        <span>Mevcut Şifre</span>
+        <input
+          type="password"
+          name="currentPassword"
+          placeholder="Eski şifre"
+          value={passwordForm.currentPassword}
+          onChange={handlePasswordChange}
+          autoComplete="current-password"
+        />
+      </label>
+      <label className="offer-field">
+        <span>Yeni Şifre</span>
+        <input
+          type="password"
+          name="newPassword"
+          placeholder="Yeni şifre"
+          value={passwordForm.newPassword}
+          onChange={handlePasswordChange}
+          autoComplete="new-password"
+        />
+      </label>
+      <div className="rfq-sub">
+        Şifre en az 3 karakter olmalı, 1 büyük harf, 1 sayı ve 1 özel karakter içermeli.
+      </div>
+      <label className="offer-field">
+        <span>Yeni Şifre (Tekrar)</span>
+        <input
+          type="password"
+          name="confirmPassword"
+          placeholder="Yeni şifre (tekrar)"
+          value={passwordForm.confirmPassword}
+          onChange={handlePasswordChange}
+          autoComplete="new-password"
+        />
+      </label>
+      {passwordError ? <div className="error">{passwordError}</div> : null}
+      <div className="website-profile-inline-actions">
+        <button type="submit" className="primary-btn" disabled={passwordLoading}>
+          {passwordLoading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+        </button>
+        <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(false)}>
+          Vazgeç
+        </button>
+      </div>
+    </form>
+  );
+
+  return (
+    <div className={`account-page ${isWebSurface ? 'account-page--web website-profile-module' : ''}`}>
+      {isWebSurface ? (
+        <div className="website-profile-module__header">
+          <div>
+            <p className="landing-eyebrow">Profil modülü</p>
+            <h2>{alertsOnlyView ? 'Takiplerim' : 'Hesap'}</h2>
+            <p>
+              {alertsOnlyView
+                ? 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde yönet.'
+                : 'Bilgilerin, paket durumun, ilan hakkın ve hesap aksiyonların website shell içinde erişilebilir.'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="account-header">
+          <BackIconButton />
+          <h1>HesabÄ±m</h1>
+        </div>
+      )}
+
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <div className="account-highlight">
           <div>
             <h2>Takiplerim</h2>
             <div className="account-muted">
-              Ä°lgilendiÄŸin kategori ve aramalar iÃ§in yeni ilan bildirimlerini yÃ¶net.
+              İlgilendiğin kategori ve aramalar için yeni ilan bildirimlerini yönet.
             </div>
           </div>
-          <button type="button" className="primary-btn account-entry-btn" onClick={() => setAlertsSheetOpen(true)}>
-            Takiplerimi AÃ§
-          </button>
+          {isWebSurface ? (
+            <Link to={WEBSITE_PROFILE_ALERTS_PATH} className="primary-btn account-entry-btn">
+              Takiplerimi Aç
+            </Link>
+          ) : (
+            <button type="button" className="primary-btn account-entry-btn" onClick={() => setAlertsSheetOpen(true)}>
+              Takiplerimi Aç
+            </button>
+          )}
         </div>
       </section>
+      ) : null}
 
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <h2>Bilgilerim</h2>
         {loading ? <div className="refresh-text">YÃ¼kleniyor...</div> : null}
@@ -665,7 +996,9 @@ function ProfileAccount() {
           </div>
         </form>
       </section>
+      ) : null}
 
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <h2>Paket Durumum</h2>
         {billingSummary ? (
@@ -698,8 +1031,17 @@ function ProfileAccount() {
         ) : (
           <div className="refresh-text">Paket bilgisi alÄ±namadÄ±.</div>
         )}
+        {isWebSurface ? (
+          <div className="website-profile-inline-actions">
+            <Link to={WEBSITE_PROFILE_PREMIUM_PATH} className="secondary-btn">
+              Premium alanını aç
+            </Link>
+          </div>
+        ) : null}
       </section>
+      ) : null}
 
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <h2>Ä°lan HakkÄ±m</h2>
         {listingQuota ? (
@@ -732,7 +1074,9 @@ function ProfileAccount() {
           <div className="refresh-text">Kota bilgisi alÄ±namadÄ±.</div>
         )}
       </section>
+      ) : null}
 
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <h2>Ödeme Yöntemi</h2>
         {paymentMethod && !paymentMethods.length ? (
@@ -776,7 +1120,7 @@ function ProfileAccount() {
         {paymentError ? <div className="error">{paymentError}</div> : null}
 
         <div className="payment-actions">
-          <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen(true)}>
+          <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen((prev) => !prev)}>
             Kart Ekle
           </button>
           <button
@@ -788,8 +1132,11 @@ function ProfileAccount() {
             {paymentLoading ? 'Ödeme başlatılıyor…' : listingQuota?.extraEnabled === false ? 'Ek ilan kapalı' : 'Ek ilan için ödeme yap'}
           </button>
         </div>
+        {isWebSurface && paymentSheetOpen ? renderPaymentEntryPanel() : null}
       </section>
+      ) : null}
 
+      {!isWebSurface ? (
       <ReusableBottomSheet
         open={alertsSheetOpen}
         onClose={() => setAlertsSheetOpen(false)}
@@ -966,7 +1313,11 @@ function ProfileAccount() {
           )
         ) : null}
       </ReusableBottomSheet>
+      ) : null}
 
+      {alertsOnlyView ? renderAlertsPanel() : null}
+
+      {!isWebSurface ? (
       <ReusableBottomSheet
         open={paymentSheetOpen}
         onClose={() => setPaymentSheetOpen(false)}
@@ -1051,18 +1402,23 @@ function ProfileAccount() {
           </button>
         </div>
       </ReusableBottomSheet>
+      ) : null}
 
+      {!alertsOnlyView ? (
       <section className="card account-card">
         <h2>Åifre</h2>
         <p className="rfq-sub">Åifreni gÃ¼venli tutmak iÃ§in dÃ¼zenli olarak deÄŸiÅŸtir.</p>
-        <button type="button" className="secondary-btn" onClick={() => setPasswordOpen(true)}>
+        <button type="button" className="secondary-btn" onClick={() => setPasswordOpen((prev) => !prev)}>
           Åifreyi DeÄŸiÅŸtir
         </button>
         <button type="button" className="link-btn" onClick={() => navigate('/forgot-password')}>
           Åifremi unuttum / Åifre oluÅŸtur
         </button>
+        {isWebSurface && passwordOpen ? renderPasswordPanel() : null}
       </section>
+      ) : null}
 
+      {!isWebSurface ? (
       <ReusableBottomSheet
         open={passwordOpen}
         onClose={() => setPasswordOpen(false)}
@@ -1124,6 +1480,9 @@ function ProfileAccount() {
           </div>
         </form>
       </ReusableBottomSheet>
+      ) : null}
+
+      {isWebSurface && !alertsOnlyView ? <ProfileLegalSection /> : null}
 
       {toast ? <div className="toast">{toast}</div> : null}
     </div>
