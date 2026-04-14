@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
@@ -7,8 +7,11 @@ import { useAuth } from '../context/AuthContext';
 
 function Login({ embedded = false }) {
   const navigate = useNavigate();
-  const { login, isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, logout, user } = useAuth();
   const webSurface = isWebSurfaceHost();
+  const isWebsiteLoginRoute = webSurface && location.pathname === '/login';
+  const showExistingSessionCard = isWebsiteLoginRoute && isAuthenticated;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState('login');
   const [activeTab, setActiveTab] = useState('email');
@@ -35,9 +38,12 @@ function Login({ embedded = false }) {
     if (!isAuthenticated) {
       return;
     }
+    if (isWebsiteLoginRoute) {
+      return;
+    }
     const role = user?.role;
     completeAuthRedirect(role);
-  }, [isAuthenticated, navigate, user?.role]);
+  }, [isAuthenticated, isWebsiteLoginRoute, navigate, user?.role]);
 
   const onlyDigits = (v) => String(v || '').replace(/\D/g, '');
   const normalizeTrMobileTo10Digits = (v) => {
@@ -215,6 +221,11 @@ function Login({ embedded = false }) {
     window.location.href = buildProviderAuthUrl(provider);
   };
 
+  const handleLogoutForRelogin = async () => {
+    await Promise.resolve(logout({ redirect: false }));
+    navigate('/login', { replace: true });
+  };
+
   const renderAuthForm = () => (
     <>
       {exists === true ? <p className="muted small">Hesabin bulundu. Sifreni gir.</p> : null}
@@ -350,6 +361,34 @@ function Login({ embedded = false }) {
     </>
   );
 
+  const renderExistingSessionCard = () => (
+    <div className="website-auth-inline-card">
+      <div className="website-auth-inline-head">
+        <h2>Oturumunuz acik</h2>
+        <p>
+          {user?.name || user?.email || 'Talepet hesabin'} ile zaten giris yapmissin. Website
+          icinde kaldigin yerden devam edebilir veya farkli bir hesapla yeniden giris yapabilirsin.
+        </p>
+      </div>
+
+      <div className="auth-alert">
+        Aktif hesap: <strong>{user?.name || user?.email || 'Talepet kullanicisi'}</strong>
+      </div>
+
+      <div className="auth-actions auth-actions-inline">
+        <button type="button" className="primary-btn" onClick={() => navigate('/profil')}>
+          Profile Git
+        </button>
+        <button type="button" className="secondary-btn" onClick={() => navigate('/', { replace: true })}>
+          Ana Sayfaya Don
+        </button>
+        <button type="button" className="link-btn" onClick={handleLogoutForRelogin}>
+          Cikis Yap ve Farkli Hesapla Giris Yap
+        </button>
+      </div>
+    </div>
+  );
+
   if (webSurface && embedded) {
     return (
       <div className="website-auth-inline-card">
@@ -388,16 +427,22 @@ function Login({ embedded = false }) {
           <span>veya</span>
         </div>
 
-        <div className="auth-actions auth-actions-inline">
-          <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
-            Giris Yap
-          </button>
-          <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
-            Kayit Ol
-          </button>
-        </div>
+        {showExistingSessionCard ? (
+          renderExistingSessionCard()
+        ) : (
+          <>
+            <div className="auth-actions auth-actions-inline">
+              <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
+                Giris Yap
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
+                Kayit Ol
+              </button>
+            </div>
 
-        {renderAuthForm()}
+            {renderAuthForm()}
+          </>
+        )}
 
         <div className="auth-footer">
           <span>Hesabin yok mu?</span>
@@ -452,16 +497,22 @@ function Login({ embedded = false }) {
               <span>veya</span>
             </div>
 
-            <div className="auth-actions auth-actions-inline">
-              <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
-                Giris Yap
-              </button>
-              <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
-                Kayit Ol
-              </button>
-            </div>
+            {showExistingSessionCard ? (
+              renderExistingSessionCard()
+            ) : (
+              <>
+                <div className="auth-actions auth-actions-inline">
+                  <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
+                    Giris Yap
+                  </button>
+                  <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
+                    Kayit Ol
+                  </button>
+                </div>
 
-            {renderAuthForm()}
+                {renderAuthForm()}
+              </>
+            )}
 
             <div className="auth-footer">
               <span>Hesabin yok mu?</span>
