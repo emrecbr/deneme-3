@@ -68,9 +68,9 @@ function WebsiteAuthShell({
             </ul>
 
             <div className="website-auth-side-actions">
-              <Link to={secondaryCta.to} className="landing-secondary-button">
+              <a href={buildSurfaceHref('web', secondaryCta.to)} className="landing-secondary-button">
                 {secondaryCta.label}
-              </Link>
+              </a>
               <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
                 Uygulamayi Ac
               </a>

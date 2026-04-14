@@ -57,12 +57,12 @@ function WebsiteProductShell({
         <div className="website-product-shell__actions">
           {!user ? (
             <>
-              <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
+              <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
                 Giris Yap
-              </Link>
-              <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
                 Kayit Ol
-              </Link>
+              </a>
             </>
           ) : (
             <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">

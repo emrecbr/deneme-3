@@ -102,12 +102,12 @@ function LandingPage() {
         </Link>
 
         <nav className="landing-topbar-actions" aria-label="Website auth actions">
-          <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
+          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
             Giris Yap
-          </Link>
-          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+          </a>
+          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
             Kayit Ol
-          </Link>
+          </a>
         </nav>
       </header>
 
