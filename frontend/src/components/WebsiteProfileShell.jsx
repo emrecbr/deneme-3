@@ -1,23 +1,32 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { websiteProfileNavItems } from '../content/profileNavigation';
-import { APP_HOME_PATH, WEB_HOME_PATH, buildSurfaceHref } from '../config/surfaces';
+import {
+  APP_HOME_PATH,
+  WEB_HOME_PATH,
+  WEBSITE_LOGIN_PATH,
+  buildSurfaceHref
+} from '../config/surfaces';
 
 function WebsiteProfileShell({
   children,
-  title = 'Profil alanın',
-  description = 'Website içinden hesap özetini gör, modüller arasında geçiş yap ve uygulama ile aynı backend altyapısına bağlı kal.'
+  title = 'Profil alanin',
+  description = 'Website icinden hesap ozetini gor, moduller arasinda gecis yap ve uygulama ile ayni backend altyapisina bagli kal.'
 }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
-  const displayName = user?.name || user?.email || 'Talepet kullanıcısı';
-  const email = user?.email || 'E-posta bilgisi bulunamadı';
+  const displayName = user?.name || user?.email || 'Talepet kullanicisi';
+  const email = user?.email || 'E-posta bilgisi bulunamadi';
   const premiumLabel = user?.isPremium ? 'Premium aktif' : 'Standart hesap';
   const activeItem =
     websiteProfileNavItems.find(
       (item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
     ) || null;
+
+  const handleLogout = () => {
+    logout({ redirect: true });
+  };
 
   return (
     <div className="website-profile-shell">
@@ -28,7 +37,7 @@ function WebsiteProfileShell({
 
         <div className="website-profile-shell__topbar-actions">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
-            Uygulamayı Aç
+            Uygulamayi Ac
           </a>
         </div>
       </header>
@@ -46,7 +55,7 @@ function WebsiteProfileShell({
               </>
             ) : null}
           </div>
-          <p className="landing-eyebrow">Website profil alanı</p>
+          <p className="landing-eyebrow">Website profil alani</p>
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
@@ -66,8 +75,11 @@ function WebsiteProfileShell({
       <div className="website-profile-shell__layout">
         <aside className="website-profile-shell__sidebar">
           <div className="website-profile-shell__sidebar-card">
-            <h2>Profil Modülleri</h2>
-            <p>Profil, website bağlamında daha geniş bir bilgi mimarisiyle açılır; app hostundaki mobil akış değişmeden kalır.</p>
+            <h2>Profil Modulleri</h2>
+            <p>
+              Profil, website baglaminda daha genis bir bilgi mimarisiyle acilir; app hostundaki
+              mobil akis degismeden kalir.
+            </p>
           </div>
 
           <nav className="website-profile-shell__nav" aria-label="Website profil gezinmesi">
@@ -89,13 +101,34 @@ function WebsiteProfileShell({
           </nav>
 
           <div className="website-profile-shell__sidebar-card website-profile-shell__support-card">
-            <h2>Yardım ve Güven</h2>
-            <p>Destek, gizlilik ve satış sözleşmesi gibi kritik içeriklere profil alanından çıkmadan ulaş.</p>
+            <h2>Yardim ve Guven</h2>
+            <p>
+              Destek, gizlilik ve satis sozlesmesi gibi kritik iceriklere profil alanindan cikmadan
+              ulas.
+            </p>
             <div className="website-profile-shell__support-links">
               <Link to="/iletisim">Destek</Link>
               <Link to="/gizlilik-sozlesmesi">Gizlilik</Link>
-              <Link to="/mesafeli-satis-sozlesmesi">Mesafeli Satış</Link>
+              <Link to="/mesafeli-satis-sozlesmesi">Mesafeli Satis</Link>
             </div>
+          </div>
+
+          <div className="website-profile-shell__sidebar-card website-profile-shell__session-card">
+            <h2>Oturum</h2>
+            <p>Website profil alanindan cikis yapip giris ekranina kontrollu sekilde donebilirsin.</p>
+            <button
+              type="button"
+              className="website-profile-shell__logout-button"
+              onClick={handleLogout}
+            >
+              Cikis Yap
+            </button>
+            <a
+              href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+              className="website-profile-shell__session-link"
+            >
+              Giris ekranini ac
+            </a>
           </div>
         </aside>
 

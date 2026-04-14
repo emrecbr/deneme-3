@@ -9453,6 +9453,31 @@ body.dark-mode .fav-count {
   border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
+.website-profile-shell__logout-button,
+.website-profile-shell__session-link {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.website-profile-shell__logout-button {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.website-profile-shell__session-link {
+  margin-top: 10px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #0f172a;
+}
+
 .website-profile-home {
   display: flex;
   flex-direction: column;
@@ -9658,6 +9683,7 @@ body.dark-mode .website-profile-home__quick-link,
 body.dark-mode .website-profile-home__module-item,
 body.dark-mode .website-profile-shell__nav-link,
 body.dark-mode .website-profile-shell__support-links a,
+body.dark-mode .website-profile-shell__session-link,
 body.dark-mode .website-profile-state-card {
   background: rgba(15, 23, 42, 0.88);
   border-color: rgba(148, 163, 184, 0.12);
@@ -9676,6 +9702,11 @@ body.dark-mode .website-profile-shell__breadcrumb a {
 
 body.dark-mode .website-profile-shell__breadcrumb strong {
   color: #f8fafc;
+}
+
+body.dark-mode .website-profile-shell__logout-button {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 body.dark-mode .website-profile-state-card--error {
