@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { LANDING_SHOWCASE_CARDS } from '../content/pricingContent';
+import { PRICING_PAGE_CONTENT } from '../content/pricingContent';
 import {
   APP_HOME_PATH,
   WEBSITE_CATEGORIES_PATH,
@@ -13,6 +13,8 @@ import {
   buildSurfaceHref
 } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+
+const LANDING_SHOWCASE_CARDS = PRICING_PAGE_CONTENT.fallbackCards.slice(0, 3);
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
