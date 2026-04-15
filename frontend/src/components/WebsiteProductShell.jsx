@@ -7,6 +7,7 @@ import {
   WEBSITE_DISCOVERY_PATH,
   WEBSITE_LOGIN_PATH,
   WEBSITE_PACKAGES_PATH,
+  WEBSITE_PROFILE_HOME_PATH,
   WEBSITE_REGISTER_PATH,
   WEB_HOME_PATH,
   buildSurfaceHref
@@ -25,12 +26,17 @@ function WebsiteProductShell({
       ? `${selectedCity.name} / ${selectedDistrict.name}`
       : selectedCity?.name || 'Tum sehirler';
 
-  const navItems = [
+  const baseNavItems = [
     { label: 'Website', to: WEB_HOME_PATH, match: [WEB_HOME_PATH] },
     { label: 'Kesfet', to: WEBSITE_DISCOVERY_PATH, match: [WEBSITE_DISCOVERY_PATH] },
     { label: 'Kategoriler', to: WEBSITE_CATEGORIES_PATH, match: [WEBSITE_CATEGORIES_PATH] },
     { label: 'Talep Olustur', to: WEBSITE_CREATE_PATH, match: [WEBSITE_CREATE_PATH] }
   ];
+  const authenticatedNavItems = [
+    ...baseNavItems,
+    { label: 'Profilim', to: WEBSITE_PROFILE_HOME_PATH, match: [WEBSITE_PROFILE_HOME_PATH] }
+  ];
+  const navItems = user ? authenticatedNavItems : baseNavItems;
 
   const breadcrumbItems = (() => {
     if (location.pathname === WEBSITE_DISCOVERY_PATH) {
@@ -69,9 +75,14 @@ function WebsiteProductShell({
               </Link>
             </>
           ) : (
-            <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
-              Talep Olustur
-            </Link>
+            <>
+              <Link to={WEBSITE_PROFILE_HOME_PATH} className="landing-link-button">
+                Profilim
+              </Link>
+              <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
+                Talep Olustur
+              </Link>
+            </>
           )}
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
             Uygulamayi Ac
