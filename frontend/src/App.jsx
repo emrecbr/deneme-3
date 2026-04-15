@@ -170,7 +170,7 @@ function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
-    return <LandingPage />;
+    return user ? <Navigate to={WEBSITE_DISCOVERY_PATH} replace /> : <LandingPage />;
   }
 
   if (user) {
