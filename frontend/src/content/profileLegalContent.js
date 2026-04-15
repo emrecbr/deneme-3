@@ -1,15 +1,16 @@
 export const profileLegalContent = {
-  title: 'Yasal Bilgiler ve Güvenli Ödeme',
+  title: 'Yasal Bilgiler ve Guvenli Odeme',
   description:
-    'Talepet, kullanıcıların talep oluşturduğu ve hizmet verenlerin teklif sunduğu dijital bir platformdur. Platform üzerinden sunulan hizmetler elektronik ortamda sağlanmakta olup fiziksel teslimat yapılmamaktadır.',
+    'Talepet, kullanicilarin talep olusturdugu ve hizmet verenlerin teklif sundugu dijital bir platformdur. Premium paketler, one cikarma ve ek ilan haklari gibi hizmetler elektronik ortamda saglanir; fiziksel teslimat yapilmaz.',
   links: [
-    { to: '/hakkimizda', label: 'Hakkımızda' },
-    { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sözleşmesi' },
-    { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satış Sözleşmesi' },
-    { to: '/teslimat-ve-iade', label: 'Teslimat ve İade Şartları' },
-    { to: '/iletisim', label: 'İletişim' }
+    { to: '/paketler', label: 'Paketler ve Fiyatlandirma' },
+    { to: '/hakkimizda', label: 'Hakkimizda' },
+    { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sozlesmesi' },
+    { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satis Sozlesmesi' },
+    { to: '/teslimat-ve-iade', label: 'Teslimat ve Iade Sartlari' },
+    { to: '/iletisim', label: 'Iletisim' }
   ],
-  sslText: 'Ödemeleriniz 256-bit SSL güvenlik sertifikası ile korunmaktadır.',
-  paymentText: 'Visa • MasterCard • iyzico ile Öde',
-  paymentSubtext: 'Ödeme işlemleri iyzico altyapısı üzerinden güvenli şekilde gerçekleştirilmektedir.'
+  sslText: 'Odemeleriniz 256-bit SSL guvenlik sertifikasi ile korunur.',
+  paymentText: 'Visa • MasterCard • iyzico ile Ode',
+  paymentSubtext: 'Odeme islemleri iyzico altyapisi uzerinden guvenli sekilde gerceklestirilir.'
 };

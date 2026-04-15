@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
+import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_LOGIN_PATH, WEBSITE_PACKAGES_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -102,6 +102,9 @@ function LandingPage() {
         </Link>
 
         <nav className="landing-topbar-actions" aria-label="Website auth actions">
+          <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
+            Paketler
+          </Link>
           <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
             Giris Yap
           </a>

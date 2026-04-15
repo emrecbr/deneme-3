@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import PublicTopBar from './PublicTopBar';
 import PublicFooter from './PublicFooter';
+import { WEB_HOME_PATH } from '../config/surfaces';
 
 const ensureMetaDescription = () => {
   let tag = document.querySelector('meta[name="description"]');
@@ -29,7 +30,7 @@ function PublicPageTemplate({ title, description, lead, sections }) {
 
   return (
     <div className="public-page-shell">
-      <PublicTopBar title={title} fallbackTo="/profile" />
+      <PublicTopBar title={title} fallbackTo={WEB_HOME_PATH} />
 
       <section className="public-hero">
         <p className="public-eyebrow">Kurumsal Bilgilendirme</p>

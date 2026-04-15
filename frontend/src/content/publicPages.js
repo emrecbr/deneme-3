@@ -1,173 +1,160 @@
 export const PUBLIC_FOOTER_LINKS = [
-  { to: '/hakkimizda', label: 'Hakkımızda' },
-  { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sözleşmesi' },
-  { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satış Sözleşmesi' },
-  { to: '/teslimat-ve-iade', label: 'Teslimat ve İade Şartları' },
-  { to: '/iletisim', label: 'İletişim' }
+  { to: '/paketler', label: 'Paketler' },
+  { to: '/hakkimizda', label: 'Hakkimizda' },
+  { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sozlesmesi' },
+  { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satis Sozlesmesi' },
+  { to: '/teslimat-ve-iade', label: 'Teslimat ve Iade Sartlari' },
+  { to: '/iletisim', label: 'Iletisim' }
 ];
 
 export const PUBLIC_PAGE_CONTENT = {
   about: {
-    title: 'Hakkımızda',
+    title: 'Hakkimizda',
     description:
-      'Talepet, kullanıcıların ihtiyaçlarını talep olarak yayınladığı ve hizmet verenlerin teklif sunduğu dijital bir talep ve teklif platformudur.',
+      'Talepet, kullanicilarin ihtiyaclarini talep olarak yayinladigi ve hizmet verenlerin teklif sundugu dijital bir talep ve teklif platformudur.',
     lead:
-      'Talepet, kullanıcıların ihtiyaçlarını tek bir yerde yayınlayabildiği; hizmet verenlerin, satıcıların ve uzmanların bu taleplere teklif verebildiği bir dijital platformdur.',
+      'Talepet; kullanicinin ihtiyacini kategori, konum ve is akisi baglamiyla toplayan, hizmet verenleri ve teklif verenleri ayni platformda bulusturan dijital bir hizmet altyapisidir.',
     sections: [
       {
-        heading: 'Talepet nasıl çalışır?',
+        heading: 'Talepet ne yapar?',
         paragraphs: [
-          'Kullanıcılar ihtiyaçlarını kategori ve konum seçerek talep olarak yayınlar. Uygun satıcılar veya hizmet verenler bu talepleri inceleyerek teklif sunabilir.',
-          'Platform; hizmet, eşya, otomobil ve iş arayan kişi segmentlerinde talep oluşturma, öne çıkarma ve premium görünürlük gibi dijital araçlar sunar.'
+          'Kullanicilar ihtiyaclarini talep olarak yayinlar; ilgili hizmet verenler, saticilar veya uzmanlar bu taleplere teklif sunar.',
+          'Platform hizmet, esya, otomobil ve is odakli segmentlerde talep olusturma, teklif toplama, mesajlasma ve profil yonetimi gibi temel dijital araclari tek deneyimde toplar.'
         ]
       },
       {
-        heading: 'Platform modeli',
+        heading: 'Gelir modeli ve dijital hizmetler',
         paragraphs: [
-          'Talepet fiziksel ürün stoğu tutan bir mağaza değildir. Platform, kullanıcılarla hizmet sağlayıcıları veya teklif verenleri buluşturan bir dijital aracılık altyapısı sağlar.',
-          'Premium paketler, öne çıkarma seçenekleri ve ek ilan hakları; kullanıcıların taleplerini platform içinde daha görünür kılmaya yönelik dijital hizmetlerdir.'
+          'Talepet fiziksel urun stogu tutan bir magazadan ziyade, platform ici dijital hizmetler sunan bir yapidir.',
+          'Premium paketler, one cikarilan ilanlar ve ek ilan haklari; kullanicinin talebini platform icinde daha gorunur hale getiren satin alinabilir dijital hizmetlerdir.'
         ]
       },
       {
-        heading: 'Şeffaflık ve güven',
+        heading: 'Guven ve kurumsal yaklasim',
         paragraphs: [
-          'Kullanıcı deneyiminde açık iletişim, doğru kategori eşleşmesi, konum bazlı uygun sonuçlar ve güvenli ödeme sağlayıcılarıyla çalışma önceliğimizdir.',
-          'Kurumsal ve hukuki metinlerimiz, platformun sunduğu üyelik ve dijital hizmet modeline göre düzenlenir.'
+          'Talepet, hesap dogrulama, moderasyon, sehir-ilce baglami ve odeme altyapisi gibi katmanlari kullanarak daha kontrollu bir talep ve teklif deneyimi kurmayi hedefler.',
+          'Kurumsal ve hukuki sayfalarimiz, kullanicinin satin alabildigi dijital hizmetleri ve platformun calisma mantigini seffaf bicimde aciklar.'
         ]
       }
     ]
   },
   privacy: {
-    title: 'Gizlilik Sözleşmesi',
+    title: 'Gizlilik Sozlesmesi',
     description:
-      'Talepet kullanıcı verilerinin hangi amaçlarla işlendiğini, saklandığını ve yetkili hizmet sağlayıcılarla ne ölçüde paylaşıldığını açıklar.',
+      'Talepet kullanici verilerinin hangi amaclarla islendigini, saklandigini ve teknik hizmet saglayicilarla hangi kapsamda paylasildigini aciklar.',
     lead:
-      'Bu metin, Talepet üzerinde üyelik, talep oluşturma, teklif alma, konum seçimi, bildirim ve ödeme süreçlerinde işlenen kişisel verilere ilişkin genel bilgilendirme sağlar.',
+      'Bu metin, Talepet uzerinde uyelik, talep olusturma, teklif alma, konum secimi, bildirim ve odeme sureclerinde islenen kisisel verilere iliskin genel bilgilendirme saglar.',
     sections: [
       {
-        heading: 'İşlenen veriler',
+        heading: 'Islenen veriler',
         paragraphs: [
-          'Ad, soyad, e-posta adresi, telefon numarası, profil bilgileri, talep içeriği, seçilen kategori/segment bilgileri, şehir-ilçe-konum tercihleri ve kullanım kayıtları işlenebilir.',
-          'Ödeme yöntemi süreçlerinde kart verileri doğrudan ödeme hizmet sağlayıcısının güvenli altyapısında işlenir; Talepet bu verileri mümkün olan en sınırlı kapsamda özet bilgi olarak görür.'
+          'Ad, soyad, e-posta adresi, telefon numarasi, profil bilgileri, talep icerigi, secilen kategori ve sehir-ilce baglami gibi bilgiler islenebilir.',
+          'Kart verileri dogrudan odeme hizmet saglayicisinin guvenli altyapisinda islenir; Talepet bu verileri yalnizca hizmeti yurutmek icin gereken ozet seviyede gorur.'
         ]
       },
       {
-        heading: 'İşleme amaçları',
+        heading: 'Isleme amaclari',
         paragraphs: [
-          'Hesap oluşturma, kimlik doğrulama, talep yayınlama, teklif ve mesajlaşma süreçlerini yürütme, uygun eşleşmeleri gösterebilme, güvenlik kontrolleri ve kullanıcı destek süreçleri için veri işlenir.',
-          'Premium üyelik, öne çıkarma ve ek ilan hakları gibi dijital hizmetlerin sağlanması için ödeme ve sipariş durum bilgileri tutulabilir.'
+          'Hesap olusturma, kimlik dogrulama, talep yayinlama, teklif ve mesajlasma akislarini yurutme, uygun eslesmeleri gosterme ve kullanici destek sureclerini yonetme amaclariyla veri islenir.',
+          'Premium uyelik, one cikarma ve ek ilan hakki gibi dijital hizmetlerin saglanmasi icin odeme ve siparis durumu bilgileri de tutulabilir.'
         ]
       },
       {
-        heading: 'Paylaşım ve saklama',
+        heading: 'Paylasim ve saklama',
         paragraphs: [
-          'Veriler; barındırma, bildirim, analiz ve ödeme altyapısını sağlayan teknik hizmet sağlayıcılarla, hizmetin sunulması için gerekli olduğu ölçüde paylaşılabilir.',
-          'Yasal yükümlülükler, uyuşmazlık yönetimi ve güvenlik ihtiyaçları doğrultusunda belirli kayıtlar ilgili mevzuatın öngördüğü süre boyunca saklanabilir.'
-        ]
-      },
-      {
-        heading: 'Kullanıcı tercihleri',
-        paragraphs: [
-          'Kullanıcılar hesap bilgilerini güncelleyebilir, takip ve bildirim tercihlerini değiştirebilir, hesabına bağlı destek talebi oluşturabilir.',
-          'Detaylı uyum süreci için şirket unvanı, açık adres ve veri sorumlusu iletişim bilgileri canlıya çıkmadan önce gerçek bilgilerle tamamlanmalıdır.'
+          'Veriler; barindirma, analiz, bildirim ve odeme altyapisini saglayan teknik hizmet saglayicilarla hizmetin sunulmasi icin gerekli oldugu olcude paylasilabilir.',
+          'Guvenlik, yasal yukumlulukler ve uyusmazlik surecleri icin belirli kayitlar ilgili mevzuatin ongordugu sure boyunca saklanabilir.'
         ]
       }
     ]
   },
   distanceSales: {
-    title: 'Mesafeli Satış Sözleşmesi',
+    title: 'Mesafeli Satis Sozlesmesi',
     description:
-      'Talepet üzerinden sunulan premium görünürlük, öne çıkarma ve ek ilan hakları gibi dijital hizmetlere ilişkin genel çerçeveyi açıklar.',
+      'Talepet uzerinden sunulan premium gorunurluk, one cikarma ve ek ilan hakki gibi dijital hizmetlere iliskin genel cerceveyi aciklar.',
     lead:
-      'Bu sözleşme, Talepet tarafından sunulan premium paketler, öne çıkarma seçenekleri ve ek ilan hakkı gibi dijital hizmetlerin satın alınmasına ilişkin genel esasları özetler.',
+      'Bu sozlesme, Talepet tarafindan sunulan premium paketler, one cikarma secenekleri ve ek ilan hakki gibi dijital hizmetlerin satin alinmasina iliskin genel esaslari ozetler.',
     sections: [
       {
-        heading: 'Sözleşmenin konusu',
+        heading: 'Sozlesmenin konusu',
         paragraphs: [
-          'Talepet üzerinde satın alınan hizmetler, dijital görünürlük ve platform içi kullanım hakkı sağlayan hizmetlerdir. Fiziksel ürün satışı, depolama veya kargo teslimatı kapsamında değerlendirilmez.',
-          'Satın alınan hizmetin kapsamı; seçilen plan, süre, kredi adedi veya platform içi görünürlük biçimine göre değişebilir.'
+          'Talepet uzerinde satin alinan hizmetler, dijital gorunurluk ve platform ici kullanim hakki saglayan hizmetlerdir.',
+          'Bu hizmetler fiziksel urun satisi, depolama veya kargo teslimati kapsaminda degerlendirilmez.'
         ]
       },
       {
-        heading: 'Sipariş ve aktivasyon',
+        heading: 'Siparis ve aktivasyon',
         paragraphs: [
-          'Ödeme süreci ödeme hizmet sağlayıcısı üzerinden tamamlandıktan sonra ilgili plan veya kredi kullanıcının hesabına tanımlanır.',
-          'Bazı hizmetler anında aktifleşebilir; bazıları ise ödeme doğrulama, webhook işleme veya teknik kontrol sonrasında hesaba yansıtılır.'
+          'Odeme sureci tamamlandiktan sonra ilgili plan, kredi veya hak kullanicinin hesabina dijital olarak tanimlanir.',
+          'Bazi hizmetler aninda aktiflesir; bazilari ise odeme dogrulama ve teknik kontrol sonrasinda hesaba yansir.'
         ]
       },
       {
-        heading: 'Kullanım koşulları',
+        heading: 'Kullanim kosullari',
         paragraphs: [
-          'Premium paketler ve öne çıkarma hakları yalnızca Talepet platformu içinde geçerlidir ve üçüncü kişilere devredilemez.',
-          'Platform kurallarına aykırı, moderasyon engeline takılan veya silinen içerikler için dijital hizmetin uygulanma şekli hizmet koşullarına göre değerlendirilebilir.'
-        ]
-      },
-      {
-        heading: 'Kurumsal bilgi notu',
-        paragraphs: [
-          'Şirket unvanı, MERSİS/VKN, açık adres, destek e-postası ve cayma istisnalarına ilişkin kesin metinler, canlıya çıkmadan önce gerçek hukuki bilgilerle tamamlanmalıdır.',
-          'Bu sayfadaki metinler ürün modeline uyumlu iskelet sağlar; nihai hukuki kullanım öncesinde profesyonel hukuk incelemesi önerilir.'
+          'Premium paketler ve one cikarma haklari yalnizca Talepet platformu icinde gecerli olup baska bir platforma devredilemez.',
+          'Platform kurallarina aykiri veya moderasyon nedeniyle kaldirilan icerikler icin dijital hizmetlerin uygulanma sekli hizmet kosullarina gore degerlendirilir.'
         ]
       }
     ]
   },
   deliveryReturns: {
-    title: 'Teslimat ve İade Şartları',
+    title: 'Teslimat ve Iade Sartlari',
     description:
-      'Talepet fiziksel kargo teslimatı yapan bir mağaza olmadığı için teslimat ve iade süreci dijital hizmetlerin aktivasyonu üzerinden açıklanır.',
+      'Talepet fiziksel kargo teslimati yapan bir magaza olmadigi icin teslimat ve iade sureci dijital hizmetlerin aktivasyonu uzerinden aciklanir.',
     lead:
-      'Talepet üzerinden satın alınan hizmetler dijital niteliktedir. Bu nedenle teslimat ve iade değerlendirmesi, fiziksel kargo yerine hizmet aktivasyonu ve hesap tanımı üzerinden yapılır.',
+      'Talepet uzerinden satin alinan hizmetler dijital niteliktedir. Bu nedenle teslimat ve iade degerlendirmesi fiziksel kargo yerine hizmet aktivasyonu ve hesap tanimi uzerinden yapilir.',
     sections: [
       {
         heading: 'Teslimat',
         paragraphs: [
-          'Premium üyelik, öne çıkarma ve ek ilan hakkı gibi hizmetler başarılı ödeme sonrasında kullanıcı hesabına dijital olarak tanımlanır.',
-          'Hizmetin hesabınıza yansıma süresi, ödeme sağlayıcısından gelen doğrulama sonucuna göre değişebilir.'
+          'Premium uyelik, one cikarma ve ek ilan hakki gibi hizmetler basarili odeme sonrasinda kullanici hesabina dijital olarak tanimlanir.',
+          'Hizmetin hesaba yansima suresi odeme saglayicisindan gelen dogrulama sonucuna gore degisebilir.'
         ]
       },
       {
-        heading: 'İade ve iptal',
+        heading: 'Iade ve iptal',
         paragraphs: [
-          'Henüz kullanılmamış dijital haklar için değerlendirme, hizmetin türüne ve yürürlükteki mevzuata göre yapılır.',
-          'Kullanılmış, aktiflenmiş veya hesabınıza uygulanmış dijital görünürlük hizmetlerinde iade koşulları farklılaşabilir. Nihai değerlendirme destek süreci ve sözleşme hükümlerine göre yapılır.'
+          'Henuz kullanilmamis dijital haklar icin degerlendirme, hizmetin turune ve yururlukteki mevzuata gore yapilir.',
+          'Aktiflesmis veya hesaba uygulanmis dijital gorunurluk hizmetlerinde iade kosullari hizmetin niteligine gore farklilasabilir.'
         ]
       },
       {
-        heading: 'Uyuşmazlık ve destek',
+        heading: 'Destek sureci',
         paragraphs: [
-          'Ödeme, aktivasyon veya hesapta hak görünmemesi gibi durumlarda kullanıcı destek kanalları üzerinden kayıt oluşturabilirsiniz.',
-          'Canlı kullanım öncesinde gerçek destek e-postası, telefon ve şirket bilgileri bu sayfada tamamlanmalıdır.'
+          'Odeme, aktivasyon veya hesapta hak gorunmemesi gibi durumlarda kullanici destek kanallari uzerinden kayit olusturabilirsiniz.',
+          'Giris yapan kullanicilar profil alanindaki Sorun Bildir akisiyla destek talebi baslatabilir.'
         ]
       }
     ]
   },
   contact: {
-    title: 'İletişim',
+    title: 'Iletisim',
     description:
-      'Talepet ile destek, üyelik, ödeme ve kurumsal başvurular için iletişime geçilebilecek alanları listeler.',
+      'Talepet ile destek, uyelik, premium paketler, odeme ve kurumsal sorular icin kullanabileceginiz iletisim basliklarini listeler.',
     lead:
-      'Talepet ile üyelik, premium paketler, ödeme sorunları, moderasyon ve iş ortaklığı başlıklarında iletişime geçmek için aşağıdaki kurumsal kanalları kullanabilirsiniz.',
+      'Talepet; dijital talep ve teklif platformu olarak destek, odeme ve uyelik sureclerini tek merkezden yonetir. Asagidaki basliklar, inceleme ekiplerinin ve kullanicilarin dogru noktaya hizli ulasmasi icin duzenlendi.',
     sections: [
       {
-        heading: 'Destek kanalları',
+        heading: 'Destek kanallari',
         paragraphs: [
-          'Destek e-postası: [TODO: destek e-posta adresi]',
-          'Kurumsal iletişim: [TODO: kurumsal e-posta veya form bağlantısı]',
-          'Telefon: [TODO: destek hattı]'
+          'Platform bildirim e-postalari: noreply@talepet.net.tr',
+          'Hesaba bagli destek talepleri: giris yaptiktan sonra profil alanindaki Sorun Bildir akisindan iletilebilir.',
+          'Odeme ve premium paket sorulari: Paketler ve Premium alanlari uzerinden ilgili akislar incelenebilir.'
         ]
       },
       {
-        heading: 'Adres bilgisi',
+        heading: 'Talepet ne satar?',
         paragraphs: [
-          'Açık adres: [TODO: şirket açık adresi]',
-          'Vergi / şirket bilgileri: [TODO: şirket unvanı ve vergi bilgileri]'
+          'Talepet, premium uyelik, one cikarilan ilanlar ve ek ilan hakki gibi platform ici dijital hizmetler sunar.',
+          'Bu hizmetler kullanicinin talebini daha gorunur hale getirmek, ek ilan yayini yapmak veya platform icindeki premium avantajlardan yararlanmak icin satin alinabilir.'
         ]
       },
       {
-        heading: 'Çalışma yaklaşımı',
+        heading: 'Kurumsal bilgi notu',
         paragraphs: [
-          'Talepet, dijital talep ve teklif platformudur. Destek taleplerinde ilgili işlem, hesap ve ödeme detaylarını mümkün olduğunca net belirtmeniz çözüm sürecini hızlandırır.',
-          'Bu sayfadaki placeholder alanları canlı başvuru öncesinde gerçek kurumsal bilgilerle tamamlanmalıdır.'
+          'Sirket unvani, vergi numarasi ve acik adres gibi hukuki bilgiler canli kurumsal kayitlarla birebir esitlenecek sekilde yayin oncesi guncellenir.',
+          'Bu sayfa, platformun ne yaptigini ve hangi dijital hizmetleri sattigini seffaf sekilde gostermek icin kullaniciya acik tutulur.'
         ]
       }
     ]

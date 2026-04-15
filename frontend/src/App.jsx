@@ -69,6 +69,7 @@ import {
   resolveSurfaceLabelFromHostname,
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
+  WEBSITE_PACKAGES_PATH,
   WEBSITE_DISCOVERY_PATH,
   WEBSITE_PROFILE_ACCOUNT_PATH,
   WEBSITE_PROFILE_ADDRESSES_PATH,
@@ -114,6 +115,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const DistanceSalesPage = lazy(() => import('./pages/DistanceSalesPage'));
 const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
+const PricingPage = lazy(() => import('./pages/PricingPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 const WebsiteProfileHome = lazy(() => import('./pages/WebsiteProfileHome'));
 
@@ -939,6 +941,15 @@ function App() {
         element={
           <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
             <ContactPage />
+          </Layout>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PACKAGES_PATH}
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <PricingPage />
           </Layout>
         }
       />

@@ -6,6 +6,7 @@ import {
   WEBSITE_CREATE_PATH,
   WEBSITE_DISCOVERY_PATH,
   WEBSITE_LOGIN_PATH,
+  WEBSITE_PACKAGES_PATH,
   WEBSITE_REGISTER_PATH,
   WEB_HOME_PATH,
   buildSurfaceHref
@@ -57,6 +58,9 @@ function WebsiteProductShell({
         <div className="website-product-shell__actions">
           {!user ? (
             <>
+              <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
+                Paketler
+              </Link>
               <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
                 Giris Yap
               </a>
