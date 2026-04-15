@@ -2,14 +2,17 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
+import { LANDING_SHOWCASE_CARDS } from '../content/pricingContent';
 import {
   APP_HOME_PATH,
-  APP_LOGIN_PATH,
-  APP_REGISTER_PATH,
   WEBSITE_CATEGORIES_PATH,
+  WEBSITE_CREATE_PATH,
+  WEBSITE_LOGIN_PATH,
   WEBSITE_PACKAGES_PATH,
+  WEBSITE_REGISTER_PATH,
   buildSurfaceHref
 } from '../config/surfaces';
+import { useAuth } from '../context/AuthContext';
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -49,6 +52,8 @@ const ensurePropertyMeta = (property) =>
   });
 
 function LandingPage() {
+  const { isAuthenticated } = useAuth();
+
   useEffect(() => {
     const previousTitle = document.title;
     const descriptionTag = ensureMetaDescription();
@@ -112,12 +117,12 @@ function LandingPage() {
           <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
             Paketler
           </Link>
-          <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-link-button">
+          <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
             Giris Yap
-          </a>
-          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
+          </Link>
+          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
             Kayit Ol
-          </a>
+          </Link>
         </nav>
       </header>
 
@@ -129,18 +134,44 @@ function LandingPage() {
           <p>{LANDING_CONTENT.hero.subtitle}</p>
 
           <div className="landing-cta-row" aria-label="Hero eylemleri">
-            <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
+            <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
-            </a>
-            <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-secondary-button">
+            </Link>
+            <Link to={WEBSITE_LOGIN_PATH} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
-            </a>
+            </Link>
             <a
               href={buildSurfaceHref('app', APP_HOME_PATH)}
               className="landing-link-button landing-link-button-strong"
             >
               {LANDING_CONTENT.hero.tertiaryCta.label}
             </a>
+            <a
+              href={isAuthenticated ? '/premium' : WEBSITE_LOGIN_PATH}
+              className="landing-secondary-button landing-secondary-button-strong"
+            >
+              Premium Satin Al
+            </a>
+          </div>
+
+          <div className="landing-purchase-grid" aria-label="One cikan dijital hizmetler">
+            {LANDING_SHOWCASE_CARDS.map((card) => (
+              <article key={card.key} className="landing-purchase-card">
+                <div className="landing-purchase-card__head">
+                  <span className="landing-purchase-card__badge">Dijital hizmet</span>
+                  <h2>{card.title}</h2>
+                </div>
+                <p>{card.description}</p>
+                <div className="landing-purchase-card__price">{card.priceLabel}</div>
+                <div className="landing-purchase-card__duration">{card.duration}</div>
+                <a
+                  href={isAuthenticated ? '/premium' : WEBSITE_LOGIN_PATH}
+                  className="landing-primary-button landing-purchase-card__cta"
+                >
+                  Satin Al
+                </a>
+              </article>
+            ))}
           </div>
 
           <div className="landing-metric-grid" aria-label="Platform highlights">
@@ -256,12 +287,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-discovery-cta-row">
-          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
+          <Link to={WEBSITE_CATEGORIES_PATH} className="landing-secondary-button">
             {LANDING_CONTENT.publicDiscovery.detailCta.label}
-          </a>
-          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
+          </Link>
+          <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
             {LANDING_CONTENT.publicDiscovery.createCta.label}
-          </a>
+          </Link>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.publicDiscovery.appCta.label}
           </a>
@@ -324,8 +355,8 @@ function LandingPage() {
                 <a
                   href={
                     item.to === '/login'
-                      ? buildSurfaceHref('app', APP_LOGIN_PATH)
-                      : buildSurfaceHref('app', APP_HOME_PATH)
+                      ? WEBSITE_LOGIN_PATH
+                      : item.to
                   }
                   className="landing-secondary-button"
                 >
@@ -381,12 +412,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-cta-row" aria-label="Footer eylemleri">
-          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
+          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
-          </a>
-          <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-secondary-button">
+          </Link>
+          <Link to={WEBSITE_LOGIN_PATH} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
-          </a>
+          </Link>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.footerCta.tertiary.label}
           </a>

@@ -60,13 +60,8 @@ import PrivateRoute from './components/PrivateRoute';
 import api from './api/axios';
 import {
   ADMIN_HOME_PATH,
-  APP_AUTH_CALLBACK_PATH,
   APP_HOME_PATH,
-  APP_LOGIN_PATH,
-  APP_REGISTER_PATH,
-  APP_RESET_PASSWORD_PATH,
   SURFACE_LABELS,
-  APP_EMAIL_VERIFY_PATH,
   buildSurfaceHref,
   isWebsiteAuthPath,
   isAppSurfaceHost,
@@ -265,7 +260,11 @@ function App() {
   const renderWebsiteProfileShell = useCallback(
     (content, options = {}) => {
       if (websiteHost) {
-        return <SurfaceRedirect targetPath={options.fallbackTo || '/profile'} surface="app" />;
+        return (
+          <WebsiteProfileShell title={options.title} description={options.description}>
+            {content}
+          </WebsiteProfileShell>
+        );
       }
 
       return <Navigate to={options.fallbackTo || '/profile'} replace />;
@@ -464,9 +463,7 @@ function App() {
       <Route
         path="/login"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_LOGIN_PATH} />
-          ) : user && !websiteAuthRoute ? (
+          user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<Login embedded={websiteHost} />, {
@@ -482,9 +479,7 @@ function App() {
       <Route
         path="/forgot-password"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath="/forgot-password" />
-          ) : renderAuthShell(<ForgotPassword />, {
+          renderAuthShell(<ForgotPassword />, {
             showBottomNav: false,
             eyebrow: 'Sifre yenileme',
             title: 'Sifreni website uzerinden yenile.',
@@ -496,9 +491,7 @@ function App() {
       <Route
         path="/reset-password"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_RESET_PASSWORD_PATH} preserveCurrentPath />
-          ) : renderAuthShell(<ResetPassword />, {
+          renderAuthShell(<ResetPassword />, {
             showBottomNav: false,
             eyebrow: 'Sifre sifirlama',
             title: 'Yeni sifreni belirle.',
@@ -510,9 +503,7 @@ function App() {
       <Route
         path="/auth/callback"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_AUTH_CALLBACK_PATH} preserveCurrentPath />
-          ) : renderAuthShell(<AuthCallback />, {
+          renderAuthShell(<AuthCallback />, {
             showBottomNav: false,
             eyebrow: 'Auth callback',
             title: 'Giris bilgilerin dogrulaniyor.',
@@ -524,9 +515,7 @@ function App() {
       <Route
         path="/register"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_REGISTER_PATH} />
-          ) : user && !websiteAuthRoute ? (
+          user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<RegisterOtp embedded={websiteHost} />, {
@@ -542,9 +531,7 @@ function App() {
       <Route
         path="/sms-verify"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath="/sms-verify" preserveCurrentPath />
-          ) : user && !websiteAuthRoute ? (
+          user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<SmsVerify />, {
@@ -559,9 +546,7 @@ function App() {
       <Route
         path="/email-verify"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_EMAIL_VERIFY_PATH} preserveCurrentPath />
-          ) : user && !websiteAuthRoute ? (
+          user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<EmailVerify />, {
@@ -576,9 +561,7 @@ function App() {
       <Route
         path="/login-otp"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath="/login-otp" preserveCurrentPath />
-          ) : user && !websiteAuthRoute ? (
+          user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<LoginOtp />, {
@@ -593,9 +576,7 @@ function App() {
       <Route
         path="/verify-otp"
         element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath="/verify-otp" preserveCurrentPath />
-          ) : renderAuthShell(<OtpVerify />, {
+          renderAuthShell(<OtpVerify />, {
             eyebrow: 'Kod dogrulama',
             title: 'Dogrulama kodunu gir.',
             description: 'Kod dogrulama adimini website auth deneyimi icinde tamamlayabilirsin.'
@@ -623,13 +604,7 @@ function App() {
 
       <Route
         path={WEBSITE_DISCOVERY_PATH}
-        element={
-          websiteHost ? (
-            <SurfaceRedirect targetPath={APP_HOME_PATH} surface="app" />
-          ) : (
-            <Navigate to={APP_HOME_PATH} replace />
-          )
-        }
+        element={websiteHost ? websiteProductHomeElement : <Navigate to={APP_HOME_PATH} replace />}
       />
 
       <Route
@@ -637,7 +612,11 @@ function App() {
         element={
           <PrivateRoute>
               {websiteHost
-                ? <SurfaceRedirect targetPath={WEBSITE_CREATE_PATH} surface="app" />
+                ? renderWebsiteProductShell(<RFQCreate surfaceVariant="web" />, {
+                    title: 'Talep olusturma akisini website icinden yonet',
+                    description:
+                      'Kategori, detay ve konum adimlari website hostunda daha genis bir form yerlesimiyle ilerler; app-first sheet hissi root domaine tasinmaz.'
+                  })
                 : renderProductShell(<RFQCreate surfaceVariant="app" />, {
                     title: 'Talep olustur',
                     description:
@@ -650,14 +629,17 @@ function App() {
       <Route path="/rfq/create" element={<Navigate to="/create" replace />} />
       <Route
         path="/rfq"
-        element={websiteHost ? <SurfaceRedirect targetPath={APP_HOME_PATH} surface="app" /> : <Navigate to={APP_HOME_PATH} replace />}
+        element={<Navigate to={websiteHost ? WEBSITE_DISCOVERY_PATH : APP_HOME_PATH} replace />}
       />
 
       <Route
         path="/rfq/:id"
         element={
             websiteHost ? (
-              <SurfaceRedirect targetPath="/rfq" preserveCurrentPath surface="app" />
+              renderWebsiteProductShell(<RFQDetail surfaceVariant="web" />, {
+                title: 'Talep detayina website icinden bak',
+                description: 'Talep detayi website urun shell icinde acilir; mobil app hissi root domainde zorunlu kalmaz.'
+              })
           ) : (
             renderProductShell(<RFQDetail surfaceVariant="app" />, {
               title: 'Talep detayi',
@@ -672,7 +654,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/messages" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Messages />
@@ -687,7 +669,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/messages" preserveCurrentPath surface="app" />
+              <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Chat />
@@ -702,7 +684,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/notifications" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Notifications />
@@ -717,7 +699,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/profile" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Profile />
@@ -732,7 +714,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/profile/requests" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_REQUESTS_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileRequests />
@@ -747,7 +729,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/profile/account" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_ACCOUNT_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileAccount />
@@ -762,7 +744,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/profile/addresses" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_ADDRESSES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileAddresses />
@@ -777,7 +759,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/profile/offers" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_OFFERS_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileOffers />
@@ -792,7 +774,7 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/favorites" surface="app" />
+              <Navigate to={WEBSITE_PROFILE_FAVORITES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <FavoritesPage />
@@ -807,7 +789,11 @@ function App() {
         element={
           <PrivateRoute>
             {websiteHost ? (
-              <SurfaceRedirect targetPath="/premium" surface="app" />
+              renderWebsiteProfileShell(<Premium surfaceVariant="web" />, {
+                title: 'Premium',
+                description: 'Premium paketler, gorunurluk ve odeme akislarini website profile shell icinde yonet.',
+                fallbackTo: '/premium'
+              })
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Premium />
@@ -834,9 +820,7 @@ function App() {
 
       <Route
         path={WEBSITE_CATEGORIES_PATH}
-        element={
-          websiteHost ? <SurfaceRedirect targetPath={WEBSITE_CATEGORIES_PATH} surface="app" /> : categoriesElement
-        }
+        element={categoriesElement}
       />
 
       <Route

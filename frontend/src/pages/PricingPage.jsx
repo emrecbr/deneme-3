@@ -10,7 +10,11 @@ import iyzicoBadge from '../assets/payment/iyzico-badge.svg';
 import { useAuth } from '../context/AuthContext';
 
 const formatMoney = (value, currency = 'TRY') =>
-  `${Number.isFinite(Number(value)) ? Number(value) : 0} ${currency}`;
+  new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0
+  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
 
 const transformPlansToCards = (plans = []) =>
   plans
@@ -166,6 +170,9 @@ function PricingPage() {
               <p>{card.description}</p>
               <div className="pricing-plan-card__price">{card.priceLabel}</div>
               <div className="pricing-plan-card__duration">{card.duration}</div>
+              <div className="pricing-plan-card__service-note">
+                Bu paket dijital hizmettir ve aninda aktive edilir.
+              </div>
               <button type="button" className="landing-primary-button pricing-plan-card__cta" onClick={() => handlePurchase(card)}>
                 Satin Al
               </button>
