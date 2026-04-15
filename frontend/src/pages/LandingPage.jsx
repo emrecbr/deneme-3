@@ -2,7 +2,14 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_LOGIN_PATH, WEBSITE_PACKAGES_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
+import {
+  APP_HOME_PATH,
+  APP_LOGIN_PATH,
+  APP_REGISTER_PATH,
+  WEBSITE_CATEGORIES_PATH,
+  WEBSITE_PACKAGES_PATH,
+  buildSurfaceHref
+} from '../config/surfaces';
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -105,10 +112,10 @@ function LandingPage() {
           <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
             Paketler
           </Link>
-          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
+          <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-link-button">
             Giris Yap
           </a>
-          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
             Kayit Ol
           </a>
         </nav>
@@ -122,12 +129,12 @@ function LandingPage() {
           <p>{LANDING_CONTENT.hero.subtitle}</p>
 
           <div className="landing-cta-row" aria-label="Hero eylemleri">
-            <Link to={LANDING_CONTENT.hero.primaryCta.to} className="landing-primary-button">
+            <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
-            </Link>
-            <Link to={LANDING_CONTENT.hero.secondaryCta.to} className="landing-secondary-button">
+            </a>
+            <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
-            </Link>
+            </a>
             <a
               href={buildSurfaceHref('app', APP_HOME_PATH)}
               className="landing-link-button landing-link-button-strong"
@@ -249,12 +256,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-discovery-cta-row">
-          <Link to={LANDING_CONTENT.publicDiscovery.detailCta.to} className="landing-secondary-button">
+          <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.publicDiscovery.detailCta.label}
-          </Link>
-          <Link to={LANDING_CONTENT.publicDiscovery.createCta.to} className="landing-primary-button">
+          </a>
+          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.publicDiscovery.createCta.label}
-          </Link>
+          </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.publicDiscovery.appCta.label}
           </a>
@@ -314,9 +321,16 @@ function LandingPage() {
               <h3>{item.title}</h3>
               <p>{item.summary}</p>
               <div className="landing-rfq-preview-actions">
-                <Link to={item.to} className="landing-secondary-button">
+                <a
+                  href={
+                    item.to === '/login'
+                      ? buildSurfaceHref('app', APP_LOGIN_PATH)
+                      : buildSurfaceHref('app', APP_HOME_PATH)
+                  }
+                  className="landing-secondary-button"
+                >
                   {item.cta}
-                </Link>
+                </a>
               </div>
             </article>
           ))}
@@ -367,12 +381,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-cta-row" aria-label="Footer eylemleri">
-          <Link to={LANDING_CONTENT.footerCta.primary.to} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
-          </Link>
-          <Link to={LANDING_CONTENT.footerCta.secondary.to} className="landing-secondary-button">
+          </a>
+          <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
-          </Link>
+          </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.footerCta.tertiary.label}
           </a>

@@ -2,12 +2,12 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   APP_HOME_PATH,
+  APP_LOGIN_PATH,
+  APP_REGISTER_PATH,
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
   WEBSITE_DISCOVERY_PATH,
-  WEBSITE_LOGIN_PATH,
   WEBSITE_PACKAGES_PATH,
-  WEBSITE_REGISTER_PATH,
   WEB_HOME_PATH,
   buildSurfaceHref
 } from '../config/surfaces';
@@ -61,17 +61,17 @@ function WebsiteProductShell({
               <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
                 Paketler
               </Link>
-              <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
+              <a href={buildSurfaceHref('app', APP_LOGIN_PATH)} className="landing-link-button">
                 Giris Yap
               </a>
-              <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
+              <a href={buildSurfaceHref('app', APP_REGISTER_PATH)} className="landing-primary-button">
                 Kayit Ol
               </a>
             </>
           ) : (
-            <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
+            <a href={buildSurfaceHref('app', WEBSITE_CREATE_PATH)} className="landing-primary-button">
               Talep Olustur
-            </Link>
+            </a>
           )}
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
             Uygulamayi Ac
