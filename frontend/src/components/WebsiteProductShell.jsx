@@ -22,10 +22,7 @@ function WebsiteProductShell({
   const { user } = useAuth();
 
   const navItems = [
-    { label: 'Website', to: WEB_HOME_PATH, match: [WEB_HOME_PATH] },
-    { label: 'Kesfet', to: WEBSITE_DISCOVERY_PATH, match: [WEBSITE_DISCOVERY_PATH] },
-    { label: 'Kategoriler', to: WEBSITE_CATEGORIES_PATH, match: [WEBSITE_CATEGORIES_PATH] },
-    { label: 'Talep Olustur', to: WEBSITE_CREATE_PATH, match: [WEBSITE_CREATE_PATH] }
+    { label: 'Kategoriler', to: WEBSITE_CATEGORIES_PATH, match: [WEBSITE_CATEGORIES_PATH] }
   ];
 
   const breadcrumbItems = (() => {
@@ -54,6 +51,9 @@ function WebsiteProductShell({
         <div className="website-product-shell__actions">
           {!user ? (
             <>
+              <Link to={WEBSITE_CATEGORIES_PATH} className="landing-link-button">
+                Kategoriler
+              </Link>
               <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
                 Paketler
               </Link>
@@ -66,6 +66,9 @@ function WebsiteProductShell({
             </>
           ) : (
             <>
+              <Link to={WEBSITE_CATEGORIES_PATH} className="landing-link-button">
+                Kategoriler
+              </Link>
               <Link to={WEBSITE_PROFILE_HOME_PATH} className="landing-link-button">
                 Profilim
               </Link>
@@ -79,14 +82,6 @@ function WebsiteProductShell({
           </a>
         </div>
       </header>
-
-      <section className="website-product-shell__hero">
-        <div className="website-product-shell__copy">
-          <p className="landing-eyebrow">Website urun omurgasi</p>
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </section>
 
       <div className="website-product-shell__context-row">
         <div className="website-product-shell__breadcrumbs" aria-label="Sayfa baglami">
@@ -102,6 +97,14 @@ function WebsiteProductShell({
             : 'Kesfetmeye website icinde devam edebilir, kritik aksiyonlarda kontrollu sekilde giris veya kayit akisina gecebilirsin.'}
         </div>
       </div>
+
+      <section className="website-product-shell__hero">
+        <div className="website-product-shell__copy">
+          <p className="landing-eyebrow">Website urun omurgasi</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
+        </div>
+      </section>
 
       <nav className="website-product-shell__nav" aria-label="Website urun gezinmesi">
         {navItems.map((item) => {

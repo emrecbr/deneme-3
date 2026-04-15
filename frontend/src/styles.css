@@ -1138,9 +1138,22 @@ body.dark-mode .app-logo {
 
   .website-product-shell__topbar {
     position: static;
-    padding: 18px;
+    padding: 14px;
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .website-product-shell__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .website-product-shell__actions > a {
+    justify-content: center;
+    min-height: 42px;
+    padding-inline: 10px;
   }
 
   .website-product-shell__hero {
@@ -2497,13 +2510,13 @@ div {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 18;
-  min-height: 74px;
+  min-height: 66px;
   margin-top: 8px;
-  padding: 18px 22px;
+  padding: 14px 18px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -2514,8 +2527,13 @@ div {
 .website-product-shell__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 10px;
   flex-wrap: wrap;
+}
+
+.website-product-shell__actions > a {
+  white-space: nowrap;
 }
 
 .website-product-shell__hero {
@@ -2577,11 +2595,11 @@ div {
 
 .website-product-shell__context-row {
   width: min(1240px, 100%);
-  margin: 16px auto 0;
+  margin: 8px auto 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px 12px;
   flex-wrap: wrap;
 }
 
@@ -2596,7 +2614,8 @@ div {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.92rem;
+  font-size: 0.86rem;
+  font-weight: 700;
   color: #475569;
 }
 
@@ -2606,9 +2625,10 @@ div {
 }
 
 .website-product-shell__context-copy {
+  flex-basis: 100%;
   color: #64748b;
-  font-size: 0.96rem;
-  line-height: 1.6;
+  font-size: 0.88rem;
+  line-height: 1.45;
   max-width: 72ch;
 }
 
