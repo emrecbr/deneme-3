@@ -11,10 +11,21 @@ const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, 
 const DEV_FALLBACK = 'http://localhost:3001/api';
 const PROD_FALLBACK = '/api';
 const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
+const isAbsoluteHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
+const hasProxyPlaceholder = (value) => String(value || '').includes(':splat');
 export const API_BASE_URL =
   ENV_API_BASE ||
   getSurfaceBaseUrl('api') ||
   (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
+
+const buildAbsoluteProviderUrl = (baseUrl, provider) => {
+  const normalizedBase = String(baseUrl || '').trim().replace(/\/$/, '');
+  if (!normalizedBase || hasProxyPlaceholder(normalizedBase) || !isAbsoluteHttpUrl(normalizedBase)) {
+    return '';
+  }
+  const apiBase = normalizedBase.endsWith('/api') ? normalizedBase : `${normalizedBase}/api`;
+  return `${apiBase}/auth/${provider}`;
+};
 
 export const buildProviderAuthUrl = (provider) => {
   const normalizedProvider = String(provider || '').trim().toLowerCase();
@@ -26,20 +37,39 @@ export const buildProviderAuthUrl = (provider) => {
     return `${API_BASE_URL}/auth/${normalizedProvider}`;
   }
 
-  const browserOrigin = getBrowserOrigin();
+  const configuredAbsoluteApiBase = buildAbsoluteProviderUrl(ENV_API_BASE, normalizedProvider);
+  if (configuredAbsoluteApiBase) {
+    return configuredAbsoluteApiBase;
+  }
+
+  const surfaceApiBase = buildAbsoluteProviderUrl(getSurfaceBaseUrl('api'), normalizedProvider);
+  if (surfaceApiBase) {
+    return surfaceApiBase;
+  }
+
   const activeSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
-  if (browserOrigin) {
-    if (activeSurface === SURFACE_LABELS.web || activeSurface === SURFACE_LABELS.admin || activeSurface === SURFACE_LABELS.app) {
-      return `${browserOrigin}/api/auth/${normalizedProvider}`;
-    }
-    return `${browserOrigin}/api/auth/${normalizedProvider}`;
+  if (
+    activeSurface === SURFACE_LABELS.web ||
+    activeSurface === SURFACE_LABELS.app ||
+    activeSurface === SURFACE_LABELS.admin
+  ) {
+    return `https://api.talepet.net.tr/api/auth/${normalizedProvider}`;
+  }
+
+  const browserOrigin = getBrowserOrigin();
+  const browserOriginApiBase = buildAbsoluteProviderUrl(browserOrigin, normalizedProvider);
+  if (browserOriginApiBase) {
+    return browserOriginApiBase;
   }
 
   const configuredAppSurface = buildSurfaceHref('app', '/');
   if (configuredAppSurface && configuredAppSurface !== '/') {
     try {
       const appOrigin = new URL(configuredAppSurface).origin;
-      return `${appOrigin}/api/auth/${normalizedProvider}`;
+      const appOriginApiBase = buildAbsoluteProviderUrl(appOrigin, normalizedProvider);
+      if (appOriginApiBase) {
+        return appOriginApiBase;
+      }
     } catch (_error) {
       // ignore malformed config and continue with relative fallback
     }
