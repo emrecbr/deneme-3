@@ -78,21 +78,26 @@ logEnvPresence();
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 const ALLOWED_ORIGINS = getAllowedSurfaceOrigins();
-const isAllowedOrigin = (origin) => {
+const APPLE_SIGN_IN_ORIGIN = 'https://appleid.apple.com';
+const isAppleAuthRoute = (requestPath = '') => String(requestPath || '').startsWith('/api/auth/apple');
+const isAllowedOrigin = (origin, requestPath = '') => {
   if (!origin) return true;
+  if (origin === APPLE_SIGN_IN_ORIGIN && isAppleAuthRoute(requestPath)) return true;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
   return false;
 };
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) return callback(null, true);
-    return callback(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
-  optionsSuccessStatus: 204
+const createCorsOptions = (req, callback) => {
+  callback(null, {
+    origin: (origin, originCallback) => {
+      if (isAllowedOrigin(origin, req.originalUrl)) return originCallback(null, true);
+      return originCallback(new Error(`Not allowed by CORS: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
+    optionsSuccessStatus: 204
+  });
 };
 const ROUTE_MOUNTS = [
   ['/api', mainRouter],
@@ -146,8 +151,8 @@ const logMountedRoutes = () => {
   });
 };
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors(createCorsOptions));
+app.options('*', cors(createCorsOptions));
 app.use('/api/billing/webhook/iyzico', express.raw({ type: '*/*' }));
 app.use((req, res, next) => {
   if (req.originalUrl.startsWith('/api/billing/webhook/iyzico')) {
