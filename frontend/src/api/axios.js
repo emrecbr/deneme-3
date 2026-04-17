@@ -27,24 +27,64 @@ const buildAbsoluteProviderUrl = (baseUrl, provider) => {
   return `${apiBase}/auth/${provider}`;
 };
 
+const resolveOauthSourceQuery = () => {
+  const activeSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
+  if (activeSurface === SURFACE_LABELS.web) {
+    return 'web';
+  }
+  if (activeSurface === SURFACE_LABELS.admin) {
+    return 'admin';
+  }
+  return 'app';
+};
+
+const appendSourceQuery = (url, source) => {
+  const normalizedUrl = String(url || '').trim();
+  if (!normalizedUrl) {
+    return normalizedUrl;
+  }
+
+  const sourceValue = String(source || '').trim();
+  if (!sourceValue) {
+    return normalizedUrl;
+  }
+
+  try {
+    const parsed = isAbsoluteHttpUrl(normalizedUrl)
+      ? new URL(normalizedUrl)
+      : new URL(normalizedUrl, getBrowserOrigin() || 'http://localhost');
+    parsed.searchParams.set('source', sourceValue);
+
+    if (isAbsoluteHttpUrl(normalizedUrl)) {
+      return parsed.toString();
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch (_error) {
+    const separator = normalizedUrl.includes('?') ? '&' : '?';
+    return `${normalizedUrl}${separator}source=${encodeURIComponent(sourceValue)}`;
+  }
+};
+
 export const buildProviderAuthUrl = (provider) => {
   const normalizedProvider = String(provider || '').trim().toLowerCase();
+  const sourceQuery = resolveOauthSourceQuery();
   if (!normalizedProvider) {
-    return '/api/auth/google';
+    return appendSourceQuery('/api/auth/google', sourceQuery);
   }
 
   if (import.meta.env.DEV) {
-    return `${API_BASE_URL}/auth/${normalizedProvider}`;
+    return appendSourceQuery(`${API_BASE_URL}/auth/${normalizedProvider}`, sourceQuery);
   }
 
   const configuredAbsoluteApiBase = buildAbsoluteProviderUrl(ENV_API_BASE, normalizedProvider);
   if (configuredAbsoluteApiBase) {
-    return configuredAbsoluteApiBase;
+    return appendSourceQuery(configuredAbsoluteApiBase, sourceQuery);
   }
 
   const surfaceApiBase = buildAbsoluteProviderUrl(getSurfaceBaseUrl('api'), normalizedProvider);
   if (surfaceApiBase) {
-    return surfaceApiBase;
+    return appendSourceQuery(surfaceApiBase, sourceQuery);
   }
 
   const activeSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
@@ -53,13 +93,13 @@ export const buildProviderAuthUrl = (provider) => {
     activeSurface === SURFACE_LABELS.app ||
     activeSurface === SURFACE_LABELS.admin
   ) {
-    return `https://api.talepet.net.tr/api/auth/${normalizedProvider}`;
+    return appendSourceQuery(`https://api.talepet.net.tr/api/auth/${normalizedProvider}`, sourceQuery);
   }
 
   const browserOrigin = getBrowserOrigin();
   const browserOriginApiBase = buildAbsoluteProviderUrl(browserOrigin, normalizedProvider);
   if (browserOriginApiBase) {
-    return browserOriginApiBase;
+    return appendSourceQuery(browserOriginApiBase, sourceQuery);
   }
 
   const configuredAppSurface = buildSurfaceHref('app', '/');
@@ -68,14 +108,14 @@ export const buildProviderAuthUrl = (provider) => {
       const appOrigin = new URL(configuredAppSurface).origin;
       const appOriginApiBase = buildAbsoluteProviderUrl(appOrigin, normalizedProvider);
       if (appOriginApiBase) {
-        return appOriginApiBase;
+        return appendSourceQuery(appOriginApiBase, sourceQuery);
       }
     } catch (_error) {
       // ignore malformed config and continue with relative fallback
     }
   }
 
-  return `/api/auth/${normalizedProvider}`;
+  return appendSourceQuery(`/api/auth/${normalizedProvider}`, sourceQuery);
 };
 
 export const buildProtectedRequestConfig = (overrides = {}) => ({

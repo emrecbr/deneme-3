@@ -12,17 +12,22 @@ import { normalizeTrPhoneE164 } from '../src/utils/phone.js';
 import { logAuthEvent } from '../src/utils/authLog.js';
 import {
   buildSurfaceUrl,
+  getAdminSurfaceConfig,
   getApiSurfaceConfig,
-  getAppSurfaceConfig
+  getAppSurfaceConfig,
+  getWebSurfaceConfig
 } from '../src/config/surfaceConfig.js';
 
 const TOKEN_COOKIE_NAME = 'token';
 const TOKEN_EXPIRES_IN = '7d';
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const GOOGLE_OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
+const GOOGLE_OAUTH_SOURCE_COOKIE_NAME = 'google_oauth_source';
 const GOOGLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 const APPLE_OAUTH_STATE_COOKIE_NAME = 'apple_oauth_state';
+const APPLE_OAUTH_SOURCE_COOKIE_NAME = 'apple_oauth_source';
 const APPLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
+const OAUTH_SURFACE_SOURCES = new Set(['web', 'app', 'admin']);
 
 const signToken = (payload) => {
   if (!process.env.JWT_SECRET) {
@@ -98,8 +103,27 @@ const getRequestBaseUrl = (req) => {
   return `${protocol}://${host}`;
 };
 
-const getFrontendBaseConfig = () => {
-  const resolved = getAppSurfaceConfig();
+const normalizeOauthSurfaceSource = (value, fallback = 'app') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (OAUTH_SURFACE_SOURCES.has(normalized)) {
+    return normalized;
+  }
+  return fallback;
+};
+
+const getSurfaceBaseConfig = (surface = 'app') => {
+  const normalizedSurface = normalizeOauthSurfaceSource(surface);
+  if (normalizedSurface === 'web') {
+    return getWebSurfaceConfig();
+  }
+  if (normalizedSurface === 'admin') {
+    return getAdminSurfaceConfig();
+  }
+  return getAppSurfaceConfig();
+};
+
+const getFrontendBaseConfig = (surface = 'app') => {
+  const resolved = getSurfaceBaseConfig(surface);
   if (resolved.value) {
     return resolved;
   }
@@ -117,7 +141,52 @@ const getFrontendBaseConfig = () => {
   };
 };
 
-const getFrontendBaseUrl = () => getFrontendBaseConfig().value;
+const getFrontendBaseUrl = (surface = 'app') => getFrontendBaseConfig(surface).value;
+
+const getSurfaceSourceFromUrl = (value) => {
+  const host = getHostnameOnly(getHostFromUrl(value));
+  if (!host) {
+    return '';
+  }
+
+  const webHost = getHostnameOnly(getHostFromUrl(getWebSurfaceConfig().value));
+  const appHost = getHostnameOnly(getHostFromUrl(getAppSurfaceConfig().value));
+  const adminHost = getHostnameOnly(getHostFromUrl(getAdminSurfaceConfig().value));
+
+  if (host === webHost || host === 'talepet.net.tr' || host === 'www.talepet.net.tr') {
+    return 'web';
+  }
+  if (host === adminHost || host === 'admin.talepet.net.tr') {
+    return 'admin';
+  }
+  if (host === appHost || host === 'app.talepet.net.tr') {
+    return 'app';
+  }
+
+  return '';
+};
+
+const resolveAuthSourceSurface = (req, fallback = 'app') => {
+  const explicitSource = normalizeOauthSurfaceSource(
+    req.query?.source || req.body?.source || req.cookies?.oauth_source_surface,
+    ''
+  );
+  if (explicitSource) {
+    return explicitSource;
+  }
+
+  const originSurface = getSurfaceSourceFromUrl(req.get('origin'));
+  if (originSurface) {
+    return originSurface;
+  }
+
+  const refererSurface = getSurfaceSourceFromUrl(req.get('referer'));
+  if (refererSurface) {
+    return refererSurface;
+  }
+
+  return normalizeOauthSurfaceSource(fallback);
+};
 
 const getApiBaseConfig = (req) => {
   const resolved = getApiSurfaceConfig();
@@ -214,11 +283,12 @@ const getAppleCallbackConfig = (req) => {
 
 const getAppleCallbackUrl = (req) => getAppleCallbackConfig(req).value;
 
-const buildGoogleAuthEnvSnapshot = (req) => {
-  const frontendConfig = getFrontendBaseConfig();
+const buildGoogleAuthEnvSnapshot = (req, sourceSurface = 'app') => {
+  const frontendConfig = getFrontendBaseConfig(sourceSurface);
   const callbackConfig = getGoogleCallbackConfig(req);
 
   return {
+    sourceSurface: normalizeOauthSurfaceSource(sourceSurface),
     nodeEnv: process.env.NODE_ENV || 'undefined',
     requestBaseUrl: getRequestBaseUrl(req),
     requestHost: req.get('host') || '',
@@ -232,11 +302,12 @@ const buildGoogleAuthEnvSnapshot = (req) => {
   };
 };
 
-const buildAppleAuthEnvSnapshot = (req) => {
-  const frontendConfig = getFrontendBaseConfig();
+const buildAppleAuthEnvSnapshot = (req, sourceSurface = 'app') => {
+  const frontendConfig = getFrontendBaseConfig(sourceSurface);
   const callbackConfig = getAppleCallbackConfig(req);
 
   return {
+    sourceSurface: normalizeOauthSurfaceSource(sourceSurface),
     nodeEnv: process.env.NODE_ENV || 'undefined',
     requestBaseUrl: getRequestBaseUrl(req),
     requestHost: req.get('host') || '',
@@ -319,7 +390,7 @@ const buildSharedCookieDomain = (...hosts) => {
 };
 
 const getGoogleStateCookieOptions = (req) => {
-  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req, resolveAuthSourceSurface(req));
   const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
   const callbackHost = getHostFromUrl(envSnapshot.googleCallbackUrl);
   const frontendHost = getHostFromUrl(envSnapshot.frontendBaseUrl);
@@ -335,7 +406,7 @@ const getGoogleStateCookieOptions = (req) => {
 };
 
 const getAppleStateCookieOptions = (req) => {
-  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const envSnapshot = buildAppleAuthEnvSnapshot(req, resolveAuthSourceSurface(req));
   const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
   const callbackHost = getHostFromUrl(envSnapshot.appleCallbackUrl);
   const frontendHost = getHostFromUrl(envSnapshot.frontendBaseUrl);
@@ -368,11 +439,38 @@ const mapGoogleCallbackErrorToReason = (error) => {
   return 'unknown_callback_error';
 };
 
-const redirectToFrontend = (res, path, params = {}) => {
-  const frontendConfig = getFrontendBaseConfig();
+const getOauthSourceCookieName = (provider = 'google') =>
+  provider === 'apple' ? APPLE_OAUTH_SOURCE_COOKIE_NAME : GOOGLE_OAUTH_SOURCE_COOKIE_NAME;
+
+const setOauthSourceCookie = (res, provider, sourceSurface, cookieOptions) => {
+  res.cookie(
+    getOauthSourceCookieName(provider),
+    normalizeOauthSurfaceSource(sourceSurface),
+    cookieOptions
+  );
+};
+
+const getOauthSourceFromCookie = (req, provider = 'google') =>
+  normalizeOauthSurfaceSource(req.cookies?.[getOauthSourceCookieName(provider)], '');
+
+const clearOauthSourceCookie = (res, provider, cookieOptions) => {
+  res.clearCookie(getOauthSourceCookieName(provider), cookieOptions);
+};
+
+const resolvePostLoginRedirectSurface = (req, provider = 'google', fallback = 'app') => {
+  const cookieSource = getOauthSourceFromCookie(req, provider);
+  if (cookieSource) {
+    return cookieSource;
+  }
+  return resolveAuthSourceSurface(req, fallback);
+};
+
+const redirectToFrontend = (res, path, params = {}, sourceSurface = 'app') => {
+  const normalizedSurface = normalizeOauthSurfaceSource(sourceSurface);
+  const frontendConfig = getFrontendBaseConfig(normalizedSurface);
   const frontendBaseUrl = frontendConfig.value;
   const redirectUrl = frontendBaseUrl
-    ? buildSurfaceUrl('app', path, params) || (() => {
+    ? buildSurfaceUrl(normalizedSurface, path, params) || (() => {
         const url = new URL(path, `${frontendBaseUrl}/`);
         Object.entries(params).forEach(([key, value]) => {
           if (value != null && value !== '') {
@@ -385,7 +483,7 @@ const redirectToFrontend = (res, path, params = {}) => {
   if (!redirectUrl) {
     const error = new Error('FRONTEND_REDIRECT_RESOLUTION_FAILED');
     error.code = 'FRONTEND_REDIRECT_RESOLUTION_FAILED';
-    error.meta = { frontendBaseUrlSource: frontendConfig.source };
+    error.meta = { frontendBaseUrlSource: frontendConfig.source, sourceSurface: normalizedSurface };
     throw error;
   }
   return res.redirect(redirectUrl);
@@ -430,11 +528,71 @@ const fetchGoogleUserInfo = async (accessToken) => {
 
 const normalizeMultilineSecret = (value) => String(value || '').trim().replace(/\\n/g, '\n');
 
-const createAppleClientSecret = () => {
+const APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS = 5 * 60;
+
+const getAppleClientSecretDebugSnapshot = (req) => {
   const privateKey = normalizeMultilineSecret(process.env.APPLE_PRIVATE_KEY);
+  const callbackConfig = getAppleCallbackConfig(req);
+  const clientId = String(process.env.APPLE_CLIENT_ID || '').trim();
+  const teamId = String(process.env.APPLE_TEAM_ID || '').trim();
+  const keyId = String(process.env.APPLE_KEY_ID || '').trim();
+
+  return {
+    envReadiness: {
+      clientIdConfigured: Boolean(clientId),
+      teamIdConfigured: Boolean(teamId),
+      keyIdConfigured: Boolean(keyId),
+      redirectUriConfigured: Boolean(String(process.env.APPLE_REDIRECT_URI || '').trim()),
+      redirectUriResolved: Boolean(callbackConfig.value),
+      redirectUriSource: callbackConfig.source,
+      privateKeyConfigured: Boolean(privateKey),
+      privateKeyHasBeginMarker: privateKey.includes('BEGIN PRIVATE KEY'),
+      privateKeyHasEndMarker: privateKey.includes('END PRIVATE KEY'),
+      privateKeyLineCount: privateKey ? privateKey.split('\n').filter(Boolean).length : 0
+    },
+    clientSecretClaims: {
+      headerKidConfigured: Boolean(keyId),
+      payloadIssConfigured: Boolean(teamId),
+      payloadSubConfigured: Boolean(clientId),
+      payloadAud: 'https://appleid.apple.com',
+      expiresInSeconds: APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS
+    }
+  };
+};
+
+const createAppleClientSecret = () => {
+  const clientId = String(process.env.APPLE_CLIENT_ID || '').trim();
+  const teamId = String(process.env.APPLE_TEAM_ID || '').trim();
+  const keyId = String(process.env.APPLE_KEY_ID || '').trim();
+  const privateKey = normalizeMultilineSecret(process.env.APPLE_PRIVATE_KEY);
+
+  if (!clientId) {
+    const error = new Error('APPLE_CLIENT_ID_MISSING');
+    error.code = 'APPLE_CLIENT_ID_MISSING';
+    throw error;
+  }
+
+  if (!teamId) {
+    const error = new Error('APPLE_TEAM_ID_MISSING');
+    error.code = 'APPLE_TEAM_ID_MISSING';
+    throw error;
+  }
+
+  if (!keyId) {
+    const error = new Error('APPLE_KEY_ID_MISSING');
+    error.code = 'APPLE_KEY_ID_MISSING';
+    throw error;
+  }
+
   if (!privateKey) {
     const error = new Error('APPLE_PRIVATE_KEY_MISSING');
     error.code = 'APPLE_PRIVATE_KEY_MISSING';
+    throw error;
+  }
+
+  if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
+    const error = new Error('APPLE_PRIVATE_KEY_INVALID');
+    error.code = 'APPLE_PRIVATE_KEY_INVALID';
     throw error;
   }
 
@@ -443,11 +601,11 @@ const createAppleClientSecret = () => {
     privateKey,
     {
       algorithm: 'ES256',
-      issuer: String(process.env.APPLE_TEAM_ID || '').trim(),
+      issuer: teamId,
       audience: 'https://appleid.apple.com',
-      subject: String(process.env.APPLE_CLIENT_ID || '').trim(),
-      keyid: String(process.env.APPLE_KEY_ID || '').trim(),
-      expiresIn: '5m'
+      subject: clientId,
+      keyid: keyId,
+      expiresIn: APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS
     }
   );
 };
@@ -553,10 +711,17 @@ const mapAppleCallbackErrorToReason = (error) => {
   const code = String(error?.code || '').trim();
   const message = String(error?.message || '').trim();
 
+  if (code === 'APPLE_INVALID_CLIENT') return 'invalid_client';
+  if (code === 'APPLE_INVALID_REDIRECT_URI') return 'invalid_redirect_uri';
   if (code === 'APPLE_TOKEN_EXCHANGE_FAILED') return 'token_exchange_failed';
   if (code === 'APPLE_ID_TOKEN_INVALID') return 'invalid_id_token';
   if (code === 'APPLE_ID_TOKEN_AUDIENCE_MISMATCH') return 'invalid_audience';
   if (code === 'APPLE_ID_TOKEN_ISSUER_MISMATCH') return 'invalid_issuer';
+  if (code === 'APPLE_PRIVATE_KEY_INVALID') return 'invalid_private_key';
+  if (code === 'APPLE_PRIVATE_KEY_MISSING') return 'missing_private_key';
+  if (code === 'APPLE_CLIENT_ID_MISSING') return 'missing_client_id';
+  if (code === 'APPLE_TEAM_ID_MISSING') return 'missing_team_id';
+  if (code === 'APPLE_KEY_ID_MISSING') return 'missing_key_id';
   if (code === 'APPLE_USER_CREATE_FAILED') return 'user_create_failed';
   if (code === 'FRONTEND_REDIRECT_RESOLUTION_FAILED') return 'frontend_redirect_resolution_failed';
   if (message === 'missing_email') return 'missing_email';
@@ -620,7 +785,11 @@ const exchangeAppleAuthorizationCode = async (code, redirectUri) => {
     const errorBody = await readSafeResponseBody(tokenResponse);
     const lowerCombined = `${errorBody.error} ${errorBody.error_description}`.toLowerCase();
     const error = new Error(
-      lowerCombined.includes('redirect_uri') ? 'APPLE_INVALID_REDIRECT_URI' : 'APPLE_TOKEN_EXCHANGE_FAILED'
+      lowerCombined.includes('invalid_client')
+        ? 'APPLE_INVALID_CLIENT'
+        : lowerCombined.includes('redirect_uri')
+          ? 'APPLE_INVALID_REDIRECT_URI'
+          : 'APPLE_TOKEN_EXCHANGE_FAILED'
     );
     error.code = error.message;
     error.meta = {
@@ -1332,7 +1501,8 @@ export const verifyLoginOtp = async (req, res) => {
 
 export const oauthGoogle = async (_req, res) => {
   const req = _req;
-  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const sourceSurface = resolveAuthSourceSurface(req);
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req, sourceSurface);
   const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
   const callbackHost = getHostFromUrl(envSnapshot.googleCallbackUrl);
   const stateCookieOptions = getGoogleStateCookieOptions(req);
@@ -1365,6 +1535,7 @@ export const oauthGoogle = async (_req, res) => {
 
   const state = crypto.randomBytes(24).toString('hex');
   res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
+  setOauthSourceCookie(res, 'google', sourceSurface, stateCookieOptions);
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -1381,14 +1552,16 @@ export const oauthGoogle = async (_req, res) => {
     frontendBaseUrlSource: envSnapshot.frontendBaseUrlSource,
     requestBaseUrl: envSnapshot.requestBaseUrl,
     nodeEnv: envSnapshot.nodeEnv,
-    stateCookieDomain: stateCookieOptions.domain || 'host_only'
+    stateCookieDomain: stateCookieOptions.domain || 'host_only',
+    sourceSurface
   });
 
   return res.redirect(authUrl.toString());
 };
 
 export const oauthGoogleCallback = async (req, res) => {
-  const envSnapshot = buildGoogleAuthEnvSnapshot(req);
+  const sourceSurface = resolvePostLoginRedirectSurface(req, 'google');
+  const envSnapshot = buildGoogleAuthEnvSnapshot(req, sourceSurface);
   const stateCookieOptions = getGoogleStateCookieOptions(req);
   const fail = (reason, meta = {}) => {
     console.error('GOOGLE_AUTH_FAILURE', {
@@ -1397,12 +1570,13 @@ export const oauthGoogleCallback = async (req, res) => {
       env: envSnapshot
     });
     res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+    clearOauthSourceCookie(res, 'google', stateCookieOptions);
 
     try {
       return redirectToFrontend(res, '/login', {
         error: 'google_auth_failed',
         reason
-      });
+      }, sourceSurface);
     } catch (redirectError) {
       console.error('GOOGLE_AUTH_FAILURE', {
         reason: 'frontend_redirect_resolution_failed',
@@ -1456,9 +1630,11 @@ export const oauthGoogleCallback = async (req, res) => {
 
   console.info('GOOGLE_AUTH_STATE_VALIDATED', {
     callbackUrl,
-    callbackUrlSource: envSnapshot.googleCallbackUrlSource
+    callbackUrlSource: envSnapshot.googleCallbackUrlSource,
+    sourceSurface
   });
   res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+  clearOauthSourceCookie(res, 'google', stateCookieOptions);
 
   try {
     console.info('GOOGLE_AUTH_TOKEN_EXCHANGE_START', {
@@ -1576,7 +1752,7 @@ export const oauthGoogleCallback = async (req, res) => {
       created
     });
 
-    return redirectToFrontend(res, '/auth/callback', { token });
+    return redirectToFrontend(res, '/auth/callback', { token }, sourceSurface);
   } catch (error) {
     const reason = mapGoogleCallbackErrorToReason(error);
     return fail(reason, {
@@ -1589,24 +1765,28 @@ export const oauthGoogleCallback = async (req, res) => {
 
 export const oauthApple = async (_req, res) => {
   const req = _req;
-  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const sourceSurface = resolveAuthSourceSurface(req);
+  const envSnapshot = buildAppleAuthEnvSnapshot(req, sourceSurface);
   const appleConfig = hasAppleOAuthConfig(req);
   const requestHost = getHostFromUrl(envSnapshot.requestBaseUrl);
   const callbackHost = getHostFromUrl(envSnapshot.appleCallbackUrl);
   const stateCookieOptions = getAppleStateCookieOptions(req);
+  const clientSecretDebug = getAppleClientSecretDebugSnapshot(req);
 
   if (!appleConfig.ready) {
     console.warn('APPLE_AUTH_START_FAIL', {
       reason: 'missing_apple_env',
       env: envSnapshot,
       missing: appleConfig.missing,
-      invalid: appleConfig.invalid
+      invalid: appleConfig.invalid,
+      clientSecretDebug
     });
     return res.status(501).json({
       success: false,
       code: 'OAUTH_NOT_CONFIGURED',
       missing: appleConfig.missing,
-      invalid: appleConfig.invalid
+      invalid: appleConfig.invalid,
+      diagnostics: clientSecretDebug
     });
   }
 
@@ -1630,6 +1810,7 @@ export const oauthApple = async (_req, res) => {
 
   const state = crypto.randomBytes(24).toString('hex');
   res.cookie(APPLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
+  setOauthSourceCookie(res, 'apple', sourceSurface, stateCookieOptions);
 
   const authUrl = new URL('https://appleid.apple.com/auth/authorize');
   authUrl.searchParams.set('client_id', String(process.env.APPLE_CLIENT_ID || '').trim());
@@ -1646,7 +1827,9 @@ export const oauthApple = async (_req, res) => {
     frontendBaseUrlSource: envSnapshot.frontendBaseUrlSource,
     requestBaseUrl: envSnapshot.requestBaseUrl,
     nodeEnv: envSnapshot.nodeEnv,
-    stateCookieDomain: stateCookieOptions.domain || 'host_only'
+    stateCookieDomain: stateCookieOptions.domain || 'host_only',
+    sourceSurface,
+    clientSecretDebug
   });
 
   return res.redirect(authUrl.toString());
@@ -1654,12 +1837,14 @@ export const oauthApple = async (_req, res) => {
 
 export const oauthAppleTokenLogin = async (req, res) => {
   const appleConfig = hasAppleOAuthConfig(req);
+  const clientSecretDebug = getAppleClientSecretDebugSnapshot(req);
   if (!appleConfig.ready) {
     return res.status(501).json({
       success: false,
       code: 'OAUTH_NOT_CONFIGURED',
       missing: appleConfig.missing,
-      invalid: appleConfig.invalid
+      invalid: appleConfig.invalid,
+      diagnostics: clientSecretDebug
     });
   }
 
@@ -1711,9 +1896,9 @@ export const oauthAppleTokenLogin = async (req, res) => {
   } catch (error) {
     const reason = mapAppleCallbackErrorToReason(error);
     const statusCode =
-      reason === 'missing_email' || reason === 'email_not_verified' || reason === 'invalid_audience' || reason === 'invalid_issuer' || reason === 'invalid_id_token'
+      reason === 'missing_email' || reason === 'email_not_verified' || reason === 'invalid_audience' || reason === 'invalid_issuer' || reason === 'invalid_id_token' || reason === 'invalid_client'
         ? 400
-        : reason === 'token_exchange_failed' || reason === 'invalid_redirect_uri'
+        : reason === 'token_exchange_failed' || reason === 'invalid_redirect_uri' || reason === 'invalid_private_key'
           ? 502
           : 500;
 
@@ -1721,28 +1906,33 @@ export const oauthAppleTokenLogin = async (req, res) => {
       success: false,
       code: String(error?.code || 'APPLE_AUTH_FAILED').trim() || 'APPLE_AUTH_FAILED',
       reason,
-      message: 'Apple ile giris tamamlanamadi.'
+      message: 'Apple ile giris tamamlanamadi.',
+      diagnostics: clientSecretDebug
     });
   }
 };
 
 export const oauthAppleCallback = async (req, res) => {
-  const envSnapshot = buildAppleAuthEnvSnapshot(req);
+  const sourceSurface = resolvePostLoginRedirectSurface(req, 'apple');
+  const envSnapshot = buildAppleAuthEnvSnapshot(req, sourceSurface);
   const appleConfig = hasAppleOAuthConfig(req);
   const stateCookieOptions = getAppleStateCookieOptions(req);
+  const clientSecretDebug = getAppleClientSecretDebugSnapshot(req);
   const fail = (reason, meta = {}) => {
     console.error('APPLE_AUTH_FAILURE', {
       reason,
       ...meta,
-      env: envSnapshot
+      env: envSnapshot,
+      clientSecretDebug
     });
     res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+    clearOauthSourceCookie(res, 'apple', stateCookieOptions);
 
     try {
       return redirectToFrontend(res, '/login', {
         error: 'apple_auth_failed',
         reason
-      });
+      }, sourceSurface);
     } catch (redirectError) {
       console.error('APPLE_AUTH_FAILURE', {
         reason: 'frontend_redirect_resolution_failed',
@@ -1763,7 +1953,8 @@ export const oauthAppleCallback = async (req, res) => {
       success: false,
       code: 'OAUTH_NOT_CONFIGURED',
       missing: appleConfig.missing,
-      invalid: appleConfig.invalid
+      invalid: appleConfig.invalid,
+      diagnostics: clientSecretDebug
     });
   }
 
@@ -1803,9 +1994,11 @@ export const oauthAppleCallback = async (req, res) => {
 
   console.info('APPLE_AUTH_STATE_VALIDATED', {
     callbackUrl,
-    callbackUrlSource: envSnapshot.appleCallbackUrlSource
+    callbackUrlSource: envSnapshot.appleCallbackUrlSource,
+    sourceSurface
   });
   res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
+  clearOauthSourceCookie(res, 'apple', stateCookieOptions);
 
   try {
     console.info('APPLE_AUTH_TOKEN_EXCHANGE_START', {
@@ -1846,7 +2039,7 @@ export const oauthAppleCallback = async (req, res) => {
       created
     });
 
-    return redirectToFrontend(res, '/auth/callback', { token });
+    return redirectToFrontend(res, '/auth/callback', { token }, sourceSurface);
   } catch (error) {
     const exchangeMeta = error?.meta || {};
     const reason = mapAppleCallbackErrorToReason(error);
