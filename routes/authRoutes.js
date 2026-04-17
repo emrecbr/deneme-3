@@ -15,6 +15,7 @@ import {
   oauthGoogle,
   oauthGoogleCallback,
   oauthApple,
+  oauthAppleTokenLogin,
   oauthAppleCallback
 } from '../controllers/authController.js';
 import { sendOtp, verifyOtp, completeEmailSignup } from '../controllers/otpController.js';
@@ -66,6 +67,7 @@ router.post('/password/reset', otpLimiter, resetPassword);
 router.get('/google', oauthGoogle);
 router.get('/google/callback', oauthGoogleCallback);
 router.get('/apple', oauthApple);
+router.post('/apple', otpLimiter, oauthAppleTokenLogin);
 router.get('/apple/callback', oauthAppleCallback);
 router.post('/apple/callback', oauthAppleCallback);
 router.get('/me', authMiddleware, getMe);
