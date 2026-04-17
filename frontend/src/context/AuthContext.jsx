@@ -57,7 +57,7 @@ export function AuthProvider({ children }) {
       delete api.defaults.headers.common.Authorization;
       setUser(null);
       setLoading(false);
-      return;
+      return null;
     }
     api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
@@ -76,6 +76,7 @@ export function AuthProvider({ children }) {
 
       localStorage.setItem('userName', userData.name || 'Kullanici');
       setUser(userData);
+      return userData;
     } catch (_error) {
       if (_error?.response?.status === 401 || _error?.response?.status === 403) {
         clearSession();
@@ -87,6 +88,7 @@ export function AuthProvider({ children }) {
       } else if (process.env.NODE_ENV !== 'production') {
         console.warn('Auth check failed:', _error?.message || _error);
       }
+      return null;
     } finally {
       setLoading(false);
     }
@@ -100,7 +102,13 @@ export function AuthProvider({ children }) {
     async (nextToken) => {
       localStorage.setItem('token', nextToken);
       api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
-      await checkAuth();
+      const nextUser = await checkAuth();
+      if (!nextUser) {
+        const error = new Error('AUTH_BOOTSTRAP_FAILED');
+        error.code = 'AUTH_BOOTSTRAP_FAILED';
+        throw error;
+      }
+      return nextUser;
     },
     [checkAuth]
   );

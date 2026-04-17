@@ -415,7 +415,7 @@ const getAppleStateCookieOptions = (req) => {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: APPLE_OAUTH_STATE_MAX_AGE,
     ...(cookieDomain ? { domain: cookieDomain } : {})
   };
@@ -486,6 +486,12 @@ const redirectToFrontend = (res, path, params = {}, sourceSurface = 'app') => {
     error.meta = { frontendBaseUrlSource: frontendConfig.source, sourceSurface: normalizedSurface };
     throw error;
   }
+  console.info('AUTH_FRONTEND_REDIRECT', {
+    sourceSurface: normalizedSurface,
+    path,
+    frontendBaseUrlSource: frontendConfig.source,
+    redirectHost: getHostFromUrl(redirectUrl)
+  });
   return res.redirect(redirectUrl);
 };
 

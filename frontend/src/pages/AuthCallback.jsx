@@ -20,13 +20,32 @@ function AuthCallback() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || window.location.hash.replace('#', '').replace('token=', '');
+    console.info('AUTH_CALLBACK_START', {
+      host: window.location.hostname,
+      path: window.location.pathname,
+      hasToken: Boolean(token)
+    });
     if (!token) {
       setError('Token bulunamadi.');
       return;
     }
     login(token)
-      .then(() => completeAuthRedirect())
-      .catch(() => setError('Giris tamamlanamadi.'));
+      .then((nextUser) => {
+        console.info('AUTH_CALLBACK_LOGIN_OK', {
+          host: window.location.hostname,
+          userId: nextUser?.id || nextUser?._id || '',
+          role: nextUser?.role || 'user'
+        });
+        completeAuthRedirect();
+      })
+      .catch((callbackError) => {
+        console.warn('AUTH_CALLBACK_LOGIN_FAIL', {
+          host: window.location.hostname,
+          code: callbackError?.code || '',
+          message: callbackError?.message || 'unknown_error'
+        });
+        setError('Giris tamamlanamadi.');
+      });
   }, [login, navigate]);
 
   return (
