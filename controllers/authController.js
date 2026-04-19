@@ -532,7 +532,26 @@ const fetchGoogleUserInfo = async (accessToken) => {
   return response.json();
 };
 
-const normalizeMultilineSecret = (value) => String(value || '').trim().replace(/\\n/g, '\n');
+const normalizeMultilineSecret = (value) => {
+  let normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    normalized = normalized.slice(1, -1);
+  }
+
+  normalized = normalized.replace(/\\n/g, '\n');
+  normalized = normalized.replace(/-----BEGIN PRIVATE KEY-----\s*/u, '-----BEGIN PRIVATE KEY-----\n');
+  normalized = normalized.replace(/\s*-----END PRIVATE KEY-----/u, '\n-----END PRIVATE KEY-----');
+  normalized = normalized.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+
+  return normalized.trim();
+};
 
 const APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS = 5 * 60;
 
@@ -602,18 +621,24 @@ const createAppleClientSecret = () => {
     throw error;
   }
 
-  return jwt.sign(
-    {},
-    privateKey,
-    {
-      algorithm: 'ES256',
-      issuer: teamId,
-      audience: 'https://appleid.apple.com',
-      subject: clientId,
-      keyid: keyId,
-      expiresIn: APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS
-    }
-  );
+  try {
+    return jwt.sign(
+      {},
+      privateKey,
+      {
+        algorithm: 'ES256',
+        issuer: teamId,
+        audience: 'https://appleid.apple.com',
+        subject: clientId,
+        keyid: keyId,
+        expiresIn: APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS
+      }
+    );
+  } catch (_signError) {
+    const error = new Error('APPLE_PRIVATE_KEY_INVALID');
+    error.code = 'APPLE_PRIVATE_KEY_INVALID';
+    throw error;
+  }
 };
 
 const getApplePublicKey = async (keyId) => {
@@ -839,24 +864,63 @@ const hasAppleOAuthConfig = (req) => {
 };
 
 const exchangeAppleAuthorizationCode = async (code, redirectUri) => {
+  const clientId = String(process.env.APPLE_CLIENT_ID || '').trim();
+  const teamId = String(process.env.APPLE_TEAM_ID || '').trim();
+  const keyId = String(process.env.APPLE_KEY_ID || '').trim();
+  const privateKey = normalizeMultilineSecret(process.env.APPLE_PRIVATE_KEY);
   const clientSecret = createAppleClientSecret();
-  const tokenResponse = await fetch('https://appleid.apple.com/auth/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      client_id: String(process.env.APPLE_CLIENT_ID || '').trim(),
-      client_secret: clientSecret
-    })
+  const requestBody = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    client_id: clientId,
+    client_secret: clientSecret
   });
+
+  console.info('APPLE_AUTH_TOKEN_EXCHANGE_REQUEST_READY', {
+    redirectUri,
+    clientIdConfigured: Boolean(clientId),
+    teamIdConfigured: Boolean(teamId),
+    keyIdConfigured: Boolean(keyId),
+    privateKeyConfigured: Boolean(privateKey),
+    privateKeyHasBeginMarker: privateKey.includes('BEGIN PRIVATE KEY'),
+    privateKeyHasEndMarker: privateKey.includes('END PRIVATE KEY'),
+    grantType: 'authorization_code',
+    audience: 'https://appleid.apple.com',
+    expiresInSeconds: APPLE_CLIENT_SECRET_EXPIRES_IN_SECONDS
+  });
+
+  let tokenResponse;
+  try {
+    tokenResponse = await fetch('https://appleid.apple.com/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: requestBody
+    });
+  } catch (_networkError) {
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_FAIL', true);
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_STATUS', 'network_error');
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_ERROR_CODE', 'fetch_failed');
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_ERROR_MESSAGE', 'apple_token_endpoint_unreachable');
+    const error = new Error('APPLE_TOKEN_EXCHANGE_FAILED');
+    error.code = 'APPLE_TOKEN_EXCHANGE_FAILED';
+    error.meta = {
+      status: 0,
+      appleError: 'fetch_failed',
+      appleErrorDescription: 'apple_token_endpoint_unreachable'
+    };
+    throw error;
+  }
 
   if (!tokenResponse.ok) {
     const errorBody = await readSafeResponseBody(tokenResponse);
     const lowerCombined = `${errorBody.error} ${errorBody.error_description}`.toLowerCase();
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_FAIL', true);
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_STATUS', tokenResponse.status);
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_ERROR_CODE', errorBody.error || 'unknown');
+    console.error('APPLE_AUTH_TOKEN_EXCHANGE_ERROR_MESSAGE', errorBody.error_description || 'unknown');
     const error = new Error(
       lowerCombined.includes('invalid_client')
         ? 'APPLE_INVALID_CLIENT'
@@ -872,6 +936,8 @@ const exchangeAppleAuthorizationCode = async (code, redirectUri) => {
     };
     throw error;
   }
+
+  console.info('APPLE_AUTH_TOKEN_EXCHANGE_FAIL', false);
 
   return tokenResponse.json();
 };
