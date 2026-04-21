@@ -66,25 +66,121 @@ const appendSourceQuery = (url, source) => {
   }
 };
 
+const appendSocialReturnQuery = (url, params = {}) => {
+  const normalizedUrl = String(url || '').trim();
+  if (!normalizedUrl) {
+    return normalizedUrl;
+  }
+
+  try {
+    const parsed = isAbsoluteHttpUrl(normalizedUrl)
+      ? new URL(normalizedUrl)
+      : new URL(normalizedUrl, getBrowserOrigin() || 'http://localhost');
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && String(value).trim()) {
+        parsed.searchParams.set(key, String(value).trim());
+      }
+    });
+
+    if (isAbsoluteHttpUrl(normalizedUrl)) {
+      return parsed.toString();
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch (_error) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && String(value).trim()) {
+        query.set(key, String(value).trim());
+      }
+    });
+    if (!query.toString()) {
+      return normalizedUrl;
+    }
+    const separator = normalizedUrl.includes('?') ? '&' : '?';
+    return `${normalizedUrl}${separator}${query.toString()}`;
+  }
+};
+
+export const rememberSocialLoginReturnTarget = () => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return;
+  }
+
+  const origin = getBrowserOrigin();
+  const pathname = window.location?.pathname || '/';
+  const search = window.location?.search || '';
+  const hash = window.location?.hash || '';
+  const surface = resolveOauthSourceQuery();
+
+  window.sessionStorage.setItem(
+    'talepet_social_return',
+    JSON.stringify({
+      returnTo: origin,
+      returnPath: `${pathname}${search}${hash}`,
+      returnSurface: surface
+    })
+  );
+};
+
+export const readSocialLoginReturnTarget = () => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return null;
+  }
+
+  const raw = window.sessionStorage.getItem('talepet_social_return');
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (_error) {
+    return null;
+  }
+};
+
+export const clearSocialLoginReturnTarget = () => {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return;
+  }
+  window.sessionStorage.removeItem('talepet_social_return');
+};
+
 export const buildProviderAuthUrl = (provider) => {
   const normalizedProvider = String(provider || '').trim().toLowerCase();
   const sourceQuery = resolveOauthSourceQuery();
+  const returnTo = getBrowserOrigin();
+  const returnSurface = sourceQuery;
   if (!normalizedProvider) {
-    return appendSourceQuery('/api/auth/google', sourceQuery);
+    return appendSocialReturnQuery(appendSourceQuery('/api/auth/google', sourceQuery), {
+      returnTo,
+      returnSurface
+    });
   }
 
   if (import.meta.env.DEV) {
-    return appendSourceQuery(`${API_BASE_URL}/auth/${normalizedProvider}`, sourceQuery);
+    return appendSocialReturnQuery(
+      appendSourceQuery(`${API_BASE_URL}/auth/${normalizedProvider}`, sourceQuery),
+      { returnTo, returnSurface }
+    );
   }
 
   const configuredAbsoluteApiBase = buildAbsoluteProviderUrl(ENV_API_BASE, normalizedProvider);
   if (configuredAbsoluteApiBase) {
-    return appendSourceQuery(configuredAbsoluteApiBase, sourceQuery);
+    return appendSocialReturnQuery(appendSourceQuery(configuredAbsoluteApiBase, sourceQuery), {
+      returnTo,
+      returnSurface
+    });
   }
 
   const surfaceApiBase = buildAbsoluteProviderUrl(getSurfaceBaseUrl('api'), normalizedProvider);
   if (surfaceApiBase) {
-    return appendSourceQuery(surfaceApiBase, sourceQuery);
+    return appendSocialReturnQuery(appendSourceQuery(surfaceApiBase, sourceQuery), {
+      returnTo,
+      returnSurface
+    });
   }
 
   const activeSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
@@ -93,13 +189,19 @@ export const buildProviderAuthUrl = (provider) => {
     activeSurface === SURFACE_LABELS.app ||
     activeSurface === SURFACE_LABELS.admin
   ) {
-    return appendSourceQuery(`https://api.talepet.net.tr/api/auth/${normalizedProvider}`, sourceQuery);
+    return appendSocialReturnQuery(
+      appendSourceQuery(`https://api.talepet.net.tr/api/auth/${normalizedProvider}`, sourceQuery),
+      { returnTo, returnSurface }
+    );
   }
 
   const browserOrigin = getBrowserOrigin();
   const browserOriginApiBase = buildAbsoluteProviderUrl(browserOrigin, normalizedProvider);
   if (browserOriginApiBase) {
-    return appendSourceQuery(browserOriginApiBase, sourceQuery);
+    return appendSocialReturnQuery(appendSourceQuery(browserOriginApiBase, sourceQuery), {
+      returnTo,
+      returnSurface
+    });
   }
 
   const configuredAppSurface = buildSurfaceHref('app', '/');
@@ -108,14 +210,20 @@ export const buildProviderAuthUrl = (provider) => {
       const appOrigin = new URL(configuredAppSurface).origin;
       const appOriginApiBase = buildAbsoluteProviderUrl(appOrigin, normalizedProvider);
       if (appOriginApiBase) {
-        return appendSourceQuery(appOriginApiBase, sourceQuery);
+        return appendSocialReturnQuery(appendSourceQuery(appOriginApiBase, sourceQuery), {
+          returnTo,
+          returnSurface
+        });
       }
     } catch (_error) {
       // ignore malformed config and continue with relative fallback
     }
   }
 
-  return appendSourceQuery(`/api/auth/${normalizedProvider}`, sourceQuery);
+  return appendSocialReturnQuery(appendSourceQuery(`/api/auth/${normalizedProvider}`, sourceQuery), {
+    returnTo,
+    returnSurface
+  });
 };
 
 export const buildProtectedRequestConfig = (overrides = {}) => ({

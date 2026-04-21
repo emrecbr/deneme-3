@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api, { buildProviderAuthUrl } from '../api/axios';
+import api, { buildProviderAuthUrl, rememberSocialLoginReturnTarget } from '../api/axios';
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
@@ -144,6 +144,7 @@ function RegisterOtp({ embedded = false }) {
   };
 
   const handleProviderLogin = (provider) => {
+    rememberSocialLoginReturnTarget();
     window.location.href = buildProviderAuthUrl(provider);
   };
 
