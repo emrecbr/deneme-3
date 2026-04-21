@@ -6,20 +6,6 @@ import { useAuth } from '../context/AuthContext';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
-const onlyDigits = (value) => String(value || '').replace(/\D/g, '');
-const normalizePhoneDigits = (value) => {
-  let digits = onlyDigits(value);
-  if (digits.startsWith('90')) digits = digits.slice(2);
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  if (digits.length > 10) digits = digits.slice(0, 10);
-  return digits;
-};
-const toE164TR = (digits10) => {
-  if (!/^[5]\d{9}$/.test(digits10)) return '';
-  return `+90${digits10}`;
-};
-const normalizePhone = (value) => toE164TR(normalizePhoneDigits(value));
-
 function RegisterOtp({ embedded = false }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,9 +13,7 @@ function RegisterOtp({ embedded = false }) {
   const webSurface = isWebSurfaceHost();
 
   const [step, setStep] = useState(1);
-  const [method, setMethod] = useState('email');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -50,27 +34,13 @@ function RegisterOtp({ embedded = false }) {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const nextMethod = params.get('method');
     const nextEmail = params.get('email');
-    const nextPhone = params.get('phone');
-
-    if (nextMethod === 'sms' || nextMethod === 'email') {
-      setMethod(nextMethod);
-    }
     if (nextEmail) {
       setEmail(String(nextEmail));
     }
-    if (nextPhone) {
-      setPhone(normalizePhoneDigits(String(nextPhone)));
-    }
   }, [location.search]);
 
-  const targetLabel = useMemo(() => {
-    if (method === 'email') {
-      return email.trim();
-    }
-    return normalizePhone(phone);
-  }, [method, email, phone]);
+  const targetLabel = useMemo(() => email.trim(), [email]);
 
   useEffect(() => {
     if (resendSeconds <= 0) {
@@ -88,20 +58,12 @@ function RegisterOtp({ embedded = false }) {
   };
 
   const validateTarget = () => {
-    if (method === 'email') {
-      if (!email.trim()) {
-        return 'E-posta zorunlu.';
-      }
-      if (!EMAIL_REGEX.test(email.trim())) {
-        return 'E-posta formati gecersiz.';
-      }
-      return '';
+    if (!email.trim()) {
+      return 'E-posta zorunlu.';
     }
-
-    if (!normalizePhone(phone)) {
-      return 'Telefon zorunlu.';
+    if (!EMAIL_REGEX.test(email.trim())) {
+      return 'E-posta formati gecersiz.';
     }
-
     return '';
   };
 
@@ -115,12 +77,7 @@ function RegisterOtp({ embedded = false }) {
 
     setLoadingSend(true);
     try {
-      const payload =
-        method === 'email'
-          ? { method, email: email.trim() }
-          : { method, phone: normalizePhone(phone) };
-
-      await api.post('/auth/register/otp/send', payload);
+      await api.post('/auth/register/otp/send', { method: 'email', email: email.trim() });
       setStep(2);
       setResendSeconds(60);
       setSuccess('Kod gonderildi.');
@@ -157,12 +114,13 @@ function RegisterOtp({ embedded = false }) {
 
     setLoadingVerify(true);
     try {
-      const payload =
-        method === 'email'
-          ? { method, email: email.trim(), code: code.trim(), name: name.trim(), password }
-          : { method, phone: normalizePhone(phone), code: code.trim(), name: name.trim(), password };
-
-      const response = await api.post('/auth/register/otp/verify', payload);
+      const response = await api.post('/auth/register/otp/verify', {
+        method: 'email',
+        email: email.trim(),
+        code: code.trim(),
+        name: name.trim(),
+        password
+      });
       const data = response?.data;
 
       if (data?.token) {
@@ -204,7 +162,7 @@ function RegisterOtp({ embedded = false }) {
       </div>
 
       <p className="muted">
-        E-posta veya telefon ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
+        E-posta ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
       </p>
 
       {webSurface ? (
@@ -250,60 +208,19 @@ function RegisterOtp({ embedded = false }) {
         <span>veya</span>
       </div>
 
-      <div className="otp-channel">
-        <button
-          type="button"
-          className={`secondary-btn ${method === 'email' ? 'active' : ''}`}
-          onClick={() => {
-            setMethod('email');
-            setStep(1);
-            setCode('');
-            resetMessages();
-          }}
-        >
-          E-posta
-        </button>
-        <button
-          type="button"
-          className={`secondary-btn ${method === 'sms' ? 'active' : ''}`}
-          onClick={() => {
-            setMethod('sms');
-            setStep(1);
-            setCode('');
-            resetMessages();
-          }}
-        >
-          Telefon
-        </button>
-      </div>
-
       {step === 1 ? (
         <>
-          {method === 'email' ? (
-            <div className="form-group">
-              <label>E-posta</label>
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="ornek@mail.com"
-              />
-            </div>
-          ) : (
-            <div className="form-group">
-              <label>Telefon</label>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="+90 5xx xxx xx xx"
-              />
-            </div>
-          )}
+          <div className="form-group">
+            <label>E-posta</label>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="ornek@mail.com"
+            />
+          </div>
 
           <button type="button" className="primary-btn" onClick={sendOtp} disabled={loadingSend}>
             {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
