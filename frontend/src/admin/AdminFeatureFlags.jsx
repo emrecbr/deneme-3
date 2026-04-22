@@ -15,11 +15,11 @@ const FLAG_DEFS = [
   {
     key: 'liveLocationEnabled',
     label: 'Canli konum filtresi',
-    description: 'Kullanıcının anlık konumuna dayalı filtreleme ve yakın çevre akışını kontrol eder.'
+    description: 'Kullanicinin anlik konumuna dayali filtreleme ve yakin cevre akisini kontrol eder.'
   },
   {
     key: 'cityFallbackEnabled',
-    label: 'Şehir fallback mantığı',
+    label: 'Sehir fallback mantigi',
     description: 'Reverse geocoding eksik kalirsa sehir tabanli yedek cozum akisini devreye alir.'
   }
 ];
@@ -96,12 +96,13 @@ export default function AdminFeatureFlags() {
       <div className="admin-panel-title">Feature Flags</div>
       <div className="admin-panel-body">
         <div className="admin-info">
-          Feature flag degisiklikleri aninda operasyon akisini etkileyebilir. Kaydetmeden once aktif ve pasif durumlarini kontrol edin.
+          Bu ayarlar canli davranisi aninda etkiler. Kaydetmeden once hangi ozelligin aktif, hangisinin pasif
+          oldugunu asagidaki durum rozetlerinden net olarak kontrol edin.
         </div>
         {error ? <div className="admin-error">{error}</div> : null}
         {success ? <div className="admin-success">{success}</div> : null}
         {loading ? (
-          <div className="admin-empty">Yükleniyor...</div>
+          <div className="admin-empty">Yukleniyor...</div>
         ) : !flags ? (
           <div className="admin-empty">Ayar bulunamadi.</div>
         ) : (

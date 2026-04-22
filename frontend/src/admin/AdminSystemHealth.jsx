@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import api from '../api/axios';
 
 const STATUS_LABELS = {
-  healthy: 'Sağlıklı',
-  warning: 'Uyarı',
+  healthy: 'Saglikli',
+  warning: 'Uyari',
   error: 'Hata'
 };
 
@@ -21,27 +21,35 @@ const formatDetail = (check) => {
     const ttlMatch = detail.match(/ttl=([^\s]+)/);
     const ttlValue = ttlMatch ? ttlMatch[1] : '';
     if (!ttlValue || ttlValue === 'unset' || ttlValue === '0') {
-      return 'OTP süresi tanımlı değil. ENV: OTP_TTL_SECONDS veya OTP_TTL_MINUTES ayarlanmalı.';
+      return 'OTP suresi tanimli degil. ENV tarafinda OTP_TTL_SECONDS veya OTP_TTL_MINUTES ayarlanmalidir.';
     }
-    return `OTP süresi: ${ttlValue}`;
+    return `OTP suresi tanimli: ${ttlValue}`;
   }
   if (check.key === 'sms') {
     const provider = String(check.detail || '');
     if (!provider || provider === 'unknown') {
-      return 'SMS sağlayıcı tanımlı değil.';
+      return 'SMS saglayicisi tanimli degil.';
     }
     if (provider.toLowerCase() === 'mock') {
-      return 'SMS sağlayıcı: Mock (test modu).';
+      return 'SMS saglayicisi mock modda calisiyor. Bu ortam test veya hazirlik modu olabilir.';
     }
-    return `SMS sağlayıcı: ${provider}`;
+    return `SMS saglayicisi aktif: ${provider}`;
   }
   if (check.key === 'database') {
-    return check.status === 'healthy' ? 'MongoDB bağlantısı aktif.' : `MongoDB bağlantı sorunu (${check.detail || 'hazır değil'}).`;
+    return check.status === 'healthy'
+      ? 'MongoDB baglantisi aktif.'
+      : `MongoDB baglantisinda sorun var (${check.detail || 'hazir degil'}).`;
   }
   if (check.key === 'audit') {
-    return `Audit log kayıt sayısı: ${String(check.detail || '').replace('records=', '')}`;
+    return `Audit log kayit sayisi: ${String(check.detail || '').replace('records=', '')}`;
   }
-  return check.detail || '';
+  if (check.status === 'warning') {
+    return check.detail || 'Bu kontrol dikkat gerektiriyor.';
+  }
+  if (check.status === 'error') {
+    return check.detail || 'Bu kontrol hata durumuna dusmus.';
+  }
+  return check.detail || 'Kontrol basarili.';
 };
 
 export default function AdminSystemHealth() {
@@ -60,7 +68,7 @@ export default function AdminSystemHealth() {
         setData(response.data || null);
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.message || 'Sistem sağlığı alınamadı.');
+        setError(err?.response?.data?.message || 'Sistem sagligi alinamadi.');
       } finally {
         if (active) setLoading(false);
       }
@@ -73,20 +81,26 @@ export default function AdminSystemHealth() {
 
   return (
     <div className="admin-panel">
-      <div className="admin-panel-title">Sistem Sağlığı</div>
+      <div className="admin-panel-title">Sistem Sagligi</div>
       <div className="admin-panel-body">
         {error ? <div className="admin-error">{error}</div> : null}
         {loading ? (
-          <div className="admin-empty">Yükleniyor…</div>
+          <div className="admin-empty">Yukleniyor…</div>
         ) : !data ? (
-          <div className="admin-empty">Veri bulunamadı.</div>
+          <div className="admin-empty">Veri bulunamadi.</div>
         ) : (
           <>
             <div className="admin-action-row">
               <span className={statusClass(data.status)}>
                 {STATUS_LABELS[data.status] || data.status}
               </span>
-              <span className="admin-muted">Sistem genel durumu</span>
+              <span className="admin-muted">
+                {data.status === 'healthy'
+                  ? 'Tum temel kontroller su anda stabil gorunuyor.'
+                  : data.status === 'warning'
+                    ? 'Bazi kontroller dikkat istiyor; detay kartlarini inceleyin.'
+                    : 'Bir veya daha fazla kritik kontrol hata veriyor.'}
+              </span>
             </div>
             <div className="admin-card-grid">
               {(data.checks || []).map((check) => (

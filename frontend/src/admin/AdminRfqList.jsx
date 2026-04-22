@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
+import { formatAdminCityName, formatAdminDistrictName, formatAdminLocationLabel } from './adminLocationUtils';
 
 const statusLabels = {
-  open: 'Yayında',
+  open: 'Yayinda',
   closed: 'Pasif',
-  awarded: 'Ödüllendi',
-  expired: 'Süresi Doldu',
+  awarded: 'Odullendi',
+  expired: 'Suresi doldu',
   pending: 'Moderasyon',
   waiting: 'Moderasyon',
   draft: 'Taslak',
@@ -40,6 +41,8 @@ export default function AdminRfqList({ defaultStatus = '' }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkStatus, setBulkStatus] = useState('');
   const [actionMessage, setActionMessage] = useState('');
+  const [cities, setCities] = useState([]);
+  const [districts, setDistricts] = useState([]);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -50,6 +53,29 @@ export default function AdminRfqList({ defaultStatus = '' }) {
     });
     return params.toString();
   }, [filters, page]);
+
+  useEffect(() => {
+    let active = true;
+    const loadFilters = async () => {
+      try {
+        const [citiesResponse, districtsResponse] = await Promise.all([
+          api.get('/admin/location/cities?includeInactive=true&limit=500'),
+          api.get('/admin/location/districts?includeInactive=true&limit=500')
+        ]);
+        if (!active) return;
+        setCities(citiesResponse.data?.items || []);
+        setDistricts(districtsResponse.data?.items || []);
+      } catch (_error) {
+        if (!active) return;
+        setCities([]);
+        setDistricts([]);
+      }
+    };
+    loadFilters();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -64,7 +90,7 @@ export default function AdminRfqList({ defaultStatus = '' }) {
         setHasMore(Boolean(response.data?.pagination?.hasMore));
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.message || 'RFQ listesi alınamadı.');
+        setError(err?.response?.data?.message || 'RFQ listesi alinamadi.');
       } finally {
         if (active) setLoading(false);
       }
@@ -87,11 +113,11 @@ export default function AdminRfqList({ defaultStatus = '' }) {
         ids: selectedIds,
         status: bulkStatus
       });
-      setActionMessage('Seçili RFQ’lar güncellendi.');
+      setActionMessage('Secili RFQ kayitlari guncellendi.');
       setSelectedIds([]);
       setPage(1);
     } catch (err) {
-      setActionMessage(err?.response?.data?.message || 'Toplu güncelleme başarısız.');
+      setActionMessage(err?.response?.data?.message || 'Toplu guncelleme basarisiz.');
     }
   };
 
@@ -100,14 +126,23 @@ export default function AdminRfqList({ defaultStatus = '' }) {
     setPage(1);
   };
 
+  const filteredDistrictOptions = useMemo(() => {
+    if (!filters.city) {
+      return districts;
+    }
+    return districts.filter((district) => String(district.city?._id || district.city) === String(filters.city));
+  }, [districts, filters.city]);
+
+  const isRefreshing = loading && items.length > 0;
+
   return (
     <div className="admin-panel">
-      <div className="admin-panel-title">RFQ Yönetimi</div>
+      <div className="admin-panel-title">RFQ Yonetimi</div>
       <div className="admin-panel-body">
         <div className="admin-filter-grid">
           <input
             className="admin-input"
-            placeholder="RFQ ara (başlık/açıklama)"
+            placeholder="RFQ ara (baslik/aciklama)"
             value={filters.q}
             onChange={(event) => onFilterChange('q', event.target.value)}
           />
@@ -123,21 +158,33 @@ export default function AdminRfqList({ defaultStatus = '' }) {
             value={filters.category}
             onChange={(event) => onFilterChange('category', event.target.value)}
           />
-          <input
+          <select
             className="admin-input"
-            placeholder="Şehir id / ad"
             value={filters.city}
             onChange={(event) => onFilterChange('city', event.target.value)}
-          />
-          <input
+          >
+            <option value="">Sehir filtresi</option>
+            {cities.map((city) => (
+              <option key={city._id} value={city._id}>
+                {city.name}
+              </option>
+            ))}
+          </select>
+          <select
             className="admin-input"
-            placeholder="İlçe id / ad"
             value={filters.district}
             onChange={(event) => onFilterChange('district', event.target.value)}
-          />
+          >
+            <option value="">{filters.city ? 'Ilce sec' : 'Ilce filtresi'}</option>
+            {filteredDistrictOptions.map((district) => (
+              <option key={district._id} value={district._id}>
+                {district.name}
+              </option>
+            ))}
+          </select>
           <input
             className="admin-input"
-            placeholder="Kullanıcı id"
+            placeholder="Kullanici id"
             value={filters.userId}
             onChange={(event) => onFilterChange('userId', event.target.value)}
           />
@@ -150,73 +197,86 @@ export default function AdminRfqList({ defaultStatus = '' }) {
           <select className="admin-input" value={filters.flagged} onChange={(event) => onFilterChange('flagged', event.target.value)}>
             <option value="">Flag durumu</option>
             <option value="true">Flagged</option>
-            <option value="false">Not flagged</option>
+            <option value="false">Flag yok</option>
           </select>
           <select className="admin-input" value={filters.followUp} onChange={(event) => onFilterChange('followUp', event.target.value)}>
             <option value="">Takip</option>
-            <option value="true">Takibe alındı</option>
+            <option value="true">Takibe alindi</option>
             <option value="false">Takip yok</option>
           </select>
         </div>
 
         <div className="admin-bulk-row">
           <select className="admin-input" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)}>
-            <option value="">Toplu durum seç</option>
+            <option value="">Toplu durum sec</option>
             <option value="open">open</option>
             <option value="closed">closed</option>
             <option value="awarded">awarded</option>
           </select>
           <button type="button" className="admin-btn" onClick={applyBulkStatus} disabled={!bulkStatus || selectedIds.length === 0}>
-            Toplu Güncelle
+            Toplu Guncelle
           </button>
           {actionMessage ? <span className="admin-muted">{actionMessage}</span> : null}
         </div>
 
         {error ? <div className="admin-error">{error}</div> : null}
-        {loading ? (
-          <div className="admin-empty">Yükleniyor…</div>
+        {loading && items.length === 0 ? (
+          <div className="admin-empty">Yukleniyor…</div>
         ) : items.length === 0 ? (
-          <div className="admin-empty">RFQ bulunamadı.</div>
+          <div className="admin-empty">RFQ bulunamadi.</div>
         ) : (
-          <div className="admin-table">
-            <div className="admin-table-row admin-table-head rfq-row">
-              <div></div>
-              <div>Başlık</div>
+          <div className="admin-table-wrap">
+            {isRefreshing ? (
+              <div className="admin-table-overlay">
+                <span>Filtreler guncelleniyor…</span>
+              </div>
+            ) : null}
+            <div className="admin-table">
+              <div className="admin-table-row admin-table-head rfq-row">
+                <div></div>
+                <div>Baslik</div>
                 <div>Durum</div>
                 <div>Moderasyon</div>
-                <div>Kullanıcı</div>
-                <div>Şehir</div>
-                <div>Oluşturma</div>
+                <div>Kullanici</div>
+                <div>Konum</div>
+                <div>Olusturma</div>
                 <div></div>
-            </div>
-            {items.map((rfq) => (
-              <div key={rfq._id} className="admin-table-row rfq-row">
-                <div>
-                  <input type="checkbox" checked={selectedIds.includes(rfq._id)} onChange={() => toggleSelect(rfq._id)} />
-                </div>
-                <div>{rfq.title}</div>
-                <div>
-                  {filters.status === 'pending'
-                    ? 'Moderasyon'
-                    : statusLabels[rfq.status] || rfq.status}
-                </div>
-                <div>{rfq.moderationStatus || 'pending'}</div>
-                <div>{rfq.buyer?.email || '—'}</div>
-                <div>{rfq.city?.name || rfq.locationData?.city || rfq.city || '—'}</div>
-                <div>{formatDate(rfq.createdAt)}</div>
-                <div>
-                  <Link to={`/admin/rfq/${rfq._id}`} className="admin-link">
-                    Detay
-                  </Link>
-                </div>
               </div>
-            ))}
+              {items.map((rfq) => (
+                <div key={rfq._id} className="admin-table-row rfq-row">
+                  <div>
+                    <input type="checkbox" checked={selectedIds.includes(rfq._id)} onChange={() => toggleSelect(rfq._id)} />
+                  </div>
+                  <div>
+                    <strong>{rfq.title}</strong>
+                    <div className="admin-muted">{formatAdminLocationLabel(rfq)}</div>
+                  </div>
+                  <div>
+                    {filters.status === 'pending'
+                      ? 'Moderasyon'
+                      : statusLabels[rfq.status] || rfq.status}
+                  </div>
+                  <div>{rfq.moderationStatus || 'pending'}</div>
+                  <div>{rfq.buyer?.email || '—'}</div>
+                  <div>
+                    <div>{formatAdminCityName(rfq)}</div>
+                    <div className="admin-muted">{formatAdminDistrictName(rfq)}</div>
+                  </div>
+                  <div>{formatDate(rfq.createdAt)}</div>
+                  <div>
+                    <Link to={`/admin/rfq/${rfq._id}`} className="admin-link">
+                      Detay
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         <div className="admin-pagination">
           <button type="button" className="admin-btn" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))}>
-            Önceki
+            Onceki
           </button>
           <span className="admin-muted">Sayfa {page}</span>
           <button type="button" className="admin-btn" disabled={!hasMore} onClick={() => setPage((prev) => prev + 1)}>

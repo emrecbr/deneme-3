@@ -3761,8 +3761,18 @@ body.dark-mode .ux-error-state {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
   font-size: 12px;
   color: rgba(226, 232, 240, 0.7);
+}
+
+.admin-topbar-link {
+  color: #dbeafe;
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(147, 197, 253, 0.24);
+  background: rgba(37, 99, 235, 0.16);
 }
 
 .admin-role {
@@ -3941,6 +3951,8 @@ body.dark-mode .ux-error-state {
   font-size: 12px;
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  font-weight: 700;
 }
 
 .admin-status-pill.is-healthy {
@@ -3986,13 +3998,15 @@ body.dark-mode .ux-error-state {
 }
 
 .admin-flag-row.is-enabled {
-  border-color: rgba(52, 211, 153, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.08);
+  border-color: rgba(110, 231, 183, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.16);
+  background: linear-gradient(180deg, rgba(6, 78, 59, 0.92), rgba(15, 23, 42, 0.9));
 }
 
 .admin-flag-row.is-disabled {
-  border-color: rgba(248, 113, 113, 0.24);
-  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.05);
+  border-color: rgba(252, 165, 165, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.12);
+  background: linear-gradient(180deg, rgba(69, 10, 10, 0.82), rgba(15, 23, 42, 0.92));
 }
 
 .admin-flag-row:hover {
@@ -4119,6 +4133,11 @@ body.dark-mode .ux-error-state {
   border: 1px solid rgba(148, 163, 184, 0.1);
 }
 
+.admin-list-item--warning {
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  background: rgba(120, 53, 15, 0.28) !important;
+}
+
 .admin-note-row {
   display: flex;
   gap: 10px;
@@ -4141,6 +4160,36 @@ body.dark-mode .ux-error-state {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 16px;
   padding: 16px;
+}
+
+.admin-success-inline {
+  color: #86efac;
+  font-size: 12px;
+}
+
+.admin-table-wrap {
+  position: relative;
+}
+
+.admin-table-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 18, 36, 0.66);
+  border-radius: 12px;
+  backdrop-filter: blur(2px);
+}
+
+.admin-table-overlay span {
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #e2e8f0;
+  font-size: 13px;
 }
 
 .admin-info {

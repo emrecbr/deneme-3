@@ -165,6 +165,9 @@ export default function AdminLayout() {
         <header className="admin-topbar">
           <div className="admin-topbar-title">Admin Panel</div>
           <div className="admin-topbar-meta">
+            <NavLink to="/admin/account/password" className="admin-topbar-link">
+              Sifre Degistir
+            </NavLink>
             <span>{user?.email}</span>
             <span className="admin-role">{user?.role}</span>
             <button

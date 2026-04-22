@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
+import { formatAdminCityName, formatAdminDistrictName, formatAdminLocationLabel } from './adminLocationUtils';
 
 const statusOptions = ['open', 'closed', 'awarded', 'expired'];
 
@@ -9,6 +10,8 @@ export default function AdminRfqDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rfq, setRfq] = useState(null);
+  const [cities, setCities] = useState([]);
+  const [districts, setDistricts] = useState([]);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -33,9 +36,15 @@ export default function AdminRfqDetail() {
       setLoading(true);
       setError('');
       try {
-        const response = await api.get(`/admin/rfqs/${id}`);
+        const [rfqResponse, citiesResponse, districtsResponse] = await Promise.all([
+          api.get(`/admin/rfqs/${id}`),
+          api.get('/admin/location/cities?includeInactive=true&limit=500'),
+          api.get('/admin/location/districts?includeInactive=true&limit=500')
+        ]);
         if (!active) return;
-        const data = response.data?.data;
+        const data = rfqResponse.data?.data;
+        setCities(citiesResponse.data?.items || []);
+        setDistricts(districtsResponse.data?.items || []);
         setRfq(data);
         setForm({
           title: data?.title || '',
@@ -54,7 +63,7 @@ export default function AdminRfqDetail() {
         setStatus(data?.status || '');
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.message || 'RFQ detayı alınamadı.');
+        setError(err?.response?.data?.message || 'RFQ detayi alinamadi.');
       } finally {
         if (active) setLoading(false);
       }
@@ -74,9 +83,9 @@ export default function AdminRfqDetail() {
     try {
       const payload = { ...form };
       await api.patch(`/admin/rfqs/${id}`, payload);
-      setActionMessage('RFQ güncellendi.');
+      setActionMessage('RFQ guncellendi.');
     } catch (err) {
-      setActionMessage(err?.response?.data?.message || 'RFQ güncellenemedi.');
+      setActionMessage(err?.response?.data?.message || 'RFQ guncellenemedi.');
     }
   };
 
@@ -85,9 +94,9 @@ export default function AdminRfqDetail() {
     setActionMessage('');
     try {
       await api.patch(`/admin/rfqs/${id}/status`, { status, note: statusNote });
-      setActionMessage('RFQ durumu güncellendi.');
+      setActionMessage('RFQ durumu guncellendi.');
     } catch (err) {
-      setActionMessage(err?.response?.data?.message || 'RFQ durumu güncellenemedi.');
+      setActionMessage(err?.response?.data?.message || 'RFQ durumu guncellenemedi.');
     }
   };
 
@@ -101,9 +110,9 @@ export default function AdminRfqDetail() {
         isFlagged: Boolean(form.isFlagged),
         followUp: Boolean(form.followUp)
       });
-      setActionMessage('Moderasyon güncellendi.');
+      setActionMessage('Moderasyon guncellendi.');
     } catch (err) {
-      setActionMessage(err?.response?.data?.message || 'Moderasyon güncellenemedi.');
+      setActionMessage(err?.response?.data?.message || 'Moderasyon guncellenemedi.');
     }
   };
 
@@ -123,16 +132,16 @@ export default function AdminRfqDetail() {
         moderationReason: reason || prev.moderationReason,
         isFlagged: nextStatus === 'flagged' ? true : prev.isFlagged
       }));
-      setActionMessage('Moderasyon güncellendi.');
+      setActionMessage('Moderasyon guncellendi.');
     } catch (err) {
-      setActionMessage(err?.response?.data?.message || 'Moderasyon güncellenemedi.');
+      setActionMessage(err?.response?.data?.message || 'Moderasyon guncellenemedi.');
     }
   };
 
   const meta = useMemo(() => {
     if (!rfq) return null;
     const category = rfq.category;
-    let categoryLabel = 'Kategori bulunamadı';
+    let categoryLabel = 'Kategori bulunamadi';
     if (category && typeof category === 'object') {
       const name = category.name || '';
       if (category.parent?.name && name) {
@@ -140,19 +149,25 @@ export default function AdminRfqDetail() {
       } else if (name) {
         categoryLabel = name;
       }
-    } else if (typeof category === 'string' && category.trim()) {
-      categoryLabel = 'Kategori bulunamadı';
     }
     return {
       buyerEmail: rfq.buyer?.email || '—',
-      city: rfq.city?.name || rfq.locationData?.city || '—',
-      district: rfq.district?.name || rfq.locationData?.district || '—',
+      city: formatAdminCityName(rfq),
+      district: formatAdminDistrictName(rfq),
+      locationLabel: formatAdminLocationLabel(rfq),
       category: categoryLabel
     };
   }, [rfq]);
 
+  const filteredDistricts = useMemo(() => {
+    if (!form.cityId) {
+      return districts;
+    }
+    return districts.filter((district) => String(district.city?._id || district.city) === String(form.cityId));
+  }, [districts, form.cityId]);
+
   if (loading) {
-    return <div className="admin-empty">Yükleniyor…</div>;
+    return <div className="admin-empty">Yukleniyor…</div>;
   }
 
   if (error) {
@@ -160,7 +175,7 @@ export default function AdminRfqDetail() {
   }
 
   if (!rfq) {
-    return <div className="admin-empty">RFQ bulunamadı.</div>;
+    return <div className="admin-empty">RFQ bulunamadi.</div>;
   }
 
   return (
@@ -173,12 +188,13 @@ export default function AdminRfqDetail() {
             <div>{rfq._id}</div>
           </div>
           <div>
-            <div className="admin-muted">Kullanıcı</div>
+            <div className="admin-muted">Kullanici</div>
             <div>{meta?.buyerEmail}</div>
           </div>
           <div>
-            <div className="admin-muted">Şehir / İlçe</div>
+            <div className="admin-muted">Sehir / Ilce</div>
             <div>{meta?.city} / {meta?.district}</div>
+            <div className="admin-muted">{meta?.locationLabel}</div>
           </div>
           <div>
             <div className="admin-muted">Kategori</div>
@@ -188,31 +204,41 @@ export default function AdminRfqDetail() {
 
         <div className="admin-form-grid">
           <label>
-            Başlık
+            Baslik
             <input className="admin-input" value={form.title} onChange={(e) => onFormChange('title', e.target.value)} />
           </label>
           <label>
-            Açıklama
+            Aciklama
             <textarea className="admin-textarea" rows="4" value={form.description} onChange={(e) => onFormChange('description', e.target.value)} />
           </label>
           <label>
             Kategori
-            <input className="admin-input" value={meta?.category || 'Kategori bulunamadı'} readOnly />
+            <input className="admin-input" value={meta?.category || 'Kategori bulunamadi'} readOnly />
           </label>
           <label>
-            Şehir ID
-            <input className="admin-input" value={form.cityId} onChange={(e) => onFormChange('cityId', e.target.value)} />
+            Sehir
+            <select className="admin-input" value={form.cityId} onChange={(e) => onFormChange('cityId', e.target.value)}>
+              <option value="">Sehir secin</option>
+              {cities.map((city) => (
+                <option key={city._id} value={city._id}>{city.name}</option>
+              ))}
+            </select>
           </label>
           <label>
-            İlçe ID
-            <input className="admin-input" value={form.districtId} onChange={(e) => onFormChange('districtId', e.target.value)} />
+            Ilce
+            <select className="admin-input" value={form.districtId} onChange={(e) => onFormChange('districtId', e.target.value)}>
+              <option value="">{form.cityId ? 'Ilce secin' : 'Once sehir secin'}</option>
+              {filteredDistricts.map((district) => (
+                <option key={district._id} value={district._id}>{district.name}</option>
+              ))}
+            </select>
           </label>
           <label>
-            Latitude
+            Enlem
             <input className="admin-input" value={form.latitude} onChange={(e) => onFormChange('latitude', e.target.value)} />
           </label>
           <label>
-            Longitude
+            Boylam
             <input className="admin-input" value={form.longitude} onChange={(e) => onFormChange('longitude', e.target.value)} />
           </label>
           <label>
@@ -233,7 +259,7 @@ export default function AdminRfqDetail() {
             <input className="admin-input" value={form.moderationReason} onChange={(e) => onFormChange('moderationReason', e.target.value)} />
           </label>
           <label>
-            Şüpheli (flag)
+            Supheli (flag)
             <input type="checkbox" checked={form.isFlagged} onChange={(e) => onFormChange('isFlagged', e.target.checked)} />
           </label>
           <label>
@@ -246,13 +272,13 @@ export default function AdminRfqDetail() {
           <button type="button" className="admin-btn" onClick={saveRfq}>Kaydet</button>
           <button type="button" className="admin-btn" onClick={updateModeration}>Moderasyonu Kaydet</button>
           <button type="button" className="admin-btn" onClick={() => quickModeration('approved', 'icerik uygun')}>
-            Hızlı Onay
+            Hizli Onay
           </button>
           <button type="button" className="admin-btn" onClick={() => quickModeration('rejected', 'icerik uygun degil')}>
-            Hızlı Red
+            Hizli Red
           </button>
           <button type="button" className="admin-btn" onClick={() => quickModeration('flagged', 'supheli ilan')}>
-            Şüpheli İşaretle
+            Supheli Isaretle
           </button>
           {actionMessage ? <span className="admin-muted">{actionMessage}</span> : null}
         </div>
@@ -274,7 +300,7 @@ export default function AdminRfqDetail() {
           </label>
         </div>
         <div className="admin-action-row">
-          <button type="button" className="admin-btn" onClick={updateStatus}>Durumu Güncelle</button>
+          <button type="button" className="admin-btn" onClick={updateStatus}>Durumu Guncelle</button>
         </div>
       </div>
     </div>

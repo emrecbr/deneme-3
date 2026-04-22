@@ -11,19 +11,20 @@ export default function AdminChangePassword() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
+  const submit = async (event) => {
+    event?.preventDefault();
     setError('');
     setMessage('');
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('Tüm alanlar zorunludur.');
+      setError('Tum alanlar zorunludur.');
       return;
     }
     if (newPassword.length < 8) {
-      setError('Yeni şifre en az 8 karakter olmalıdır.');
+      setError('Yeni sifre en az 8 karakter olmalidir.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('Yeni şifreler eşleşmiyor.');
+      setError('Yeni sifreler eslesmiyor.');
       return;
     }
 
@@ -34,13 +35,16 @@ export default function AdminChangePassword() {
         newPassword
       });
       if (response.data?.success) {
-        setMessage('Şifre güncellendi. Lütfen tekrar giriş yapın.');
+        setMessage('Sifre guncellendi. Guvenlik geregi tekrar giris yapilacak.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
         setTimeout(() => {
           logout({ redirect: true });
         }, 1200);
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Şifre güncellenemedi.');
+      setError(err?.response?.data?.message || 'Sifre guncellenemedi.');
     } finally {
       setLoading(false);
     }
@@ -48,11 +52,15 @@ export default function AdminChangePassword() {
 
   return (
     <div className="admin-panel">
-      <div className="admin-panel-title">Şifre Değiştir</div>
+      <div className="admin-panel-title">Sifre Degistir</div>
       <div className="admin-panel-body">
-        <div className="admin-form-grid">
+        <div className="admin-info">
+          Bu form admin paneli icinde mevcut sifreni degistirir. Islem basarili oldugunda mevcut oturum sonlandirilir
+          ve yeni sifreyle tekrar giris yapman gerekir.
+        </div>
+        <form className="admin-form-grid" onSubmit={submit}>
           <label>
-            Mevcut Şifre
+            Mevcut sifre
             <input
               className="admin-input"
               type="password"
@@ -61,7 +69,7 @@ export default function AdminChangePassword() {
             />
           </label>
           <label>
-            Yeni Şifre
+            Yeni sifre
             <input
               className="admin-input"
               type="password"
@@ -70,7 +78,7 @@ export default function AdminChangePassword() {
             />
           </label>
           <label>
-            Yeni Şifre Tekrar
+            Yeni sifre tekrar
             <input
               className="admin-input"
               type="password"
@@ -78,14 +86,14 @@ export default function AdminChangePassword() {
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </label>
-        </div>
-        <div className="admin-action-row">
-          <button type="button" className="admin-btn" onClick={submit} disabled={loading}>
-            {loading ? 'Kaydediliyor…' : 'Şifreyi Güncelle'}
-          </button>
-          {message ? <span className="admin-muted">{message}</span> : null}
-          {error ? <span className="admin-error">{error}</span> : null}
-        </div>
+          <div className="admin-action-row">
+            <button type="submit" className="admin-btn" disabled={loading}>
+              {loading ? 'Kaydediliyor…' : 'Sifreyi Guncelle'}
+            </button>
+            {message ? <span className="admin-success-inline">{message}</span> : null}
+            {error ? <span className="admin-error">{error}</span> : null}
+          </div>
+        </form>
       </div>
     </div>
   );

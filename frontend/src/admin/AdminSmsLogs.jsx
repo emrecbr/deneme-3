@@ -2,19 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../api/axios';
 
 const EVENT_LABELS = {
-  sms_otp_send: 'SMS OTP gönderimi',
-  sms_otp_verify: 'SMS OTP doğrulama',
-  phone_otp_send: 'Telefon OTP gönderimi',
-  phone_otp_verify: 'Telefon OTP doğrulama',
-  otp_send: 'OTP gönderimi',
-  otp_verify: 'OTP doğrulama',
-  register_otp_send: 'Kayıt OTP gönderimi',
-  register_otp_verify: 'Kayıt OTP doğrulama'
+  sms_otp_send: 'SMS OTP gonderimi',
+  sms_otp_verify: 'SMS OTP dogrulama',
+  phone_otp_send: 'Telefon OTP gonderimi',
+  phone_otp_verify: 'Telefon OTP dogrulama',
+  otp_send: 'OTP gonderimi',
+  otp_verify: 'OTP dogrulama',
+  register_otp_send: 'Kayit OTP gonderimi',
+  register_otp_verify: 'Kayit OTP dogrulama'
 };
 
 const STATUS_LABELS = {
-  success: 'Başarılı',
-  failed: 'Başarısız'
+  success: 'Basarili',
+  failed: 'Basarisiz'
 };
 
 const formatDate = (value) => {
@@ -63,7 +63,7 @@ export default function AdminSmsLogs() {
         setHasMore(Boolean(response.data?.pagination?.hasMore));
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.message || 'SMS logları alınamadı.');
+        setError(err?.response?.data?.message || 'SMS loglari alinamadi.');
       } finally {
         if (active) setLoading(false);
       }
@@ -76,11 +76,15 @@ export default function AdminSmsLogs() {
 
   return (
     <div className="admin-panel">
-      <div className="admin-panel-title">SMS Logları</div>
+      <div className="admin-panel-title">SMS Loglari</div>
       <div className="admin-panel-body">
+        <div className="admin-info">
+          Bu ekran dogrudan `/admin/notifications/sms-logs` endpointinden gelir. Listede kayit varsa SMS akisinda
+          olusan gercek denemeleri goruyorsun.
+        </div>
         <div className="admin-filter-grid">
           <select className="admin-input" value={event} onChange={(e) => { setEvent(e.target.value); setPage(1); }}>
-            <option value="">İşlem türü</option>
+            <option value="">Islem turu</option>
             {Object.keys(EVENT_LABELS).map((key) => (
               <option key={key} value={key}>{EVENT_LABELS[key]}</option>
             ))}
@@ -88,24 +92,29 @@ export default function AdminSmsLogs() {
           <input className="admin-input" placeholder="Hedef ara (telefon)" value={target} onChange={(e) => { setTarget(e.target.value); setPage(1); }} />
           <select className="admin-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
             <option value="">Durum</option>
-            <option value="success">Başarılı</option>
-            <option value="failed">Başarısız</option>
+            <option value="success">Basarili</option>
+            <option value="failed">Basarisiz</option>
           </select>
           <input className="admin-input" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} />
           <input className="admin-input" type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} />
         </div>
         {error ? <div className="admin-error">{error}</div> : null}
+        {!loading && items.length ? (
+          <div className="admin-success">Gercek veri yansitiliyor: {items.length} SMS kaydi bulundu.</div>
+        ) : null}
         {loading ? (
-          <div className="admin-empty">Yükleniyor…</div>
+          <div className="admin-empty">Yukleniyor…</div>
         ) : items.length === 0 ? (
-          <div className="admin-empty">Log bulunamadı.</div>
+          <div className="admin-empty">Log bulunamadi.</div>
         ) : (
           <ul className="admin-list">
             {items.map((item) => (
               <li key={item._id}>
                 <div>
                   <strong>{formatEvent(item.event)}</strong>
-                  <span className="admin-muted">{formatStatus(item.status)}</span>
+                  <span className={`admin-status-pill ${item.status === 'failed' ? 'is-error' : 'is-healthy'}`}>
+                    {formatStatus(item.status)}
+                  </span>
                   <span className="admin-muted">{item.maskedTarget || item.target || '—'}</span>
                   {item.provider ? <span className="admin-muted">{item.provider}</span> : null}
                 </div>
@@ -117,7 +126,7 @@ export default function AdminSmsLogs() {
         )}
         <div className="admin-pagination">
           <button type="button" className="admin-btn" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))}>
-            Önceki
+            Onceki
           </button>
           <span className="admin-muted">Sayfa {page}</span>
           <button type="button" className="admin-btn" disabled={!hasMore} onClick={() => setPage((prev) => prev + 1)}>
