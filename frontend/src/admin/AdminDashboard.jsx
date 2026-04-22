@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import adminApi from '../api/adminApi';
+import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 
 const SUMMARY_TIMEOUT_MS = 10000;
@@ -25,7 +25,7 @@ export default function AdminDashboard() {
     setLastAttemptAt(new Date().toLocaleTimeString('tr-TR'));
 
     try {
-      const response = await adminApi.get('/admin/dashboard/summary', {
+      const response = await api.get('/admin/dashboard/summary', {
         timeout: SUMMARY_TIMEOUT_MS
       });
       setSummary(response.data || null);
