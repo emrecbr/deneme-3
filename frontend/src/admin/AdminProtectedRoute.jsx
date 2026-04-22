@@ -5,11 +5,11 @@ import { clearAdminSurfaceStorage, hasAdminAccess, resolveAccountEmail } from '.
 
 export default function AdminProtectedRoute({ children }) {
   const navigate = useNavigate();
-  const { user, logout: logoutUser } = useAuth();
+  const { user } = useAuth();
   const { admin, loading, logout: logoutAdmin, clearSession } = useAdminAuth();
 
   const handleReset = async () => {
-    await Promise.allSettled([logoutAdmin({ redirect: false }), logoutUser({ redirect: false })]);
+    await Promise.allSettled([logoutAdmin()]);
     clearAdminSurfaceStorage();
     clearSession();
     navigate('/login', { replace: true });

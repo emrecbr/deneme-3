@@ -1,7 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
 import adminApi from '../api/adminApi';
-import { buildCurrentSurfaceHref } from '../config/surfaces';
 import { clearAdminSurfaceStorage, hasAdminAccess } from '../admin/adminAuthStorage';
 
 const AdminAuthContext = createContext(null);
@@ -114,24 +112,13 @@ export function AdminAuthProvider({ children }) {
   );
 
   const logout = useCallback(
-    async ({ redirect = true } = {}) => {
+    async () => {
       try {
         await adminApi.post('/admin/auth/logout');
       } catch (_error) {
         // ignore
       }
-
-      try {
-        await api.post('/auth/logout');
-      } catch (_error) {
-        // ignore
-      }
-
       clearSession();
-
-      if (redirect && typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.href = buildCurrentSurfaceHref(window.location.pathname, '/login');
-      }
     },
     [clearSession]
   );

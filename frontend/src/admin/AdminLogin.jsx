@@ -1,38 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { clearAdminSurfaceStorage } from './adminAuthStorage';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const { logout: logoutUser } = useAuth();
   const { login, admin, clearSession } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(true);
+  const hasCleanedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (hasCleanedRef.current) {
+      return;
+    }
 
-    const resetSessions = async () => {
-      clearAdminSurfaceStorage();
-      clearSession();
-      await Promise.allSettled([logoutUser({ redirect: false })]);
-
-      if (!cancelled) {
-        setResetting(false);
-      }
-    };
-
-    resetSessions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [clearSession, logoutUser]);
+    hasCleanedRef.current = true;
+    clearAdminSurfaceStorage();
+    clearSession();
+    setResetting(false);
+  }, [clearSession]);
 
   useEffect(() => {
     if (admin) {

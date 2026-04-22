@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import adminApi from '../api/adminApi';
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 export default function AdminChangePassword() {
+  const navigate = useNavigate();
   const { logout } = useAdminAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -40,7 +42,9 @@ export default function AdminChangePassword() {
         setNewPassword('');
         setConfirmPassword('');
         setTimeout(() => {
-          logout({ redirect: true });
+          logout().finally(() => {
+            navigate('/login', { replace: true });
+          });
         }, 1200);
       }
     } catch (err) {

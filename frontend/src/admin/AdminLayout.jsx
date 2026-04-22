@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 const MENU_SECTIONS = [
@@ -136,6 +136,7 @@ const MENU_SECTIONS = [
 ];
 
 export default function AdminLayout() {
+  const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
   const role = admin?.role || 'user';
   const canSeeSection = (section) => {
@@ -173,7 +174,10 @@ export default function AdminLayout() {
             <button
               type="button"
               className="admin-logout"
-              onClick={() => logout({ redirect: true })}
+              onClick={async () => {
+                await logout();
+                navigate('/login', { replace: true });
+              }}
             >
               Çıkış
             </button>
