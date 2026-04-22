@@ -6194,6 +6194,10 @@ body.dark-mode .profile-sub-item {
   border-color: rgba(239, 68, 68, 0.25);
 }
 
+.profile-quota-card .profile-sub-item {
+  cursor: default;
+}
+
 .sub-item-right {
   display: inline-flex;
   align-items: center;
@@ -6510,6 +6514,11 @@ body.dark-mode .premium-cta-card {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
+}
+
+.payment-actions .account-muted {
+  margin: 0;
+  align-self: center;
 }
 
 .account-entry-btn {
@@ -9902,7 +9911,7 @@ body.dark-mode .fav-count {
 
 .website-profile-home__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
 }
 

@@ -4,10 +4,11 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import ReportIssueSheet from '../components/ReportIssueSheet';
 import ProfileLegalSection from '../components/ProfileLegalSection';
+import { formatListingQuotaResetDate } from '../utils/listingQuota';
 
 function Profile() {
   const navigate = useNavigate();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, listingQuota } = useAuth();
   const [rfqs, setRfqs] = useState([]);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -195,6 +196,35 @@ function Profile() {
                 <div className={`trust-progress-fill ${trustColor}`} style={{ width: `${trustScore}%` }} />
               </div>
               {trustBadge ? <div className="trust-badge">{trustBadge}</div> : null}
+            </section>
+
+            <section className="profile-big-card profile-quota-card">
+              <div className="profile-card-header">
+                <h2>Ücretsiz İlan Hakkın</h2>
+              </div>
+              {listingQuota ? (
+                <div className="profile-card-items">
+                  <div className="profile-sub-item">
+                    <span>Kalan hak</span>
+                    <span className="sub-item-right">
+                      <strong>{listingQuota.remaining}/{listingQuota.limit}</strong>
+                    </span>
+                  </div>
+                  <div className="profile-sub-item">
+                    <span>Pencere</span>
+                    <span className="sub-item-right">Son {listingQuota.windowDays} gün</span>
+                  </div>
+                  <div className="profile-sub-preview">
+                    {listingQuota.remaining === 0
+                      ? 'Son 30 günde ücretsiz ilan hakkın doldu. Yeni ilan vermek için paket gerekecek.'
+                      : `Yenilenme: ${formatListingQuotaResetDate(listingQuota.resetAt)}`}
+                  </div>
+                </div>
+              ) : (
+                <div className="profile-card-items">
+                  <div className="profile-sub-preview">Kota bilgisi hesaplanıyor.</div>
+                </div>
+              )}
             </section>
 
             <section className="profile-big-card" onClick={() => navigate('/profile/account')}>

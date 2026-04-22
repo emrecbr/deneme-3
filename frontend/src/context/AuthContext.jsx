@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api, { setUnauthorizedHandler } from '../api/axios';
 import { buildCurrentSurfaceHref } from '../config/surfaces';
+import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
 const AuthContext = createContext(null);
 
@@ -211,9 +212,12 @@ export function AuthProvider({ children }) {
     setSelectedDistrictState(null);
   }, []);
 
+  const listingQuota = useMemo(() => normalizeListingQuotaSnapshot(user?.listingQuota), [user]);
+
   const value = useMemo(
     () => ({
       user,
+      listingQuota,
       loading,
       isAuthenticated: Boolean(user),
       networkError,
@@ -232,6 +236,7 @@ export function AuthProvider({ children }) {
     }),
     [
       checkAuth,
+      listingQuota,
       loading,
       login,
       loginWithEmail,

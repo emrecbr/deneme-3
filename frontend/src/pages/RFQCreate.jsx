@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
+import {
+  formatListingQuotaResetDate,
+  isListingQuotaExhausted,
+  normalizeListingQuotaSnapshot
+} from '../utils/listingQuota';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
 const MapPicker = lazy(() => import('../components/MapPicker'));
@@ -32,7 +37,7 @@ const EMPTY_JOBSEEKER_META = {
 
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, surfaceVariant = 'app' }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, listingQuota } = useAuth();
   const isWebSurface = surfaceVariant === 'web';
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -95,7 +100,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [quotaInfo, setQuotaInfo] = useState(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState('');
-  const [extraPaymentLoading, setExtraPaymentLoading] = useState(false);
   const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
   const stepLabels = ['Temel bilgi', 'Detaylar', 'Konum', 'Yayin'];
   const isEdit = mode === 'edit';
@@ -231,7 +235,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setQuotaLoading(true);
         const res = await api.get('/users/me/listing-quota');
         if (!active) return;
-        setQuotaInfo(res.data?.data || null);
+        setQuotaInfo(normalizeListingQuotaSnapshot(res.data?.data));
         setQuotaError('');
       } catch (err) {
         if (!active) return;
@@ -245,6 +249,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       active = false;
     };
   }, [isEdit]);
+
+  useEffect(() => {
+    if (isEdit || quotaInfo || !listingQuota) {
+      return;
+    }
+    setQuotaInfo(listingQuota);
+  }, [isEdit, listingQuota, quotaInfo]);
 
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
@@ -853,6 +864,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
     setError('');
     setStepError('');
+    if (!isEdit && isListingQuotaExhausted(quotaInfo)) {
+      const quotaMessage = 'Son 30 günde ücretsiz ilan hakkın doldu. Yeni ilan vermek için paket gerekecek.';
+      setError(quotaMessage);
+      showToast(quotaMessage);
+      return;
+    }
     console.log('RFQ_CREATE_START');
     setLoading(true);
 
@@ -1026,7 +1043,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setError(message || 'Ücretsiz ilan hakkınız doldu.');
         showToast(message || 'Ücretsiz ilan hakkınız doldu.');
         if (submitError?.response?.data?.data) {
-          setQuotaInfo(submitError.response.data.data);
+          setQuotaInfo(normalizeListingQuotaSnapshot(submitError.response.data.data));
         }
       } else if (status === 422 && code === 'MODERATION_REVIEW') {
         setError(message || 'İçeriğiniz incelemeye alındı.');
@@ -1182,30 +1199,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
   };
 
-  const handleExtraListingPayment = async () => {
-    try {
-      logFlowEvent({
-        step: 4,
-        event: 'listing_extra_checkout_started'
-      });
-      setExtraPaymentLoading(true);
-      const response = await api.post('/billing/listing-extra/checkout', {}, buildProtectedRequestConfig());
-      const url = response.data?.checkoutUrl;
-      if (url) {
-        window.location.href = url;
-      }
-    } catch (requestError) {
-      const status = requestError?.response?.status;
-      const message =
-        status === 401 || status === 403
-          ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
-          : requestError.response?.data?.message || 'Ödeme başlatılamadı.';
-      setError(message);
-      showToast(message);
-    } finally {
-      setExtraPaymentLoading(false);
-    }
-  };
+  const quotaBlocked = !isEdit && isListingQuotaExhausted(quotaInfo);
 
   return (
     <div className={`page ${isWebSurface ? 'rfq-create-page--web' : ''}`}>
@@ -1270,30 +1264,34 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <div className="quota-row">
                   <strong>Kalan ücretsiz ilan hakkı:</strong>
                   <span>
-                    {quotaInfo.remainingFree}/{quotaInfo.maxFree}
+                    {quotaInfo.remaining}/{quotaInfo.limit}
                   </span>
                 </div>
                 <div className="quota-row">
-                  <span>Bu dönem bitiş:</span>
-                  <span>{quotaInfo.windowEnd ? new Date(quotaInfo.windowEnd).toLocaleDateString('tr-TR') : 'İlk ilanla başlar'}</span>
+                  <span>Kullanılan hak:</span>
+                  <span>{quotaInfo.used ?? '—'}</span>
                 </div>
-                {quotaInfo.remainingFree === 0 ? (
+                <div className="quota-row">
+                  <span>Pencere:</span>
+                  <span>Son {quotaInfo.windowDays} gün</span>
+                </div>
+                <div className="quota-row">
+                  <span>Bu dönem bitiş:</span>
+                  <span>{formatListingQuotaResetDate(quotaInfo.resetAt)}</span>
+                </div>
+                {quotaBlocked ? (
                   <div className="quota-alert">
-                    <div>Bu dönem için ücretsiz ilan hakkınız doldu.</div>
-                    {quotaInfo.extraEnabled ? (
-                      <div className="quota-pay">
-                        <span>Ek ilan ücreti: {quotaInfo.extraPrice} {quotaInfo.currency}</span>
-                        <button type="button" className="secondary-btn" onClick={handleExtraListingPayment} disabled={extraPaymentLoading}>
-                          {extraPaymentLoading ? 'Ödeme başlatılıyor...' : 'Ek ilan için ödeme yap'}
-                        </button>
-                      </div>
-                    ) : (
-                      <div>Ek ilan özelliği şu an kapalı.</div>
-                    )}
+                    <div>Son 30 günde ücretsiz ilan hakkın doldu.</div>
+                    <div className="quota-pay">
+                      <span>Yeni ilan vermek için paket gerekecek.</span>
+                      <button type="button" className="secondary-btn" onClick={() => navigate('/paketler')}>
+                        Paketleri İncele
+                      </button>
+                    </div>
                   </div>
                 ) : null}
-                {Number(quotaInfo.paidListingCredits || 0) > 0 ? (
-                  <div className="quota-muted">Ücretli ilan hakkınız: {quotaInfo.paidListingCredits}</div>
+                {Number(quotaInfo.paidCredits || 0) > 0 ? (
+                  <div className="quota-muted">Hazır ek ilan kredin: {quotaInfo.paidCredits}</div>
                 ) : null}
               </>
             ) : null}
@@ -1766,72 +1764,23 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
           {step === 4 ? (
             <>
-              {!premiumActive ? (
-                <div className="premium-cta-card">
-                  <div className="premium-cta-header">
-                    <strong>Premium ile daha fazla görünür ol</strong>
-                    <span>
-                      {premiumPlan
-                        ? `${premiumPlan.monthlyPrice} ${premiumPlan.currency}/ay • ${premiumPlan.yearlyPrice} ${premiumPlan.currency}/yıl`
-                        : 'Aylık / Yıllık abone ol'}
-                    </span>
-                  </div>
-                  <div className="premium-cta-actions">
-                    {premiumModes.includes('monthly') ? (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={() => handleCheckout(premiumMonthlyCode)}
-                        disabled={checkoutLoading === premiumMonthlyCode}
-                      >
-                        {checkoutLoading === premiumMonthlyCode ? 'Yönlendiriliyor...' : 'Aylık Abone Ol'}
-                      </button>
-                    ) : null}
-                    {premiumModes.includes('yearly') ? (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={() => handleCheckout(premiumYearlyCode)}
-                        disabled={checkoutLoading === premiumYearlyCode}
-                      >
-                        {checkoutLoading === premiumYearlyCode ? 'Yönlendiriliyor...' : 'Yıllık Abone Ol'}
-                      </button>
-                    ) : null}
-                    {featuredPlan && featuredModes.includes('monthly') ? (
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => handleCheckout(featuredMonthlyCode)}
-                        disabled={checkoutLoading === featuredMonthlyCode}
-                      >
-                        {checkoutLoading === featuredMonthlyCode ? 'Yönlendiriliyor...' : 'Aylık Öne Çıkar'}
-                      </button>
-                    ) : null}
-                    {featuredPlan && featuredModes.includes('yearly') ? (
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => handleCheckout(featuredYearlyCode)}
-                        disabled={checkoutLoading === featuredYearlyCode}
-                      >
-                        {checkoutLoading === featuredYearlyCode ? 'Yönlendiriliyor...' : 'Yıllık Öne Çıkar'}
-                      </button>
-                    ) : null}
-                  </div>
-                  <small className="input-helper">
-                    {featuredPlan
-                      ? featuredPlan.shortDescription || 'Öne çıkarma kredisi satın al.'
-                      : 'Öne çıkarma kredisi satın al.'}
-                  </small>
+              <div className="premium-cta-card">
+                <div className="premium-cta-header">
+                  <strong>Yayin öncesi kota özeti</strong>
+                  <span>
+                    {quotaInfo
+                      ? `Kalan hak ${quotaInfo.remaining}/${quotaInfo.limit} • Son ${quotaInfo.windowDays} gün`
+                      : 'Kota bilgisi yayın öncesinde kontrol edilir'}
+                  </span>
                 </div>
-              ) : (
-                <div className="premium-cta-card">
-                  <div className="premium-cta-header">
-                    <strong>Premium üyesisin</strong>
-                    <span>Talebini öne çıkarmak için hazırsın</span>
-                  </div>
-                </div>
-              )}
+                <small className="input-helper">
+                  {quotaBlocked
+                    ? 'Bu fazda odeme baslatilmiyor. Yeni ilan vermek icin once paket bilgisini incelemen gerekiyor.'
+                    : premiumActive
+                      ? 'Mevcut durumunla talebini normal akista yayinlayabilirsin.'
+                      : 'Bu fazda odeme yerine yalnizca hak bilgisi ve olasi kilitlenme uyarisi gosterilir.'}
+                </small>
+              </div>
 
               <div className="wizard-actions wizard-actions-split sticky-footer">
                 <button type="button" className="secondary-btn" onClick={() => setStep(3)}>
@@ -1840,9 +1789,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <button
                   type="submit"
                   className="primary-btn"
-                  disabled={loading}
+                  disabled={loading || quotaBlocked}
                 >
-                  {loading ? 'Gönderiliyor...' : isEdit ? 'Kaydet' : 'Standart Talep Yayınla'}
+                  {loading
+                    ? 'Gönderiliyor...'
+                    : quotaBlocked
+                      ? 'Ücretsiz hak doldu'
+                      : isEdit
+                        ? 'Kaydet'
+                        : 'Standart Talep Yayınla'}
                 </button>
               </div>
             </>
