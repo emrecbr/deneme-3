@@ -9,3 +9,12 @@ dev-cert
 coverage
 .vite
 uploads
+
+# Local secrets and private key material
+*.p8
+apple-test-key.p8
+test-apple-key.mjs
+
+# Experimental surface split folders
+frontend/src/app/
+frontend/src/web/
