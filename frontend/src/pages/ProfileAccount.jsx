@@ -7,6 +7,7 @@ import ProfileLegalSection from '../components/ProfileLegalSection';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { WEBSITE_PROFILE_ALERTS_PATH, WEBSITE_PROFILE_PREMIUM_PATH } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+import { formatListingQuotaResetDate, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
 const formatPhone = (digits) => {
   const value = String(digits || '').slice(0, 10);
@@ -184,7 +185,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           email: payload.email || '',
           phoneDigits
         });
-        setListingQuota(payload.listingQuota || null);
+        setListingQuota(normalizeListingQuotaSnapshot(payload.listingQuota));
         setPaymentMethod(payload.paymentMethod || null);
         setPaymentProvider(payload.paymentProvider || '');
         setBillingSummary(billingPayload);
@@ -379,23 +380,6 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       }
     } finally {
       setPasswordLoading(false);
-    }
-  };
-
-  const handleExtraListingPayment = async () => {
-    try {
-      setPaymentLoading(true);
-      const response = await api.post('/billing/listing-extra/checkout', {}, buildProtectedRequestConfig());
-      const url = response.data?.checkoutUrl;
-      if (url) {
-        window.location.href = url;
-      }
-    } catch (requestError) {
-      const message = requestError.response?.data?.message || 'Ã–deme baÅŸlatÄ±lamadÄ±.';
-      setError(message);
-      showToast(message);
-    } finally {
-      setPaymentLoading(false);
     }
   };
 
@@ -1043,35 +1027,40 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
 
       {!alertsOnlyView ? (
       <section className="card account-card">
-        <h2>Ä°lan HakkÄ±m</h2>
+        <h2>Ücretsiz İlan Hakkın</h2>
         {listingQuota ? (
           <div className="account-rows">
             <div className="account-row">
-              <span>Kalan Ã¼cretsiz hak</span>
+              <span>Kalan hak</span>
               <strong>
-                {listingQuota.remainingFree}/{listingQuota.maxFree}
+                {listingQuota.remaining}/{listingQuota.limit}
               </strong>
             </div>
             <div className="account-row">
-              <span>DÃ¶nem bitiÅŸ</span>
+              <span>Kullanılan</span>
               <strong>
-                {listingQuota.windowEnd
-                  ? new Date(listingQuota.windowEnd).toLocaleDateString('tr-TR')
-                  : 'Ä°lk ilanla baÅŸlar'}
+                {listingQuota.used ?? '—'}
               </strong>
             </div>
             <div className="account-row">
-              <span>Ãœcretli ilan hakkÄ±</span>
-              <strong>{listingQuota.paidListingCredits || 0}</strong>
+              <span>Pencere</span>
+              <strong>Son {listingQuota.windowDays} gün</strong>
             </div>
-            {listingQuota.remainingFree === 0 ? (
+            <div className="account-row">
+              <span>Yenilenme</span>
+              <strong>{formatListingQuotaResetDate(listingQuota.resetAt)}</strong>
+            </div>
+            {listingQuota.remaining === 0 ? (
               <div className="account-muted">
-                Bu dÃ¶nem iÃ§in Ã¼cretsiz hakkÄ±n doldu. Ek ilan Ã¼creti: {listingQuota.extraPrice} {listingQuota.currency}
+                Son 30 günde ücretsiz ilan hakkın doldu. Yeni ilan vermek için paket gerekecek.
               </div>
+            ) : null}
+            {listingQuota.paidCredits > 0 ? (
+              <div className="account-muted">Hazır ek ilan kredin: {listingQuota.paidCredits}</div>
             ) : null}
           </div>
         ) : (
-          <div className="refresh-text">Kota bilgisi alÄ±namadÄ±.</div>
+          <div className="refresh-text">Kota bilgisi hesaplanıyor.</div>
         )}
       </section>
       ) : null}
@@ -1123,14 +1112,13 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen((prev) => !prev)}>
             Kart Ekle
           </button>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={handleExtraListingPayment}
-            disabled={paymentLoading || listingQuota?.extraEnabled === false}
-          >
-            {paymentLoading ? 'Ödeme başlatılıyor…' : listingQuota?.extraEnabled === false ? 'Ek ilan kapalı' : 'Ek ilan için ödeme yap'}
-          </button>
+          {isWebSurface ? (
+            <Link to="/paketler" className="primary-btn">
+              Paketleri İncele
+            </Link>
+          ) : (
+            <div className="account-muted">Yeni ilan hakkı ve paket bilgileri website yüzeyinde listelenir.</div>
+          )}
         </div>
         {isWebSurface && paymentSheetOpen ? renderPaymentEntryPanel() : null}
       </section>
