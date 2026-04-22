@@ -15,6 +15,7 @@ import { getSocket, normalizeSocketCity } from '../lib/socket';
 import { triggerHaptic } from '../utils/haptic';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
+import { extractRfqCityName, extractRfqDistrictName, formatRfqLocation } from '../utils/rfqFormatters';
 import { FavoriteIcon } from '../components/ui/AppIcons';
 
 const PAGE_LIMIT = 10;
@@ -451,36 +452,8 @@ function RFQList({ surfaceVariant = 'app' }) {
 
     return null;
   }, []);
-  const getCityName = useCallback((item) => {
-    if (!item) {
-      return '';
-    }
-
-    if (typeof item.city === 'string') {
-      return item.city;
-    }
-
-    if (item.city && typeof item.city === 'object') {
-      return item.city.name || '';
-    }
-
-    return item.locationData?.city || '';
-  }, []);
-  const getDistrictName = useCallback((item) => {
-    if (!item) {
-      return '';
-    }
-
-    if (typeof item.district === 'string') {
-      return item.district;
-    }
-
-    if (item.district && typeof item.district === 'object') {
-      return item.district.name || '';
-    }
-
-    return item.locationData?.district || '';
-  }, []);
+  const getCityName = useCallback((item) => extractRfqCityName(item), []);
+  const getDistrictName = useCallback((item) => extractRfqDistrictName(item), []);
   const isPremiumRFQ = useCallback(
     (rfq) => Boolean(rfq?.isPremium || rfq?.premium || rfq?.plan === 'premium' || Number(rfq?.targetPrice) > 100000),
     []
@@ -2691,7 +2664,7 @@ function RFQList({ surfaceVariant = 'app' }) {
                 {rfq.car?.brandName || ''} {rfq.car?.modelName || ''}
               </div>
             ) : null}
-            {getCityName(rfq) ? <div className="rfq-sub">Konum: {getCityName(rfq)}{getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}</div> : null}
+            <div className="rfq-sub">Konum: {formatRfqLocation(rfq)}</div>
             {jobseekerMeta ? (
               <>
                 {jobseekerWorkTypes.length ? (
