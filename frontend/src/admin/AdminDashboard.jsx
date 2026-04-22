@@ -1,49 +1,84 @@
-import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import adminApi from '../api/adminApi';
+import { API_BASE_URL } from '../api/axios';
+
+const SUMMARY_TIMEOUT_MS = 10000;
 
 const formatDate = (value) => {
-  if (!value) return '—';
+  if (!value) return '-';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('tr-TR');
 };
+
+const resolveSummaryUrl = () => `${String(API_BASE_URL || '').replace(/\/$/, '')}/admin/dashboard/summary`;
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
+  const [lastAttemptAt, setLastAttemptAt] = useState('');
+
+  const loadSummary = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setLastAttemptAt(new Date().toLocaleTimeString('tr-TR'));
+
+    try {
+      const response = await adminApi.get('/admin/dashboard/summary', {
+        timeout: SUMMARY_TIMEOUT_MS
+      });
+      setSummary(response.data || null);
+    } catch (err) {
+      const timedOut = err?.code === 'ECONNABORTED';
+      setSummary(null);
+      setError(
+        timedOut
+          ? 'Ozet verisi zamaninda alinamadi. Baglanti veya backend yaniti gecikiyor olabilir.'
+          : err?.response?.data?.message || 'Ozet verisi alinamadi.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await api.get('/admin/dashboard/summary');
-        if (!active) return;
-        setSummary(response.data || null);
-      } catch (err) {
-        if (!active) return;
-        setError(err?.response?.data?.message || 'Dashboard verisi alınamadı.');
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
+    loadSummary();
+  }, [loadSummary]);
 
   const stats = useMemo(() => summary?.stats || {}, [summary]);
   const recentRfqs = summary?.recentRfqs || [];
   const moderationQueue = summary?.moderationQueue || [];
   const adminActions = summary?.recentAdminActions || [];
+  const hasSummary = Boolean(summary);
 
   return (
     <div className="admin-dashboard">
-      <h2>Gösterge Paneli</h2>
-      {error ? <div className="admin-error">{error}</div> : null}
+      <h2>Gosterge Paneli</h2>
+
+      <div className="admin-info">
+        Ozet istegi: <strong>{resolveSummaryUrl()}</strong>
+        <br />
+        Timeout: <strong>{Math.round(SUMMARY_TIMEOUT_MS / 1000)} sn</strong>
+        {lastAttemptAt ? (
+          <>
+            <br />
+            Son deneme: <strong>{lastAttemptAt}</strong>
+          </>
+        ) : null}
+      </div>
+
+      {error ? (
+        <div className="admin-warning">
+          <div>{error}</div>
+          <div className="admin-action-row" style={{ marginTop: 12 }}>
+            <button type="button" className="admin-btn" onClick={loadSummary} disabled={loading}>
+              {loading ? 'Tekrar deneniyor...' : 'Tekrar dene'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="admin-card-grid">
         <div className="admin-card">
           <div className="admin-card-label">Toplam RFQ</div>
@@ -54,7 +89,7 @@ export default function AdminDashboard() {
           <div className="admin-card-value">{loading ? '...' : stats.rfqPending ?? 0}</div>
         </div>
         <div className="admin-card">
-          <div className="admin-card-label">Yayındaki RFQ</div>
+          <div className="admin-card-label">Yayindaki RFQ</div>
           <div className="admin-card-value">{loading ? '...' : stats.rfqActive ?? 0}</div>
         </div>
         <div className="admin-card">
@@ -62,11 +97,11 @@ export default function AdminDashboard() {
           <div className="admin-card-value">{loading ? '...' : stats.rfqPassive ?? 0}</div>
         </div>
         <div className="admin-card">
-          <div className="admin-card-label">Toplam Kullanıcı</div>
+          <div className="admin-card-label">Toplam Kullanici</div>
           <div className="admin-card-value">{loading ? '...' : stats.userTotal ?? 0}</div>
         </div>
         <div className="admin-card">
-          <div className="admin-card-label">Son 24 Saat Yeni Kullanıcı</div>
+          <div className="admin-card-label">Son 24 Saat Yeni Kullanici</div>
           <div className="admin-card-value">{loading ? '...' : stats.userLast24 ?? 0}</div>
         </div>
         <div className="admin-card">
@@ -75,18 +110,18 @@ export default function AdminDashboard() {
         </div>
         <div className="admin-card">
           <div className="admin-card-label">Sistem Durumu</div>
-          <div className="admin-card-value">Stabil</div>
+          <div className="admin-card-value">{loading ? '...' : hasSummary ? 'Stabil' : 'Bekleniyor'}</div>
         </div>
       </div>
 
       <div className="admin-split-grid">
         <div className="admin-panel">
-          <div className="admin-panel-title">Son Eklenen RFQ’lar</div>
+          <div className="admin-panel-title">Son eklenen RFQ'lar</div>
           <div className="admin-panel-body">
             {loading ? (
-              <div className="admin-empty">Yükleniyor…</div>
+              <div className="admin-empty">Yukleniyor...</div>
             ) : recentRfqs.length === 0 ? (
-              <div className="admin-empty">RFQ bulunamadı.</div>
+              <div className="admin-empty">{error ? 'Ozet verisi bekleniyor.' : 'RFQ bulunamadi.'}</div>
             ) : (
               <ul className="admin-list">
                 {recentRfqs.map((item) => (
@@ -103,12 +138,12 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="admin-panel">
-          <div className="admin-panel-title">Moderasyon Kuyruğu</div>
+          <div className="admin-panel-title">Moderasyon kuyrugu</div>
           <div className="admin-panel-body">
             {loading ? (
-              <div className="admin-empty">Yükleniyor…</div>
+              <div className="admin-empty">Yukleniyor...</div>
             ) : moderationQueue.length === 0 ? (
-              <div className="admin-empty">Bekleyen RFQ yok.</div>
+              <div className="admin-empty">{error ? 'Ozet verisi bekleniyor.' : 'Bekleyen RFQ yok.'}</div>
             ) : (
               <ul className="admin-list">
                 {moderationQueue.map((item) => (
@@ -127,12 +162,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="admin-panel">
-        <div className="admin-panel-title">Son Admin İşlemleri</div>
+        <div className="admin-panel-title">Son admin islemleri</div>
         <div className="admin-panel-body">
           {loading ? (
-            <div className="admin-empty">Yükleniyor…</div>
+            <div className="admin-empty">Yukleniyor...</div>
           ) : adminActions.length === 0 ? (
-            <div className="admin-empty">Kayıt bulunamadı.</div>
+            <div className="admin-empty">{error ? 'Ozet verisi bekleniyor.' : 'Kayit bulunamadi.'}</div>
           ) : (
             <ul className="admin-list">
               {adminActions.map((item) => (
