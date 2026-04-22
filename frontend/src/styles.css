@@ -3306,6 +3306,108 @@ body.dark-mode .ux-error-state {
   color: #475569;
 }
 
+.rfq-city-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(10px);
+}
+
+.rfq-city-picker-modal {
+  width: min(560px, 100%);
+  max-height: min(80vh, 760px);
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 28px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.rfq-city-picker-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.rfq-city-picker-modal__header h3 {
+  margin: 6px 0 0;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  color: #0f172a;
+}
+
+.rfq-city-picker-modal__copy {
+  margin: 0;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.rfq-city-picker-modal__input {
+  width: 100%;
+}
+
+.rfq-city-picker-modal__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.rfq-city-picker-modal__list {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rfq-city-picker-modal__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: #f8fafc;
+  color: #0f172a;
+  text-align: left;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.rfq-city-picker-modal__option:hover {
+  border-color: rgba(15, 23, 42, 0.28);
+  transform: translateY(-1px);
+}
+
+.rfq-city-picker-modal__option.is-active {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.3);
+}
+
+.rfq-city-picker-modal__option strong {
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.rfq-city-picker-modal__state {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.rfq-city-picker-modal__state--error {
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
 .rfq-web-intro__stats {
   display: grid;
   gap: 12px;

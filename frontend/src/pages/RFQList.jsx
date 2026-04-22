@@ -227,6 +227,11 @@ function RFQList({ surfaceVariant = 'app' }) {
     status: null
   });
   const [draftFilters, setDraftFilters] = useState(null);
+  const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
+  const [cityPickerQuery, setCityPickerQuery] = useState('');
+  const [cityPickerOptions, setCityPickerOptions] = useState([]);
+  const [cityPickerLoading, setCityPickerLoading] = useState(false);
+  const [cityPickerError, setCityPickerError] = useState('');
   const selectedRfqId = getRFQIdentity(selectedRfq);
   const [locationSelection, setLocationSelection] = useState(null);
   const [cityCenterCoords, setCityCenterCoords] = useState(null);
@@ -615,6 +620,61 @@ function RFQList({ surfaceVariant = 'app' }) {
       districtId: filters.districtId
     }));
   }, [filters.city, filters.cityId, filters.district, filters.districtId, filters, isFilterSheetOpen]);
+
+  useEffect(() => {
+    if (!isCityPickerOpen) {
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setCityPickerLoading(true);
+        setCityPickerError('');
+        const value = cityPickerQuery.trim();
+        const response = value
+          ? await api.get('/location/search', { params: { q: value } })
+          : await api.get('/location/cities', { params: { page: 1, limit: 40 } });
+
+        if (cancelled) {
+          return;
+        }
+
+        const rawItems = value
+          ? Array.isArray(response.data?.data)
+            ? response.data.data
+            : Array.isArray(response.data?.items)
+              ? response.data.items
+              : Array.isArray(response.data)
+                ? response.data
+                : []
+          : response.data?.data || response.data?.items || [];
+
+        const normalizedItems = rawItems
+          .map((item) => ({
+            _id: String(item?._id || item?.id || ''),
+            name: String(item?.name || '')
+          }))
+          .filter((item) => item._id && item.name);
+
+        setCityPickerOptions(normalizedItems);
+      } catch (_error) {
+        if (!cancelled) {
+          setCityPickerOptions([]);
+          setCityPickerError('Sehir listesi yuklenemedi. Lutfen tekrar dene.');
+        }
+      } finally {
+        if (!cancelled) {
+          setCityPickerLoading(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [cityPickerQuery, isCityPickerOpen]);
 
   const fetchFavorites = useCallback(async () => {
     try {
@@ -1193,6 +1253,12 @@ function RFQList({ surfaceVariant = 'app' }) {
   }, [filters.radius, handleRadiusChange, maxRadiusKm, radiusConfig.default]);
 
   const handleSelectCity = useCallback(() => {
+    if (isWebSurface) {
+      setCityPickerQuery(selectedCity?.name || '');
+      setCityPickerError('');
+      setIsCityPickerOpen(true);
+      return;
+    }
     window.dispatchEvent(new Event('open-rfq-filter-sheet'));
     window.setTimeout(() => {
       const input = document.querySelector('.city-search-input');
@@ -1200,7 +1266,36 @@ function RFQList({ surfaceVariant = 'app' }) {
         input.focus();
       }
     }, 250);
-  }, []);
+  }, [isWebSurface, selectedCity?.name]);
+
+  const handleWebsiteCitySelect = useCallback((city) => {
+    const normalizedCity = city?._id && city?.name
+      ? { _id: String(city._id), name: String(city.name) }
+      : null;
+
+    setSelectedCity(normalizedCity);
+    setSelectedDistrict(null);
+    setLocationSelection(
+      normalizedCity
+        ? {
+            city: normalizedCity,
+            district: null
+          }
+        : null
+    );
+    localStorage.removeItem(RFQ_CACHE_KEY);
+    setPage(1);
+    setFilters((prev) => ({
+      ...prev,
+      city: normalizedCity?.name || null,
+      cityId: normalizedCity?._id || null,
+      district: null,
+      districtId: null
+    }));
+    setDraftFilters(null);
+    setIsCityPickerOpen(false);
+    setCityPickerQuery(normalizedCity?.name || '');
+  }, [setSelectedCity, setSelectedDistrict]);
 
   const getCreateSheetSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
@@ -2931,7 +3026,7 @@ function RFQList({ surfaceVariant = 'app' }) {
 
           {effectiveListIsEmpty && !nearbyLoading ? (
             <EmptyStateCard
-              title={effectiveHasCityFilter ? 'Bu bölgede talep yok' : uiTexts.emptyCityTitle}
+              title={effectiveHasCityFilter ? 'Bu sehirde ilan bulunamadi' : uiTexts.emptyCityTitle}
               description={
                 effectiveHasCityFilter
                   ? `${effectiveSelectedCityLabel} • ${effectiveSelectedKm >= maxRadiusKm ? 'Şehir geneli' : `${effectiveSelectedKm} km`} için henüz ilan bulunamadı.`
@@ -2971,6 +3066,68 @@ function RFQList({ surfaceVariant = 'app' }) {
         </div>
       ) : null}
       {toast ? <div className="toast">{toast}</div> : null}
+
+      {isWebSurface && isCityPickerOpen ? (
+        <div className="rfq-city-picker-overlay" onClick={() => setIsCityPickerOpen(false)}>
+          <div className="rfq-city-picker-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="rfq-city-picker-modal__header">
+              <div>
+                <p className="landing-eyebrow">Website sehir secimi</p>
+                <h3>Sehir Sec</h3>
+              </div>
+              <button
+                type="button"
+                className="mini-clear-btn"
+                onClick={() => setIsCityPickerOpen(false)}
+                aria-label="Sehir secim modalini kapat"
+              >
+                ×
+              </button>
+            </div>
+            <p className="rfq-city-picker-modal__copy">
+              Sectigin sehir localStorage&apos;a kaydedilir ve ilan listesi bu sehri baz alarak yeniden yuklenir.
+            </p>
+            <input
+              type="text"
+              className="city-search-input rfq-city-picker-modal__input"
+              placeholder="Sehir ara..."
+              value={cityPickerQuery}
+              onChange={(event) => setCityPickerQuery(event.target.value)}
+              autoFocus
+            />
+            <div className="rfq-city-picker-modal__actions">
+              <button type="button" className="secondary-btn" onClick={() => handleWebsiteCitySelect(null)}>
+                Tum sehirler
+              </button>
+            </div>
+            <div className="rfq-city-picker-modal__list">
+              {cityPickerLoading ? <div className="rfq-city-picker-modal__state">Sehirler yukleniyor...</div> : null}
+              {!cityPickerLoading && cityPickerError ? (
+                <div className="rfq-city-picker-modal__state rfq-city-picker-modal__state--error">{cityPickerError}</div>
+              ) : null}
+              {!cityPickerLoading && !cityPickerError && cityPickerOptions.length === 0 ? (
+                <div className="rfq-city-picker-modal__state">Aramana uygun sehir bulunamadi.</div>
+              ) : null}
+              {!cityPickerLoading && !cityPickerError
+                ? cityPickerOptions.map((city) => {
+                    const isActive = String(selectedCity?._id || '') === String(city._id || '');
+                    return (
+                      <button
+                        key={city._id}
+                        type="button"
+                        className={`rfq-city-picker-modal__option ${isActive ? 'is-active' : ''}`}
+                        onClick={() => handleWebsiteCitySelect(city)}
+                      >
+                        <span>{city.name}</span>
+                        {isActive ? <strong>Secili</strong> : null}
+                      </button>
+                    );
+                  })
+                : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ReusableBottomSheet
         open={isFilterSheetOpen}
