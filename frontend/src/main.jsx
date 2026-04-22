@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
+import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { resolveSurfaceLabel } from "./config/surfaces";
 import "./styles.css";
@@ -17,9 +18,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     }}
   >
     <AuthProvider>
-      <LocationProvider>
-        <App />
-      </LocationProvider>
+      <AdminAuthProvider>
+        <LocationProvider>
+          <App />
+        </LocationProvider>
+      </AdminAuthProvider>
     </AuthProvider>
   </BrowserRouter>
 );

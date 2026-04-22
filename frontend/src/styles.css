@@ -4275,6 +4275,27 @@ body.dark-mode .ux-error-state {
   color: rgba(226, 232, 240, 0.7);
 }
 
+.admin-guard-card {
+  width: min(520px, calc(100vw - 32px));
+  background: #111827;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.38);
+  text-align: left;
+}
+
+.admin-guard-card h2 {
+  margin: 0 0 10px;
+  color: #f8fafc;
+}
+
+.admin-guard-card p {
+  margin: 0 0 18px;
+  color: rgba(226, 232, 240, 0.78);
+  line-height: 1.6;
+}
+
 .maintenance-card {
   max-width: 420px;
   margin: 80px auto;

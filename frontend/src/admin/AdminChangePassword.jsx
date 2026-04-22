@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import api from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import adminApi from '../api/adminApi';
+import { useAdminAuth } from '../context/AdminAuthContext';
 
 export default function AdminChangePassword() {
-  const { logout } = useAuth();
+  const { logout } = useAdminAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +30,7 @@ export default function AdminChangePassword() {
 
     setLoading(true);
     try {
-      const response = await api.patch('/admin/auth/change-password', {
+      const response = await adminApi.patch('/admin/auth/change-password', {
         currentPassword,
         newPassword
       });

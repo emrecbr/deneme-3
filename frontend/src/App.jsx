@@ -5,6 +5,7 @@ import WebsiteAuthShell from './components/WebsiteAuthShell';
 import WebsiteProfileShell from './components/WebsiteProfileShell';
 import WebsiteProductShell from './components/WebsiteProductShell';
 import AdminLayout from './admin/AdminLayout';
+import AdminLogin from './admin/AdminLogin';
 const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
 const AdminPlaceholder = lazy(() => import('./admin/AdminPlaceholder'));
 const AdminRfqList = lazy(() => import('./admin/AdminRfqList'));
@@ -64,6 +65,7 @@ import {
   SURFACE_LABELS,
   buildSurfaceHref,
   isWebsiteAuthPath,
+  isAdminSurfaceHost,
   isAppSurfaceHost,
   isWebSurfaceHost,
   resolveSurfaceLabel,
@@ -84,6 +86,7 @@ import {
   WEB_HOME_PATH
 } from './config/surfaces';
 import { useAuth } from './context/AuthContext';
+import { useAdminAuth } from './context/AdminAuthContext';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
@@ -182,9 +185,11 @@ function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
 
 function App() {
   const { user, loading, checkAuth } = useAuth();
+  const { admin, loading: adminLoading } = useAdminAuth();
   const location = useLocation();
   const websiteHost = isWebSurfaceHost();
   const appHost = isAppSurfaceHost();
+  const adminHost = isAdminSurfaceHost();
   const websiteAuthRoute = websiteHost && isWebsiteAuthPath(location.pathname);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -337,7 +342,7 @@ function App() {
     };
   }, []);
 
-  if (loading) {
+  if (loading || adminLoading) {
     return <div className="card">Yükleniyor...</div>;
   }
 
@@ -463,7 +468,9 @@ function App() {
       <Route
         path="/login"
         element={
-          user && !websiteAuthRoute ? (
+          adminHost ? (
+            admin ? <Navigate to={ADMIN_HOME_PATH} replace /> : <AdminLogin />
+          ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<Login embedded={websiteHost} />, {

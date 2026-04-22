@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import api from '../api/axios';
 import adminApi from '../api/adminApi';
+import { buildCurrentSurfaceHref } from '../config/surfaces';
+import { clearAdminSurfaceStorage, hasAdminAccess } from '../admin/adminAuthStorage';
 
 const AdminAuthContext = createContext(null);
 
@@ -9,29 +12,62 @@ export function AdminAuthProvider({ children }) {
   const [error, setError] = useState('');
 
   const clearSession = useCallback(() => {
-    localStorage.removeItem('admin_token');
+    clearAdminSurfaceStorage();
     setAdmin(null);
+    setError('');
+  }, []);
+
+  const fetchVerifiedUser = useCallback(async (token) => {
+    const response = await api.get('/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const payload = response.data?.data || response.data || {};
+    const userData = payload?.user || response.data?.user || payload;
+
+    if (!userData) {
+      const error = new Error('Admin kimligi dogrulanamadi.');
+      error.code = 'ADMIN_ME_MISSING';
+      throw error;
+    }
+
+    if (!hasAdminAccess(userData)) {
+      const error = new Error(`Admin yetkisi yok: ${userData.email || 'bilinmeyen hesap'}`);
+      error.code = 'ADMIN_ROLE_REQUIRED';
+      error.accountEmail = userData.email || '';
+      throw error;
+    }
+
+    return userData;
   }, []);
 
   const checkAdminAuth = useCallback(async () => {
     setLoading(true);
     setError('');
     const token = localStorage.getItem('admin_token');
+
     if (!token) {
       setAdmin(null);
       setLoading(false);
-      return;
+      return null;
     }
+
     try {
       const response = await adminApi.get('/admin/auth/me');
       const adminData = response.data?.admin || response.data;
+
       if (!adminData) {
         throw new Error('admin not found in /admin/auth/me response');
       }
+
       setAdmin(adminData);
+      return adminData;
     } catch (_error) {
       clearSession();
-      setError('Admin oturumu bulunamadı.');
+      setError('Admin oturumu bulunamadi.');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -46,25 +82,59 @@ export function AdminAuthProvider({ children }) {
       setError('');
       const response = await adminApi.post('/admin/auth/login', { email, password });
       const token = response.data?.token;
+
       if (!token) {
-        throw new Error('Token bulunamadı.');
+        throw new Error('Token bulunamadi.');
       }
+
       localStorage.setItem('admin_token', token);
-      await checkAdminAuth();
-      return response.data?.admin || null;
+
+      try {
+        const [adminResponse, verifiedUser] = await Promise.all([
+          adminApi.get('/admin/auth/me'),
+          fetchVerifiedUser(token)
+        ]);
+        const adminData = adminResponse.data?.admin || adminResponse.data || verifiedUser;
+
+        if (!hasAdminAccess(adminData)) {
+          const error = new Error(`Admin yetkisi yok: ${verifiedUser?.email || adminData?.email || email}`);
+          error.code = 'ADMIN_ROLE_REQUIRED';
+          error.accountEmail = verifiedUser?.email || adminData?.email || email;
+          throw error;
+        }
+
+        setAdmin(adminData);
+        return adminData;
+      } catch (error) {
+        clearSession();
+        throw error;
+      }
     },
-    [checkAdminAuth]
+    [clearSession, fetchVerifiedUser]
   );
 
-  const logout = useCallback(async () => {
-    try {
-      await adminApi.post('/admin/auth/logout');
-    } catch (_error) {
-      // ignore
-    } finally {
+  const logout = useCallback(
+    async ({ redirect = true } = {}) => {
+      try {
+        await adminApi.post('/admin/auth/logout');
+      } catch (_error) {
+        // ignore
+      }
+
+      try {
+        await api.post('/auth/logout');
+      } catch (_error) {
+        // ignore
+      }
+
       clearSession();
-    }
-  }, [clearSession]);
+
+      if (redirect && typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = buildCurrentSurfaceHref(window.location.pathname, '/login');
+      }
+    },
+    [clearSession]
+  );
 
   const value = useMemo(
     () => ({
@@ -74,9 +144,10 @@ export function AdminAuthProvider({ children }) {
       isAuthenticated: Boolean(admin),
       login,
       logout,
-      checkAdminAuth
+      checkAdminAuth,
+      clearSession
     }),
-    [admin, checkAdminAuth, error, loading, login, logout]
+    [admin, checkAdminAuth, clearSession, error, loading, login, logout]
   );
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;

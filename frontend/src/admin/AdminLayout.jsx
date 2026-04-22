@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAdminAuth } from '../context/AdminAuthContext';
 
 const MENU_SECTIONS = [
   {
@@ -136,8 +136,8 @@ const MENU_SECTIONS = [
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
-  const role = user?.role || 'user';
+  const { admin, logout } = useAdminAuth();
+  const role = admin?.role || 'user';
   const canSeeSection = (section) => {
     if (!section.roles) return true;
     return section.roles.includes(role);
@@ -168,8 +168,8 @@ export default function AdminLayout() {
             <NavLink to="/admin/account/password" className="admin-topbar-link">
               Sifre Degistir
             </NavLink>
-            <span>{user?.email}</span>
-            <span className="admin-role">{user?.role}</span>
+            <span>{admin?.email}</span>
+            <span className="admin-role">{admin?.role}</span>
             <button
               type="button"
               className="admin-logout"
