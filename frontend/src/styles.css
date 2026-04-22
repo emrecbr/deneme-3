@@ -3293,6 +3293,19 @@ body.dark-mode .ux-error-state {
   max-width: 60ch;
 }
 
+.rfq-web-intro__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.rfq-web-intro__selected-city {
+  font-size: 0.95rem;
+  color: #475569;
+}
+
 .rfq-web-intro__stats {
   display: grid;
   gap: 12px;

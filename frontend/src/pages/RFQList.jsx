@@ -1809,7 +1809,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   );
   const filteredOrderedRFQs = orderedRFQs;
   const selectedCityLabel = useMemo(
-    () => deferredFilters.city || selectedCity?.name || 'Seçili şehir',
+    () => deferredFilters.city || selectedCity?.name || 'Tum sehirler',
     [deferredFilters.city, selectedCity?.name]
   );
   const mapRadiusCenter = radiusCenter;
@@ -2691,6 +2691,14 @@ function RFQList({ surfaceVariant = 'app' }) {
               Kategori, sehir ve alt filtreleri kullanarak aktif RFQ akisini daha genis kartlar ve masaustu
               odakli bir kesif ritmiyle inceleyin.
             </p>
+            <div className="rfq-web-intro__actions">
+              <button type="button" className="secondary-btn" onClick={handleSelectCity}>
+                Sehir Sec
+              </button>
+              <span className="rfq-web-intro__selected-city">
+                {selectedCity?.name ? `Secili: ${selectedCity.name}` : 'Tum sehirlerdeki ilanlari goruyorsun'}
+              </span>
+            </div>
           </div>
           <div className="rfq-web-intro__stats">
             <div className="rfq-web-intro__stat">
