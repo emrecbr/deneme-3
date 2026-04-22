@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
 const MapPicker = lazy(() => import('../components/MapPicker'));
@@ -55,6 +56,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [locationHint, setLocationHint] = useState('');
   const [images, setImages] = useState([]);
   const [selectedCategoryLabel, setSelectedCategoryLabel] = useState('');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -130,24 +134,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   }, [form, images.length, priceText]);
   const isCarCategory = useMemo(() => form.segment === 'auto', [form.segment]);
   const isJobseekerSegment = useMemo(() => form.segment === 'jobseeker', [form.segment]);
-  const buildGeoPoint = useCallback((value) => {
-    const lat = Number(value?.lat);
-    const lng = Number(value?.lng);
-    if (
-      !Number.isFinite(lat) ||
-      !Number.isFinite(lng) ||
-      lat < -90 ||
-      lat > 90 ||
-      lng < -180 ||
-      lng > 180
-    ) {
-      return null;
-    }
-    return {
-      type: 'Point',
-      coordinates: [lng, lat]
-    };
-  }, []);
+  const buildGeoPoint = useCallback((value) => normalizeGeoPointInput(value).point, []);
+  const getLocationValidationMessage = useCallback((value) => getGeoPointErrorMessage(value), []);
 
   useEffect(() => {
     if (!isEdit || !initialData) {
@@ -275,11 +263,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   };
 
   useEffect(() => {
-    const lat = Number(selectedLocation?.lat);
-    const lng = Number(selectedLocation?.lng);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      setLatitude(lat);
-      setLongitude(lng);
+    const normalizedLocation = normalizeGeoPointInput(selectedLocation);
+    if (normalizedLocation.point) {
+      setLatitude(normalizedLocation.lat);
+      setLongitude(normalizedLocation.lng);
+      setLocationError('');
       return;
     }
     setLatitude(null);
@@ -445,11 +433,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
     setLocating(true);
     setLocationError('');
+    setLocationHint('');
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        setSelectedLocation({ lat, lng });
+        const normalizedLocation = normalizeGeoPointInput({ lat, lng });
+        if (!normalizedLocation.point) {
+          setLocationError(getLocationValidationMessage({ lat, lng }));
+          setLocating(false);
+          return;
+        }
+        setSelectedLocation({ lat: normalizedLocation.lat, lng: normalizedLocation.lng });
 
         const resolveName = (value) => {
           if (!value) return '';
@@ -530,6 +525,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             if (nearestCity?.name) {
               cityName = nearestCity.name;
               districtName = '';
+              setLocationHint('Konumuna en yakin sehir secildi. Ilceyi istersen manuel netlestirebilirsin.');
             }
           }
 
@@ -584,6 +580,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               if (districtItems.length) {
                 setDistrictOptions(districtItems);
               }
+              setLocationHint('Konum bilgisi otomatik dolduruldu. Haritadaki pini istersen yeniden konumlandirabilirsin.');
             } else {
               setForm((prev) => ({
                 ...prev,
@@ -594,6 +591,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               setDistrictOptions([]);
               setNeighborhoodOptions([]);
               setStreetOptions([]);
+              setLocationHint('Sehir bulundu. Ilceyi manuel secerek devam edebilirsin.');
             }
           } else if (!silent) {
             setLocationError('Konum alındı. Şehir bilgisi çözümlenemedi, lütfen şehir seçin.');
@@ -617,6 +615,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             setDistrictOptions([]);
             setNeighborhoodOptions([]);
             setStreetOptions([]);
+            setLocationHint('Konum bulundu. En yakin sehir secildi, ilceyi manuel tamamlayabilirsin.');
             if (!silent) {
               setLocationError('Konum alındı. İlçe bulunamadı, istersen manuel seçim yapabilirsin.');
             }
@@ -702,6 +701,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const handleCityChange = (event) => {
     const city = event.target.value;
+    setLocationError('');
+    setLocationHint('');
     setForm((prev) => ({
       ...prev,
       city,
@@ -825,7 +826,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         return { message: 'İlçe seç', field: 'district' };
       }
       if (!buildGeoPoint(selectedLocation)) {
-        return { message: 'Konum seç', field: 'location' };
+        return { message: getLocationValidationMessage(selectedLocation), field: 'location' };
       }
       return { message: '', field: '' };
     }
@@ -858,7 +859,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     try {
       const geoPoint = buildGeoPoint(selectedLocation);
       if (!geoPoint) {
-        setError('Konum seç');
+        setError(getLocationValidationMessage(selectedLocation));
         setLoading(false);
         return;
       }
@@ -976,6 +977,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setPriceText('');
         setPriceValue(null);
         setSelectedLocation(null);
+        setLocationError('');
+        setLocationHint('');
         setStep(1);
         setImages([]);
         setCarBrand(null);
@@ -1710,6 +1713,14 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               <div className="form-group">
                 <div className="location-header">
                   <label>Konum</label>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => requestCurrentLocation(false)}
+                    disabled={locating}
+                  >
+                    {locating ? 'Konum aliniyor...' : 'Mevcut konumumu kullan'}
+                  </button>
                 </div>
                 <Suspense fallback={<div className="map-picker-loading">Harita yükleniyor...</div>}>
                   <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={240} />
@@ -1717,8 +1728,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <small className="input-helper">
                   Şehri ve ilçeyi manuel seçip pin&apos;i haritadan yerleştir
                 </small>
-                {selectedLocation ? (
-                  <div className="rfq-sub">Konum seçildi</div>
+                {locationHint ? <div className="rfq-sub">{locationHint}</div> : null}
+                {locationError ? <div className="error">{locationError}</div> : null}
+                {selectedLocation && Number.isFinite(latitude) && Number.isFinite(longitude) ? (
+                  <div className="rfq-sub">
+                    Konum seçildi: {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
+                  </div>
                 ) : null}
               </div>
 
