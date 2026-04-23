@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
+import { sanitizeAdminErrorMessage } from './adminErrorUtils';
 
 const SUMMARY_TIMEOUT_MS = 10000;
 
@@ -35,7 +36,7 @@ export default function AdminDashboard() {
       setError(
         timedOut
           ? 'Ozet verisi zamaninda alinamadi. Baglanti veya backend yaniti gecikiyor olabilir.'
-          : err?.response?.data?.message || 'Ozet verisi alinamadi.'
+          : sanitizeAdminErrorMessage(err, 'Ozet verisi alinamadi.')
       );
     } finally {
       setLoading(false);

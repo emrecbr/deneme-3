@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { clearAdminSurfaceStorage } from './adminAuthStorage';
+import { sanitizeAdminErrorMessage } from './adminErrorUtils';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ export default function AdminLogin() {
       if (err?.code === 'ADMIN_ROLE_REQUIRED') {
         setError(`Admin yetkisi yok: ${err.accountEmail || email}`);
       } else {
-        setError(err?.response?.data?.message || err?.message || 'Giris basarisiz.');
+        setError(sanitizeAdminErrorMessage(err, 'Giris basarisiz.'));
       }
     } finally {
       setLoading(false);

@@ -42,7 +42,7 @@ export const hasAdminAccess = (account) => {
     return true;
   }
 
-  return account.role === 'admin' || account.role === 'moderator';
+  return account.role === 'admin';
 };
 
 export const resolveAccountEmail = (account) =>
