@@ -19,10 +19,13 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
   const [lastAttemptAt, setLastAttemptAt] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState('');
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
     setError('');
+    setRefreshNotice('');
     setLastAttemptAt(new Date().toLocaleTimeString('tr-TR'));
 
     try {
@@ -43,6 +46,23 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  const triggerRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshNotice('');
+
+    try {
+      await api.post('/admin/dashboard/summary/refresh');
+      setRefreshNotice('Dashboard yenileme istegi alindi. Guncel snapshot birazdan gorunecek.');
+      setTimeout(() => {
+        loadSummary();
+      }, 1200);
+    } catch (err) {
+      setRefreshNotice(sanitizeAdminErrorMessage(err, 'Dashboard yenileme istegi gonderilemedi.'));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadSummary]);
+
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
@@ -61,6 +81,11 @@ export default function AdminDashboard() {
         Ozet istegi: <strong>{resolveSummaryUrl()}</strong>
         <br />
         Timeout: <strong>{Math.round(SUMMARY_TIMEOUT_MS / 1000)} sn</strong>
+        <br />
+        Son guncelleme:{' '}
+        <strong>{summary?.computedAt ? formatDate(summary.computedAt) : 'Snapshot henuz olusmadi'}</strong>
+        <br />
+        Snapshot kaynagi: <strong>{summary?.source || 'bekleniyor'}</strong>
         {lastAttemptAt ? (
           <>
             <br />
@@ -68,6 +93,17 @@ export default function AdminDashboard() {
           </>
         ) : null}
       </div>
+
+      <div className="admin-action-row" style={{ marginBottom: 16 }}>
+        <button type="button" className="admin-btn" onClick={loadSummary} disabled={loading}>
+          {loading ? 'Yukleniyor...' : 'Ozeti Yeniden Yukle'}
+        </button>
+        <button type="button" className="admin-btn admin-btn-secondary" onClick={triggerRefresh} disabled={refreshing}>
+          {refreshing ? 'Yenileme isteniyor...' : 'Simdi Yenile'}
+        </button>
+      </div>
+
+      {refreshNotice ? <div className="admin-info">{refreshNotice}</div> : null}
 
       {error ? (
         <div className="admin-warning">

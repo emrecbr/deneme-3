@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { adminRoleMiddleware, requireAdminOnly } from '../middleware/adminRoleMiddleware.js';
-import { getDashboardSummary } from '../controllers/adminDashboardController.js';
+import { getDashboardSummary, refreshDashboardSummary } from '../controllers/adminDashboardController.js';
 import {
   listAdminRfqs,
   getAdminRfq,
@@ -97,6 +97,7 @@ const upload = multer({
 });
 
 router.get('/dashboard/summary', adminRoleMiddleware, getDashboardSummary);
+router.post('/dashboard/summary/refresh', adminRoleMiddleware, requireAdminOnly, refreshDashboardSummary);
 
 router.get('/rfqs', adminRoleMiddleware, listAdminRfqs);
 router.get('/rfqs/expired', adminRoleMiddleware, listExpiredRfqs);

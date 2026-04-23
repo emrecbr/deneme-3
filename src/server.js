@@ -40,6 +40,7 @@ import AppSetting from '../models/AppSetting.js';
 import iyzico from './providers/iyzico/index.js';
 import { ensureAdminSeed } from './utils/adminSeed.js';
 import { getAllowedSurfaceOrigins } from './config/surfaceConfig.js';
+import { startAdminDashboardJob } from './jobs/adminDashboardJob.js';
 
 dotenv.config();
 
@@ -345,6 +346,7 @@ const startServer = async () => {
   try {
     await connectWithRetry();
     await ensureAdminSeed();
+    startAdminDashboardJob();
   } catch (_err) {
     console.error('MongoDB bağlantısı kurulamadı. Sunucu başlatılmadı.');
     process.exit(1);

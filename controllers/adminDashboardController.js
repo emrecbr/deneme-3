@@ -1,71 +1,41 @@
-import RFQ from '../models/RFQ.js';
-import User from '../models/User.js';
-import AdminAuditLog from '../models/AdminAuditLog.js';
-import { backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
-
-const STATUS_OPEN = 'open';
-const STATUS_CLOSED = 'closed';
+import {
+  computeDashboardSnapshot,
+  getStoredDashboardSnapshot,
+  isDashboardSnapshotStale,
+  queueDashboardSnapshotRefresh
+} from '../src/jobs/adminDashboardJob.js';
 
 export const getDashboardSummary = async (req, res, next) => {
   try {
-    const listingExpiryDays = await getListingExpiryDays();
-    await backfillMissingExpiresAt(listingExpiryDays);
-    await markExpiredRfqs(new Date());
+    let snapshot = await getStoredDashboardSnapshot();
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const baseQuery = { isDeleted: { $ne: true } };
-
-    const [
-      rfqTotal,
-      rfqLast24,
-      userTotal,
-      userLast24,
-      rfqOpen,
-      rfqClosed,
-      rfqAwarded,
-      moderationCount
-    ] = await Promise.all([
-      RFQ.countDocuments(baseQuery),
-      RFQ.countDocuments({ ...baseQuery, createdAt: { $gte: since } }),
-      User.countDocuments(),
-      User.countDocuments({ createdAt: { $gte: since } }),
-      RFQ.countDocuments({ ...baseQuery, status: STATUS_OPEN }),
-      RFQ.countDocuments({ ...baseQuery, status: STATUS_CLOSED }),
-      RFQ.countDocuments({ ...baseQuery, status: 'awarded' }),
-      RFQ.countDocuments({ ...baseQuery, status: STATUS_OPEN, moderatedAt: { $exists: false } })
-    ]);
-
-    const recentRfqs = await RFQ.find(baseQuery)
-      .sort({ createdAt: -1 })
-      .limit(6)
-      .select('_id title status createdAt city district')
-      .lean();
-
-    const moderationQueue = await RFQ.find({ ...baseQuery, status: STATUS_OPEN, moderatedAt: { $exists: false } })
-      .sort({ createdAt: -1 })
-      .limit(6)
-      .select('_id title status createdAt city district')
-      .lean();
-
-    const audit = await AdminAuditLog.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
+    if (!snapshot) {
+      snapshot = await computeDashboardSnapshot({ source: 'on-demand-light', runMaintenance: false });
+    } else if (isDashboardSnapshotStale(snapshot)) {
+      queueDashboardSnapshotRefresh({ source: 'stale-revalidate', runMaintenance: true }).catch(() => null);
+    }
 
     return res.status(200).json({
+      ...(snapshot?.data || { success: true, stats: {}, recentRfqs: [], moderationQueue: [], recentAdminActions: [] }),
+      computedAt: snapshot?.computedAt || null,
+      source: snapshot?.source || 'unknown',
+      stale: isDashboardSnapshotStale(snapshot)
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const refreshDashboardSummary = async (req, res, next) => {
+  try {
+    queueDashboardSnapshotRefresh({
+      source: `manual:${req.admin?.id || 'unknown'}`,
+      runMaintenance: true
+    }).catch(() => null);
+
+    return res.status(202).json({
       success: true,
-      stats: {
-        rfqTotal,
-        rfqPending: moderationCount,
-        rfqActive: rfqOpen,
-        rfqPassive: rfqClosed + rfqAwarded,
-        userTotal,
-        userLast24,
-        rfqLast24
-      },
-      recentRfqs,
-      moderationQueue,
-      recentAdminActions: audit
+      message: 'Dashboard summary yenileme islemi kuyruga alindi.'
     });
   } catch (error) {
     return next(error);
