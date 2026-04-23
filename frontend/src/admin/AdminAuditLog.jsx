@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const formatDate = (value) => {
   if (!value) return '—';

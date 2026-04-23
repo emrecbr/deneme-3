@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const EVENT_LABELS = {
   otp_send: 'OTP gonderimi',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const emptyForm = { term: '', categoryId: '', order: 0, isActive: true };
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 export default function AdminContentHome() {
   const [form, setForm] = useState({ heroTitle: '', heroSubtitle: '' });

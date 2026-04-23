@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const EVENT_LABELS = {
   sms_otp_send: 'SMS OTP gonderimi',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 export default function AdminRfqFlowSteps() {
   const [items, setItems] = useState([]);

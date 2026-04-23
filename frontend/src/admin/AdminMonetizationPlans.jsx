@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const initialQuota = {
   periodDays: 30,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const SEGMENT_OPTIONS = [
   { value: '', label: 'Tüm segmentler / Belirtilmedi' },

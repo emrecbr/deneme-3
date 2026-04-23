@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 
 const EXPORT_TYPES = [
   { key: 'rfqs', label: 'RFQ Listesi' },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import api from '../api/axios';
+import api from '../api/adminApi';
 import { formatAdminCityName, formatAdminDistrictName } from './adminLocationUtils';
 
 export default function AdminLocationIssues() {

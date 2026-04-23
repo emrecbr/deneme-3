@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../api/axios';
+import api from '../api/adminApi';
 import { formatAdminCityName, formatAdminDistrictName, formatAdminLocationLabel } from './adminLocationUtils';
 
 const statusOptions = ['open', 'closed', 'awarded', 'expired'];
