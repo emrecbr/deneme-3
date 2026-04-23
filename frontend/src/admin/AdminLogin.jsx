@@ -42,6 +42,8 @@ export default function AdminLogin() {
     } catch (err) {
       if (err?.code === 'ADMIN_ROLE_REQUIRED') {
         setError(`Admin yetkisi yok: ${err.accountEmail || email}`);
+      } else if (err?.code === 'ADMIN_SESSION_VERIFY_FAILED' || err?.code === 'ADMIN_ME_MISSING') {
+        setError('Admin oturumu dogrulanamadi.');
       } else {
         setError(sanitizeAdminErrorMessage(err, 'Giris basarisiz.'));
       }

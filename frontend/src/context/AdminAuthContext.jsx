@@ -15,32 +15,6 @@ export function AdminAuthProvider({ children }) {
     setError('');
   }, []);
 
-  const fetchVerifiedUser = useCallback(async (token) => {
-    const response = await api.get('/auth/me', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    const payload = response.data?.data || response.data || {};
-    const userData = payload?.user || response.data?.user || payload;
-
-    if (!userData) {
-      const error = new Error('Admin kimligi dogrulanamadi.');
-      error.code = 'ADMIN_ME_MISSING';
-      throw error;
-    }
-
-    if (!hasAdminAccess(userData)) {
-      const error = new Error(`Admin yetkisi yok: ${userData.email || 'bilinmeyen hesap'}`);
-      error.code = 'ADMIN_ROLE_REQUIRED';
-      error.accountEmail = userData.email || '';
-      throw error;
-    }
-
-    return userData;
-  }, []);
-
   const checkAdminAuth = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -88,16 +62,19 @@ export function AdminAuthProvider({ children }) {
       localStorage.setItem('admin_token', token);
 
       try {
-        const [adminResponse, verifiedUser] = await Promise.all([
-          adminApi.get('/admin/auth/me'),
-          fetchVerifiedUser(token)
-        ]);
-        const adminData = adminResponse.data?.admin || adminResponse.data || verifiedUser;
+        const adminResponse = await adminApi.get('/admin/auth/me');
+        const adminData = adminResponse.data?.admin || adminResponse.data;
+
+        if (!adminData) {
+          const error = new Error('Admin oturumu dogrulanamadi.');
+          error.code = 'ADMIN_SESSION_VERIFY_FAILED';
+          throw error;
+        }
 
         if (!hasAdminAccess(adminData)) {
-          const error = new Error(`Admin yetkisi yok: ${verifiedUser?.email || adminData?.email || email}`);
+          const error = new Error(`Admin yetkisi yok: ${adminData?.email || email}`);
           error.code = 'ADMIN_ROLE_REQUIRED';
-          error.accountEmail = verifiedUser?.email || adminData?.email || email;
+          error.accountEmail = adminData?.email || email;
           throw error;
         }
 
@@ -108,7 +85,7 @@ export function AdminAuthProvider({ children }) {
         throw error;
       }
     },
-    [clearSession, fetchVerifiedUser]
+    [clearSession]
   );
 
   const logout = useCallback(
