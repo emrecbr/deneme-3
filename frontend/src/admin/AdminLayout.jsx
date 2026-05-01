@@ -1,45 +1,27 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import AdminShell from '../components/AdminShell';
+import StatusBadge from '../components/StatusBadge';
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 const MENU_SECTIONS = [
   {
-    title: 'Gösterge Paneli',
+    title: 'Dashboard',
     items: [{ label: 'Dashboard', to: '/admin' }]
   },
   {
-    title: 'RFQ / İlan Yönetimi',
+    title: 'RFQ Yonetimi',
     items: [
-      { label: 'Tüm RFQ’lar', to: '/admin/rfq/all' },
-      { label: 'Moderasyon Kuyruğu', to: '/admin/rfq/moderation' },
-      { label: 'Sorunlu RFQ’lar', to: '/admin/rfq/flagged' },
-      { label: 'Süresi Dolanlar', to: '/admin/rfq/expired' }
+      { label: 'Tum RFQlar', to: '/admin/rfq/all' },
+      { label: 'Moderasyon Kuyrugu', to: '/admin/rfq/moderation' },
+      { label: 'Sorunlu RFQlar', to: '/admin/rfq/flagged' },
+      { label: 'Suresi Dolanlar', to: '/admin/rfq/expired' }
     ]
   },
   {
-    title: 'Moderasyon',
+    title: 'Kullanicilar',
     items: [
-      { label: 'Gelişmiş Kuyruk', to: '/admin/moderation/queue-advanced' },
-      { label: 'Risk İşaretleri', to: '/admin/moderation/risk-signals' },
-      { label: 'Moderasyon Kuralları', to: '/admin/moderation/rules' },
-      { label: 'Engellenen Denemeler', to: '/admin/moderation/attempts' },
-      { label: 'Riskli Kullanıcılar', to: '/admin/moderation/risk-users' },
-      { label: 'Gelişmiş Ayarlar', to: '/admin/moderation/settings' },
-      { label: 'Sorun Bildirimleri', to: '/admin/reports/issues' }
-    ]
-  },
-  {
-    title: 'RFQ Oluşturma Akışı',
-    items: [
-      { label: 'Adım Yapısı', to: '/admin/rfq-flow/steps' },
-      { label: 'Validasyon Analitiği', to: '/admin/rfq-flow/validation-analytics' },
-      { label: 'Form Hata İzleme', to: '/admin/rfq-flow/errors' }
-    ]
-  },
-  {
-    title: 'Kullanıcılar',
-    items: [
-      { label: 'Tüm Kullanıcılar', to: '/admin/users/all' },
-      { label: 'Engellenen / Şüpheli Kullanıcılar', to: '/admin/users/flagged' }
+      { label: 'Tum Kullanicilar', to: '/admin/users/all' },
+      { label: 'Engellenen ve Supheli', to: '/admin/users/flagged' }
     ]
   },
   {
@@ -48,90 +30,103 @@ const MENU_SECTIONS = [
     items: [
       { label: 'Ana Kategoriler', to: '/admin/categories/main' },
       { label: 'Alt Kategoriler', to: '/admin/categories/sub' },
-      { label: 'Kategori Eşleme Sorunları', to: '/admin/categories/mapping' },
-      { label: 'Arama Öneri Kategorileri', to: '/admin/categories/suggestions' }
+      { label: 'Kategori Esleme Sorunlari', to: '/admin/categories/mapping' }
     ]
   },
   {
-    title: 'Konum Yönetimi',
+    title: 'Sehir / Ilce',
     roles: ['admin'],
     items: [
-      { label: 'Şehirler', to: '/admin/locations/cities' },
-      { label: 'İlçeler', to: '/admin/locations/districts' },
-      { label: 'Konum Sorunları', to: '/admin/locations/issues' },
-      { label: 'Canlı Konum / Yarıçap Ayarları', to: '/admin/locations/live' }
+      { label: 'Sehirler', to: '/admin/locations/cities' },
+      { label: 'Ilceler', to: '/admin/locations/districts' }
     ]
   },
   {
-    title: 'Harita',
+    title: 'Konum Sorunlari',
+    roles: ['admin'],
+    items: [{ label: 'Konum Sorunlari', to: '/admin/locations/issues' }]
+  },
+  {
+    title: 'Moderasyon',
+    items: [
+      { label: 'Gelismis Kuyruk', to: '/admin/moderation/queue-advanced' },
+      { label: 'Risk Isaretleri', to: '/admin/moderation/risk-signals' },
+      { label: 'Moderasyon Kurallari', to: '/admin/moderation/rules' },
+      { label: 'Engellenen Denemeler', to: '/admin/moderation/attempts' },
+      { label: 'Riskli Kullanicilar', to: '/admin/moderation/risk-users' }
+    ]
+  },
+  {
+    title: 'Paketler & Ilan Kotasi',
     roles: ['admin'],
     items: [
-      { label: 'Harita Ayarları', to: '/admin/map/settings' },
-      { label: 'Haritada Görünmeyen İlanlar', to: '/admin/map/missing' },
-      { label: 'Harita Test Ekranı', to: '/admin/map/test' }
+      { label: 'Ilan Kotasi', to: '/admin/system/listing-quota' },
+      { label: 'Ilan Yayim Suresi', to: '/admin/system/listing-expiry' }
     ]
   },
   {
-    title: 'Arama ve Filtreler',
-    items: [
-      { label: 'Arama Analitiği', to: '/admin/search/analytics' },
-      { label: 'Arama Önerileri', to: '/admin/search/suggestions' },
-      { label: 'Filtre Ayarları', to: '/admin/search/filters' }
-    ]
-  },
-  {
-    title: 'Bildirimler',
-    items: [
-      { label: 'SMS Logları', to: '/admin/notifications/sms-logs' },
-      { label: 'OTP İşlemleri', to: '/admin/notifications/otp-logs' },
-      { label: 'Push Test', to: '/admin/notifications/push-test' },
-      { label: 'Push Logları', to: '/admin/notifications/push-logs' },
-      { label: 'Bildirim Tercihleri', to: '/admin/notifications/push-preferences' },
-      { label: 'Bildirim Şablonları', to: '/admin/notifications/templates' },
-      { label: 'Takip Bildirimleri', to: '/admin/alerts' }
-    ]
-  },
-  {
-    title: 'İçerik Yönetimi',
+    title: 'Premium / One Cikarma',
     roles: ['admin'],
-    items: [
-      { label: 'Ana Sayfa', to: '/admin/content/home' },
-      { label: 'Onboarding / Yardım Metinleri', to: '/admin/content/onboarding' },
-      { label: 'Arayüz Metinleri', to: '/admin/content/ui-texts' }
-    ]
+    items: [{ label: 'Paketler ve Planlar', to: '/admin/system/monetization-plans' }]
   },
   {
-    title: 'Sistem',
+    title: 'Odemeler',
     roles: ['admin'],
+    items: [{ label: 'Export ve Finans Ozeti', to: '/admin/reports/exports' }]
+  },
+  {
+    title: 'OTP / SMS / Email Loglari',
     items: [
-      { label: 'Sistem Sağlığı', to: '/admin/system/health' },
-      { label: 'Hata Kayıtları', to: '/admin/system/errors' },
-      { label: 'Feature Flags', to: '/admin/system/feature-flags' },
-      { label: 'Bakım Modu', to: '/admin/system/maintenance' },
-      { label: 'İlan Yayın Süresi', to: '/admin/system/listing-expiry' },
-      { label: 'İlan Kotası & Ücret', to: '/admin/system/listing-quota' },
-      { label: 'İlan Paketleri & Ücret', to: '/admin/system/monetization-plans' }
+      { label: 'OTP Loglari', to: '/admin/notifications/otp-logs' },
+      { label: 'SMS Loglari', to: '/admin/notifications/sms-logs' },
+      { label: 'Email ve Takip Bildirimleri', to: '/admin/alerts' }
     ]
   },
   {
-    title: 'Raporlar',
+    title: 'Search Analytics',
+    items: [{ label: 'Arama Analitigi', to: '/admin/search/analytics' }]
+  },
+  {
+    title: 'RFQ Analytics',
     items: [
-      { label: 'Genel Özet', to: '/admin/reports/overview' },
-      { label: 'Export', to: '/admin/reports/exports' }
+      { label: 'Adim Yapisi', to: '/admin/rfq-flow/steps' },
+      { label: 'Validasyon Analitigi', to: '/admin/rfq-flow/validation-analytics' },
+      { label: 'Genel Raporlar', to: '/admin/reports/overview' }
     ]
   },
   {
-    title: 'Admin',
+    title: 'Feature Flags',
     roles: ['admin'],
-    items: [
-      { label: 'Admin Kullanıcıları', to: '/admin/admins' },
-      { label: 'Roller ve Yetkiler', to: '/admin/roles' },
-      { label: 'Audit Log', to: '/admin/audit' }
-    ]
+    items: [{ label: 'Feature Flags', to: '/admin/system/feature-flags' }]
   },
   {
-    title: 'Hesap',
-    items: [{ label: 'Şifre Değiştir', to: '/admin/account/password' }]
+    title: 'Maintenance Mode',
+    roles: ['admin'],
+    items: [{ label: 'Bakim Modu', to: '/admin/system/maintenance' }]
+  },
+  {
+    title: 'System Health',
+    roles: ['admin'],
+    items: [{ label: 'Sistem Sagligi', to: '/admin/system/health' }]
+  },
+  {
+    title: 'Audit Log',
+    roles: ['admin'],
+    items: [{ label: 'Audit Log', to: '/admin/audit' }]
+  },
+  {
+    title: 'Ayarlar',
+    items: [
+      { label: 'Arayuz Metinleri', to: '/admin/content/ui-texts' },
+      { label: 'Ana Sayfa Icerigi', to: '/admin/content/home' },
+      { label: 'Onboarding Metinleri', to: '/admin/content/onboarding' },
+      { label: 'Admin Kullanicilari', to: '/admin/admins' },
+      { label: 'Harita Ayarlari', to: '/admin/map/settings' },
+      { label: 'Arama Onerileri', to: '/admin/search/suggestions' },
+      { label: 'Push Loglari', to: '/admin/notifications/push-logs' },
+      { label: 'Push Tercihleri', to: '/admin/notifications/push-preferences' },
+      { label: 'Sifre Degistir', to: '/admin/account/password' }
+    ]
   }
 ];
 
@@ -139,54 +134,59 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
   const role = admin?.role || 'user';
-  const canSeeSection = (section) => {
-    if (!section.roles) return true;
-    return section.roles.includes(role);
-  };
-  const visibleSections = MENU_SECTIONS.filter(canSeeSection);
+  const visibleSections = MENU_SECTIONS.filter((section) => !section.roles || section.roles.includes(role));
 
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <div className="admin-brand">Talepet Admin</div>
-        <nav className="admin-menu">
-          {visibleSections.map((section) => (
-            <div key={section.title} className="admin-menu-section">
-              <div className="admin-menu-title">{section.title}</div>
-              {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className="admin-menu-link">
-                  {item.label}
-                </NavLink>
+    <AdminShell
+      sidebar={
+        <>
+          <div className="brand-link admin-brand">
+            <span className="brand-text font-weight-light">Talepet Admin</span>
+          </div>
+          <div className="sidebar">
+            <nav className="mt-2 admin-menu nav nav-pills nav-sidebar flex-column" aria-label="Admin menusu">
+              {visibleSections.map((section) => (
+                <div key={section.title} className="admin-menu-section nav-item">
+                  <div className="admin-menu-title">{section.title}</div>
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) => `nav-link admin-menu-link ${isActive ? 'active' : ''}`}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
               ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
-      <div className="admin-content">
-        <header className="admin-topbar">
-          <div className="admin-topbar-title">Admin Panel</div>
-          <div className="admin-topbar-meta">
-            <NavLink to="/admin/account/password" className="admin-topbar-link">
+            </nav>
+          </div>
+        </>
+      }
+      topbar={
+        <>
+          <div className="admin-topbar-title">Talepet Yonetim Paneli</div>
+          <div className="admin-topbar-meta navbar-nav ml-auto">
+            <NavLink to="/admin/account/password" className="nav-link admin-topbar-link">
               Sifre Degistir
             </NavLink>
-            <span>{admin?.email}</span>
-            <span className="admin-role">{admin?.role}</span>
+            <span className="admin-topbar-user">{admin?.email}</span>
+            <StatusBadge tone="info">{admin?.role || 'user'}</StatusBadge>
             <button
               type="button"
-              className="admin-logout"
+              className="btn btn-outline-secondary btn-sm admin-logout"
               onClick={async () => {
                 await logout();
                 navigate('/login', { replace: true });
               }}
             >
-              Çıkış
+              Cikis
             </button>
           </div>
-        </header>
-        <main className="admin-main">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <Outlet />
+    </AdminShell>
   );
 }

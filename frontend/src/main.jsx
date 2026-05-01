@@ -5,10 +5,40 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { LocationProvider } from "./context/LocationContext";
-import { resolveSurfaceLabel } from "./config/surfaces";
+import { SURFACE_LABELS, resolveSurfaceLabel, resolveSurfaceLabelFromHostname } from "./config/surfaces";
 import "./styles.css";
 
-document.documentElement.dataset.surface = resolveSurfaceLabel(window.location.pathname);
+const surfaceLabel = resolveSurfaceLabel(window.location.pathname);
+const hostSurface = resolveSurfaceLabelFromHostname(window.location.hostname);
+
+const ensureThemeStylesheet = (href) => {
+  const existing = document.head.querySelector(`link[data-surface-theme="${href}"]`);
+  if (existing) {
+    return existing;
+  }
+
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  link.dataset.surfaceTheme = href;
+  document.head.appendChild(link);
+  return link;
+};
+
+const applySurfaceTheme = () => {
+  document.documentElement.dataset.surface = surfaceLabel;
+
+  if (hostSurface === SURFACE_LABELS.admin) {
+    document.body.classList.add("hold-transition", "sidebar-mini", "layout-fixed");
+    ensureThemeStylesheet("/themes/admin/plugins/fontawesome-free/css/all.min.css");
+    ensureThemeStylesheet("/themes/admin/dist/css/adminlte.min.css");
+    return;
+  }
+
+  document.body.classList.remove("hold-transition", "sidebar-mini", "layout-fixed");
+};
+
+applySurfaceTheme();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter
