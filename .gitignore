@@ -18,3 +18,7 @@ test-apple-key.mjs
 # Experimental surface split folders
 frontend/src/app/
 frontend/src/web/
+
+# Template sources (do not commit)
+template-sources/
+template-sources.zip
