@@ -1,10 +1,10 @@
 const CHART_SIZE = 160;
-const STROKE_WIDTH = 18;
+const STROKE_WIDTH = 10;
 const RADIUS = (CHART_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const DEFAULT_RENDER_SIZE = 200;
-const MIN_RENDER_SIZE = 160;
-const MAX_RENDER_SIZE = 220;
+const DEFAULT_RENDER_SIZE = 128;
+const MIN_RENDER_SIZE = 112;
+const MAX_RENDER_SIZE = 144;
 
 const clampRenderSize = (value) => {
   const parsed = Number(value);
@@ -27,11 +27,13 @@ export default function AdminDonutChart({
   emptyMessage = 'Grafik verisi bulunamadi.',
   onRetry,
   note,
-  size = DEFAULT_RENDER_SIZE
+  size = DEFAULT_RENDER_SIZE,
+  showLegend = true
 }) {
   const renderSize = clampRenderSize(size);
   const chartStyle = {
-    '--admin-donut-size': `${renderSize}px`
+    '--admin-donut-size': `${renderSize}px`,
+    '--admin-donut-max': `${MAX_RENDER_SIZE}px`
   };
 
   const normalizedSegments = segments
@@ -120,19 +122,21 @@ export default function AdminDonutChart({
               </div>
             </div>
 
-            <ul className="admin-chart-legend">
-              {chartSegments.map((segment) => (
-                <li key={segment.label} className="admin-chart-legend__item">
-                  <span className="admin-chart-legend__swatch" style={{ backgroundColor: segment.color }} />
-                  <div className="admin-chart-legend__text">
-                    <strong>{segment.label}</strong>
-                    <span>
-                      {segment.value} · {formatPercent(segment.value, total)}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {showLegend ? (
+              <ul className="admin-chart-legend">
+                {chartSegments.map((segment) => (
+                  <li key={segment.label} className="admin-chart-legend__item">
+                    <span className="admin-chart-legend__swatch" style={{ backgroundColor: segment.color }} />
+                    <div className="admin-chart-legend__text">
+                      <strong title={segment.label}>{segment.label}</strong>
+                      <span>
+                        {segment.value} · {formatPercent(segment.value, total)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         )}
 

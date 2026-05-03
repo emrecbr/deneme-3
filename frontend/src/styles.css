@@ -8817,8 +8817,8 @@ html[data-surface="admin"] .admin-menu-link.active .nav-icon.admin-menu-link__ic
 
 html[data-surface="admin"] .admin-chart-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(16px, 2vw, 24px);
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 12px;
   margin-top: 1rem;
 }
 
@@ -8833,21 +8833,22 @@ html[data-surface="admin"] .admin-chart-card {
 }
 
 html[data-surface="admin"] .admin-chart-card__body {
-  gap: 1rem;
+  gap: 0.75rem;
+  padding: 12px;
 }
 
 html[data-surface="admin"] .admin-chart-card__header {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem;
   align-items: flex-start;
 }
 
 html[data-surface="admin"] .admin-chart-card__subtitle,
 html[data-surface="admin"] .admin-chart-card__note {
   margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.35;
   color: #6c757d;
 }
 
@@ -8857,7 +8858,7 @@ html[data-surface="admin"] .admin-chart-card__note {
 }
 
 html[data-surface="admin"] .admin-chart-card__state {
-  min-height: 240px;
+  min-height: 180px;
   display: flex;
   align-items: center;
 }
@@ -8865,7 +8866,7 @@ html[data-surface="admin"] .admin-chart-card__state {
 html[data-surface="admin"] .admin-chart-card__content {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 0.5rem;
   align-items: start;
   min-width: 0;
 }
@@ -8875,14 +8876,16 @@ html[data-surface="admin"] .admin-chart-card__slot {
   align-items: center;
   justify-content: center;
   min-width: 0;
+  max-height: 160px;
+  overflow: hidden;
 }
 
 html[data-surface="admin"] .admin-donut-chart {
   position: relative;
-  width: clamp(160px, var(--admin-donut-size, 200px), 220px);
-  height: clamp(160px, var(--admin-donut-size, 200px), 220px);
-  max-width: 220px;
-  max-height: 220px;
+  width: clamp(112px, var(--admin-donut-size, 128px), 144px);
+  height: clamp(112px, var(--admin-donut-size, 128px), 144px);
+  max-width: var(--admin-donut-max, 144px);
+  max-height: var(--admin-donut-max, 144px);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
 }
@@ -8912,14 +8915,14 @@ html[data-surface="admin"] .admin-donut-chart__center {
 }
 
 html[data-surface="admin"] .admin-donut-chart__center strong {
-  font-size: 1.6rem;
+  font-size: 1.15rem;
   line-height: 1;
   color: #212529;
 }
 
 html[data-surface="admin"] .admin-donut-chart__center span {
-  margin-top: 0.35rem;
-  font-size: 0.82rem;
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #6c757d;
@@ -8928,47 +8931,58 @@ html[data-surface="admin"] .admin-donut-chart__center span {
 html[data-surface="admin"] .admin-chart-legend {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 8px 0 0;
   display: grid;
-  gap: 0.75rem;
+  gap: 0.45rem;
   min-width: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__item {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__swatch {
-  width: 0.8rem;
-  height: 0.8rem;
+  width: 0.62rem;
+  height: 0.62rem;
   border-radius: 999px;
-  margin-top: 0.2rem;
+  margin-top: 0.18rem;
   flex-shrink: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__text {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.08rem;
   min-width: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__text strong {
-  font-size: 0.96rem;
+  font-size: 12px;
   color: #212529;
-  line-height: 1.35;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 html[data-surface="admin"] .admin-chart-legend__text span {
-  font-size: 0.88rem;
+  font-size: 12px;
   color: #6c757d;
-  line-height: 1.4;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 @media (min-width: 1400px) {
   html[data-surface="admin"] .admin-chart-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1199.98px) {
+  html[data-surface="admin"] .admin-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
