@@ -146,17 +146,21 @@ export default function AdminLayout() {
           <div className="sidebar">
             <nav className="mt-2 admin-menu nav nav-pills nav-sidebar flex-column" aria-label="Admin menusu">
               {visibleSections.map((section) => (
-                <div key={section.title} className="admin-menu-section nav-item">
+                <div key={section.title} className="admin-menu-section">
                   <div className="admin-menu-title">{section.title}</div>
-                  {section.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      className={({ isActive }) => `nav-link admin-menu-link ${isActive ? 'active' : ''}`}
-                    >
-                      {item.label}
-                    </NavLink>
-                  ))}
+                  <div className="admin-menu-links">
+                    {section.items.map((item) => (
+                      <div key={item.to} className="nav-item">
+                        <NavLink
+                          to={item.to}
+                          className={({ isActive }) => `nav-link admin-menu-link ${isActive ? 'active' : ''}`}
+                        >
+                          <i className="nav-icon far fa-circle admin-menu-link__icon" aria-hidden="true" />
+                          <p className="admin-menu-link__label">{item.label}</p>
+                        </NavLink>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </nav>

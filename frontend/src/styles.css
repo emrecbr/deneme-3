@@ -8775,6 +8775,182 @@ html[data-surface="admin"] .table-toolbar__description {
   color: #6c757d;
 }
 
+html[data-surface="admin"] .admin-menu-section {
+  display: block;
+}
+
+html[data-surface="admin"] .admin-menu-links {
+  display: grid;
+  gap: 0.15rem;
+}
+
+html[data-surface="admin"] .admin-menu-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+html[data-surface="admin"] .admin-menu-link .nav-icon.admin-menu-link__icon {
+  margin: 0.08rem 0 0;
+  width: 1rem;
+  min-width: 1rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+html[data-surface="admin"] .admin-menu-link__label {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+html[data-surface="admin"] .admin-menu-link.active .nav-icon.admin-menu-link__icon {
+  color: #ffffff;
+}
+
+html[data-surface="admin"] .admin-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+html[data-surface="admin"] .admin-chart-card {
+  margin-top: 0;
+}
+
+html[data-surface="admin"] .admin-chart-card__body {
+  gap: 1rem;
+}
+
+html[data-surface="admin"] .admin-chart-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+html[data-surface="admin"] .admin-chart-card__subtitle,
+html[data-surface="admin"] .admin-chart-card__note {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #6c757d;
+}
+
+html[data-surface="admin"] .admin-chart-card__note {
+  padding-top: 0.25rem;
+  border-top: 1px solid #eef1f4;
+}
+
+html[data-surface="admin"] .admin-chart-card__state {
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+}
+
+html[data-surface="admin"] .admin-chart-card__content {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+html[data-surface="admin"] .admin-donut-chart {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto;
+}
+
+html[data-surface="admin"] .admin-donut-chart__svg {
+  width: 160px;
+  height: 160px;
+  transform: rotate(-90deg);
+}
+
+html[data-surface="admin"] .admin-donut-chart__track,
+html[data-surface="admin"] .admin-donut-chart__segment {
+  fill: none;
+  stroke-linecap: round;
+}
+
+html[data-surface="admin"] .admin-donut-chart__track {
+  stroke: #e9ecef;
+}
+
+html[data-surface="admin"] .admin-donut-chart__center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+html[data-surface="admin"] .admin-donut-chart__center strong {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: #212529;
+}
+
+html[data-surface="admin"] .admin-donut-chart__center span {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c757d;
+}
+
+html[data-surface="admin"] .admin-chart-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+html[data-surface="admin"] .admin-chart-legend__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+html[data-surface="admin"] .admin-chart-legend__swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 999px;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+html[data-surface="admin"] .admin-chart-legend__text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+html[data-surface="admin"] .admin-chart-legend__text strong {
+  font-size: 0.96rem;
+  color: #212529;
+}
+
+html[data-surface="admin"] .admin-chart-legend__text span {
+  font-size: 0.88rem;
+  color: #6c757d;
+}
+
+@media (max-width: 991.98px) {
+  html[data-surface="admin"] .admin-chart-card__content {
+    grid-template-columns: 1fr;
+  }
+}
+
 html[data-surface="admin"] .status-badge {
   box-shadow: none;
 }

@@ -2,8 +2,31 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 import { sanitizeAdminErrorMessage } from './adminErrorUtils';
+import AdminDonutChart from './AdminDonutChart';
 
 const SUMMARY_TIMEOUT_MS = 10000;
+const USER_ROLE_PAGE_LIMIT = 1;
+const USER_ROLE_KEYS = ['buyer', 'supplier', 'user', 'moderator', 'admin'];
+const USER_ROLE_LABELS = {
+  buyer: 'Alici',
+  supplier: 'Hizmet Veren',
+  user: 'Genel',
+  moderator: 'Moderator',
+  admin: 'Admin',
+  other: 'Diger'
+};
+
+const CHART_COLORS = {
+  pending: '#f39c12',
+  active: '#007bff',
+  passive: '#6c757d',
+  buyer: '#17a2b8',
+  supplier: '#28a745',
+  user: '#6610f2',
+  moderator: '#fd7e14',
+  admin: '#dc3545',
+  other: '#adb5bd'
+};
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -21,6 +44,12 @@ export default function AdminDashboard() {
   const [lastAttemptAt, setLastAttemptAt] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState('');
+  const [roleChartState, setRoleChartState] = useState({
+    loading: false,
+    error: '',
+    segments: [],
+    total: 0
+  });
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -67,11 +96,100 @@ export default function AdminDashboard() {
     loadSummary();
   }, [loadSummary]);
 
+  const loadRoleDistribution = useCallback(async (userTotalHint) => {
+    setRoleChartState((prev) => ({ ...prev, loading: true, error: '' }));
+
+    try {
+      const responses = await Promise.all(
+        USER_ROLE_KEYS.map((role) =>
+          api.get('/admin/users', {
+            params: { role, page: 1, limit: USER_ROLE_PAGE_LIMIT },
+            timeout: SUMMARY_TIMEOUT_MS
+          })
+        )
+      );
+
+      const roleSegments = responses
+        .map((response, index) => {
+          const role = USER_ROLE_KEYS[index];
+          const count = Number(response?.data?.pagination?.total || 0);
+          return {
+            key: role,
+            label: USER_ROLE_LABELS[role] || role,
+            value: count,
+            color: CHART_COLORS[role] || CHART_COLORS.other
+          };
+        })
+        .filter((segment) => segment.value > 0);
+
+      const countedUsers = roleSegments.reduce((sum, segment) => sum + segment.value, 0);
+      const userTotal = Math.max(Number(userTotalHint || 0), countedUsers);
+      const otherUsers = Math.max(userTotal - countedUsers, 0);
+
+      if (otherUsers > 0) {
+        roleSegments.push({
+          key: 'other',
+          label: USER_ROLE_LABELS.other,
+          value: otherUsers,
+          color: CHART_COLORS.other
+        });
+      }
+
+      setRoleChartState({
+        loading: false,
+        error: '',
+        segments: roleSegments,
+        total: userTotal
+      });
+    } catch (err) {
+      setRoleChartState({
+        loading: false,
+        error: sanitizeAdminErrorMessage(err, 'Kullanici rol dagilimi alinamadi.'),
+        segments: [],
+        total: 0
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !error && Number(summary?.stats?.userTotal || 0) > 0) {
+      loadRoleDistribution(summary?.stats?.userTotal);
+    } else if (!loading && !error) {
+      setRoleChartState({
+        loading: false,
+        error: '',
+        segments: [],
+        total: Number(summary?.stats?.userTotal || 0)
+      });
+    }
+  }, [error, loadRoleDistribution, loading, summary]);
+
   const stats = useMemo(() => summary?.stats || {}, [summary]);
   const recentRfqs = summary?.recentRfqs || [];
   const moderationQueue = summary?.moderationQueue || [];
   const adminActions = summary?.recentAdminActions || [];
   const hasSummary = Boolean(summary);
+  const rfqStatusSegments = useMemo(() => {
+    const pending = Number(stats.rfqPending || 0);
+    const passive = Number(stats.rfqPassive || 0);
+    const openTotal = Number(stats.rfqActive || 0);
+    const active = Math.max(openTotal - pending, 0);
+
+    return [
+      { label: 'Bekleyen', value: pending, color: CHART_COLORS.pending },
+      { label: 'Yayinda', value: active, color: CHART_COLORS.active },
+      { label: 'Pasif', value: passive, color: CHART_COLORS.passive }
+    ].filter((segment) => segment.value > 0);
+  }, [stats.rfqActive, stats.rfqPassive, stats.rfqPending]);
+
+  const premiumChartState = useMemo(
+    () => ({
+      loading: false,
+      error: '',
+      segments: []
+    }),
+    []
+  );
 
   return (
     <div className="admin-dashboard">
@@ -149,6 +267,43 @@ export default function AdminDashboard() {
           <div className="admin-card-label">Sistem Durumu</div>
           <div className="admin-card-value">{loading ? '...' : hasSummary ? 'Stabil' : 'Bekleniyor'}</div>
         </div>
+      </div>
+
+      <div className="admin-chart-grid">
+        <AdminDonutChart
+          title="RFQ durum dagilimi"
+          subtitle="Bekleyen, yayindaki ve pasif talepler ayni snapshot uzerinden hesaplanir."
+          segments={rfqStatusSegments}
+          totalLabel="RFQ"
+          loading={loading}
+          error={error}
+          emptyMessage="Durum dagilimi icin yeterli RFQ verisi bulunamadi."
+          onRetry={loadSummary}
+          note="Not: Bekleyen RFQ sayisi, acik RFQ toplamindan ayrilarak cakismasiz yuzdelere donusturuldu."
+        />
+
+        <AdminDonutChart
+          title="Kullanici rol dagilimi"
+          subtitle="Admin kullanici listesi uzerinden rol bazli toplamlar cekilir."
+          segments={roleChartState.segments}
+          totalLabel="Kullanici"
+          loading={roleChartState.loading}
+          error={roleChartState.error}
+          emptyMessage="Rol dagilimi icin kullanici verisi bulunamadi."
+          onRetry={() => loadRoleDistribution(summary?.stats?.userTotal)}
+          note="Kaynak: /admin/users role filtreleri + toplam kullanici snapshot'i."
+        />
+
+        <AdminDonutChart
+          title="Premium vs normal kullanici orani"
+          subtitle="Bu alan yalniz mevcut admin endpoint'leri premium kullanici ayrimi donerse cizilir."
+          segments={premiumChartState.segments}
+          totalLabel="Kullanici"
+          loading={premiumChartState.loading}
+          error={premiumChartState.error}
+          emptyMessage="Mevcut admin kullanici endpoint'i premium alanini donmedigi icin bu grafik su anda hesaplanamiyor."
+          note="Sahte oran uretmedik. Bu grafik backend premium kullanici sayisini expose ettiginde otomatik baglanacak."
+        />
       </div>
 
       <div className="admin-split-grid">
