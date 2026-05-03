@@ -1,9 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import api, { buildProviderAuthUrl, rememberSocialLoginReturnTarget } from '../api/axios';
+import api, {
+  buildApiUrl,
+  buildProviderAuthUrl,
+  buildPublicRequestConfig,
+  rememberSocialLoginReturnTarget
+} from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+
+const PRECHECK_TIMEOUT_MS = 8000;
+const PRECHECK_RETRY_DELAY_MS = 300;
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const isRetryableRequestError = (error) =>
+  !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
 
 function Login({ embedded = false }) {
   const navigate = useNavigate();
@@ -20,6 +31,7 @@ function Login({ embedded = false }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotLink, setShowForgotLink] = useState(false);
 
@@ -50,42 +62,104 @@ function Login({ embedded = false }) {
       .replace(/\s+/g, '');
   const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+  const requestPrecheck = useCallback(
+    async (rawEmail, { applyState = true } = {}) => {
+      const em = normalizeEmail(rawEmail);
+      if (!isValidEmail(em)) {
+        if (applyState) {
+          setExists(null);
+          setShowSignupPrompt(false);
+        }
+        return { status: 'invalid', exists: null };
+      }
+
+      if (import.meta.env.DEV) {
+        console.info('PRECHECK_REQUEST_URL', buildApiUrl('/auth/precheck'));
+        console.info('PRECHECK_START', { email: em });
+      }
+
+      try {
+        let response = null;
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            response = await api.post(
+              '/auth/precheck',
+              { method: 'email', email: em },
+              buildPublicRequestConfig({
+                timeout: PRECHECK_TIMEOUT_MS
+              })
+            );
+            break;
+          } catch (requestError) {
+            if (attempt === 0 && isRetryableRequestError(requestError)) {
+              await wait(PRECHECK_RETRY_DELAY_MS);
+              continue;
+            }
+            throw requestError;
+          }
+        }
+
+        const found = response?.data?.exists ?? null;
+
+        if (applyState) {
+          setExists(found);
+          if (found === true) {
+            setShowSignupPrompt(false);
+            if (sheetMode === 'register') {
+              setError('Bu hesap zaten var. Giris yap.');
+              setSheetMode('login');
+            }
+          } else if (found === false) {
+            setShowSignupPrompt(false);
+            setPassword('');
+          }
+        }
+
+        if (import.meta.env.DEV) {
+          console.info('PRECHECK_END', { status: 'ok', exists: found });
+        }
+
+        return { status: 'resolved', exists: found };
+      } catch (requestError) {
+        if (applyState) {
+          setExists(null);
+          setShowSignupPrompt(false);
+        }
+
+        if (import.meta.env.DEV) {
+          console.warn('Precheck failed:', {
+            url: buildApiUrl('/auth/precheck'),
+            message: requestError?.message || requestError
+          });
+          console.info('PRECHECK_END', { status: 'fallback' });
+        }
+
+        return { status: 'fallback', exists: null };
+      }
+    },
+    [sheetMode]
+  );
+
   useEffect(() => {
     if (!sheetOpen && !webSurface) {
       return;
     }
     let timer = null;
-    const runPrecheck = async () => {
+    const runPrecheckWithDelay = async () => {
       const em = normalizeEmail(email);
       if (!isValidEmail(em)) {
         setExists(null);
         setShowSignupPrompt(false);
         return;
       }
-      try {
-        const res = await api.post('/auth/precheck', { method: 'email', email: em });
-        const found = res?.data?.exists ?? null;
-        setExists(found);
-        if (found === true) {
-          setShowSignupPrompt(false);
-          if (sheetMode === 'register') {
-            setError('Bu hesap zaten var. Giris yap.');
-            setSheetMode('login');
-          }
-        } else if (found === false) {
-          setShowSignupPrompt(false);
-          setPassword('');
-        }
-      } catch (_err) {
-        setExists(null);
-        setShowSignupPrompt(false);
-      }
+      await requestPrecheck(em, { applyState: true });
     };
-    timer = window.setTimeout(runPrecheck, 400);
+    timer = window.setTimeout(runPrecheckWithDelay, 400);
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [email, sheetOpen, sheetMode, webSurface]);
+  }, [email, requestPrecheck, sheetOpen, webSurface]);
 
   const resetForm = () => {
     setEmail('');
@@ -93,6 +167,7 @@ function Login({ embedded = false }) {
     setShowSignupPrompt(false);
     setPassword('');
     setError('');
+    setNotice('');
     setLoading(false);
     setShowForgotLink(false);
   };
@@ -106,44 +181,75 @@ function Login({ embedded = false }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
-    if (exists === null) {
-      return;
-    }
-    if (exists === false) {
-      if (sheetMode === 'register') {
-        handlePrecheckSignup();
-        return;
-      }
-      setShowSignupPrompt(true);
-      return;
-    }
+    setNotice('');
     setLoading(true);
     try {
       const em = normalizeEmail(email);
+      if (import.meta.env.DEV) {
+        console.info('LOGIN_SUBMIT', {
+          host: typeof window !== 'undefined' ? window.location.hostname : '',
+          email: em
+        });
+      }
       if (!isValidEmail(em)) {
         setError('Gecerli bir e-posta gir');
-        return;
-      }
-      if (exists !== true) {
-        setError('Devam etmek icin kayitli hesap gir.');
         return;
       }
       if (!password.trim()) {
         setError('Sifre zorunlu');
         return;
       }
-      const res = await api.post('/auth/login', { email: em, password });
+
+      let nextExists = exists;
+      if (nextExists === null) {
+        const precheckResult = await requestPrecheck(em, { applyState: true });
+        if (precheckResult.status === 'resolved') {
+          nextExists = precheckResult.exists;
+        } else {
+          setNotice('On kontrol alinamadi, giris denendi.');
+        }
+      }
+
+      if (nextExists === false) {
+        if (sheetMode === 'register') {
+          handlePrecheckSignup();
+          return;
+        }
+        setShowSignupPrompt(true);
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.info('LOGIN_START', { email: em });
+      }
+
+      const res = await api.post(
+        '/auth/login',
+        { email: em, password },
+        buildPublicRequestConfig({
+          timeout: PRECHECK_TIMEOUT_MS
+        })
+      );
       const data = res?.data;
 
       if (data?.token) {
         localStorage.setItem('token', data.token);
         await login(data.token);
+        if (import.meta.env.DEV) {
+          console.info('LOGIN_END', { status: 'ok' });
+        }
         completeAuthRedirect(data?.user?.role);
         return;
       }
 
+      if (import.meta.env.DEV) {
+        console.info('LOGIN_END', { status: 'failed' });
+      }
       setError(data?.message || 'Giris basarisiz');
     } catch (otpError) {
+      if (import.meta.env.DEV) {
+        console.info('LOGIN_END', { status: 'error', message: otpError?.message || otpError });
+      }
       const status = otpError?.response?.status;
       if (!otpError?.response) {
         setError('Baglanti yok');
@@ -241,6 +347,7 @@ function Login({ embedded = false }) {
           </div>
         ) : null}
 
+        {notice ? <div className="auth-alert">{notice}</div> : null}
         {error ? <div className="auth-alert">{error}</div> : null}
         {showForgotLink ? (
           <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
@@ -251,7 +358,7 @@ function Login({ embedded = false }) {
         <button
           type="submit"
           className="primary-btn"
-          disabled={loading || exists === null || (exists === true && !password.trim())}
+          disabled={loading || (exists === true && !password.trim())}
         >
           {loading
             ? 'Isleniyor...'

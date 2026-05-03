@@ -58,7 +58,7 @@ const AdminAdmins = lazy(() => import('./admin/AdminAdmins'));
 const AdminChangePassword = lazy(() => import('./admin/AdminChangePassword'));
 import AdminProtectedRoute from './admin/AdminProtectedRoute';
 import PrivateRoute from './components/PrivateRoute';
-import api, { buildApiUrl } from './api/axios';
+import api, { buildApiUrl, buildPublicRequestConfig } from './api/axios';
 import {
   ADMIN_HOME_PATH,
   APP_HOME_PATH,
@@ -317,8 +317,8 @@ function App() {
     const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
     const loadMaintenance = async () => {
       if (import.meta.env.DEV) {
-        console.info('MAINTENANCE_REQUEST', {
-          url: buildApiUrl('/system/maintenance'),
+        console.info('MAINTENANCE_REQUEST_URL', buildApiUrl('/system/maintenance'));
+        console.info('MAINTENANCE_START', {
           host: typeof window !== 'undefined' ? window.location.hostname : ''
         });
       }
@@ -327,10 +327,12 @@ function App() {
 
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            response = await api.get('/system/maintenance', {
-              timeout: 8000,
-              skipUnauthorizedRedirect: true
-            });
+            response = await api.get(
+              '/system/maintenance',
+              buildPublicRequestConfig({
+                timeout: 8000
+              })
+            );
             break;
           } catch (error) {
             const retryable =
@@ -344,6 +346,9 @@ function App() {
         }
         if (!active) return;
         const data = response.data?.data || {};
+        if (import.meta.env.DEV) {
+          console.info('MAINTENANCE_END', { status: 'ok' });
+        }
         setMaintenance({
           loading: false,
           enabled: Boolean(data.enabled),
@@ -356,6 +361,7 @@ function App() {
             url: buildApiUrl('/system/maintenance'),
             message: error?.message || error
           });
+          console.info('MAINTENANCE_END', { status: 'fallback' });
         }
         setMaintenance({ loading: false, enabled: false, message: '' });
       }

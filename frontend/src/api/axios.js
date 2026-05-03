@@ -364,6 +364,12 @@ export const buildProtectedRequestConfig = (overrides = {}) => ({
   ...overrides
 });
 
+export const buildPublicRequestConfig = (overrides = {}) => ({
+  skipUnauthorizedRedirect: true,
+  skipAuthHeader: true,
+  ...overrides
+});
+
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
 } else if (!ENV_API_BASE) {
@@ -381,9 +387,11 @@ api.interceptors.request.use((config) => {
   const token = readUserAccessToken();
 
   config.headers = config.headers || {};
-  config.headers['Cache-Control'] = 'no-cache';
+  if (config.useNoCacheHeader) {
+    config.headers['Cache-Control'] = 'no-cache';
+  }
 
-  if (token) {
+  if (token && !config.skipAuthHeader) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
