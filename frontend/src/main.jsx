@@ -25,16 +25,45 @@ const ensureThemeStylesheet = (href) => {
   return link;
 };
 
+const removeThemeStylesheet = (href) => {
+  const existing = document.head.querySelector(`link[data-surface-theme="${href}"]`);
+  if (existing) {
+    existing.remove();
+  }
+};
+
+const ADMIN_THEME_STYLES = [
+  "/themes/admin/plugins/fontawesome-free/css/all.min.css",
+  "/themes/admin/dist/css/adminlte.min.css"
+];
+
+const WEBSITE_THEME_STYLES = [
+  "/themes/website/electro-master/css/bootstrap.min.css",
+  "/themes/website/electro-master/css/slick.css",
+  "/themes/website/electro-master/css/slick-theme.css",
+  "/themes/website/electro-master/css/nouislider.min.css",
+  "/themes/website/electro-master/css/font-awesome.min.css",
+  "/themes/website/electro-master/css/style.css"
+];
+
 const applySurfaceTheme = () => {
   document.documentElement.dataset.surface = surfaceLabel;
 
   if (hostSurface === SURFACE_LABELS.admin) {
     document.body.classList.add("hold-transition", "sidebar-mini", "layout-fixed");
-    ensureThemeStylesheet("/themes/admin/plugins/fontawesome-free/css/all.min.css");
-    ensureThemeStylesheet("/themes/admin/dist/css/adminlte.min.css");
+    WEBSITE_THEME_STYLES.forEach(removeThemeStylesheet);
+    ADMIN_THEME_STYLES.forEach(ensureThemeStylesheet);
     return;
   }
 
+  ADMIN_THEME_STYLES.forEach(removeThemeStylesheet);
+
+  if (hostSurface === SURFACE_LABELS.web) {
+    WEBSITE_THEME_STYLES.forEach(ensureThemeStylesheet);
+    return;
+  }
+
+  WEBSITE_THEME_STYLES.forEach(removeThemeStylesheet);
   document.body.classList.remove("hold-transition", "sidebar-mini", "layout-fixed");
 };
 
