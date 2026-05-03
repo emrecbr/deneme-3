@@ -1,9 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import api, { setUnauthorizedHandler } from '../api/axios';
+import api, { buildApiUrl, setUnauthorizedHandler } from '../api/axios';
 import { buildCurrentSurfaceHref } from '../config/surfaces';
 import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
 const AuthContext = createContext(null);
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 8000;
+const AUTH_BOOTSTRAP_RETRY_DELAY_MS = 300;
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const isRetryableBootstrapError = (error) =>
+  !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -54,20 +60,44 @@ export function AuthProvider({ children }) {
     setLoading(true);
     setNetworkError('');
     const storedToken = localStorage.getItem('token');
+
     if (!storedToken) {
       delete api.defaults.headers.common.Authorization;
       setUser(null);
       setLoading(false);
       return null;
     }
+
     api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
 
-    try {
-      const response = await api.get('/auth/me', {
-        headers: {
-          Authorization: `Bearer ${storedToken}`
-        }
+    if (import.meta.env.DEV) {
+      console.info('AUTH_ME_REQUEST', {
+        url: buildApiUrl('/auth/me'),
+        host: typeof window !== 'undefined' ? window.location.hostname : ''
       });
+    }
+
+    try {
+      let response = null;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          response = await api.get('/auth/me', {
+            headers: {
+              Authorization: `Bearer ${storedToken}`
+            },
+            timeout: AUTH_BOOTSTRAP_TIMEOUT_MS
+          });
+          break;
+        } catch (error) {
+          if (attempt === 0 && isRetryableBootstrapError(error)) {
+            await wait(AUTH_BOOTSTRAP_RETRY_DELAY_MS);
+            continue;
+          }
+          throw error;
+        }
+      }
+
       const payload = response.data?.data || response.data || {};
       const userData = payload?.user || response.data?.user || payload;
 
@@ -78,16 +108,21 @@ export function AuthProvider({ children }) {
       localStorage.setItem('userName', userData.name || 'Kullanici');
       setUser(userData);
       return userData;
-    } catch (_error) {
-      if (_error?.response?.status === 401 || _error?.response?.status === 403) {
+    } catch (error) {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
         clearSession();
-      } else if (!_error?.response) {
-        setNetworkError('Sunucuya baglanilamadi. Lutfen backend’i baslatin.');
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('Auth network error:', _error?.message || _error);
+      } else if (!error?.response) {
+        setUser(null);
+        delete api.defaults.headers.common.Authorization;
+        setNetworkError('Sunucuya su an ulasilamiyor. Website guest modda acildi.');
+        if (import.meta.env.DEV) {
+          console.warn('Auth network error:', {
+            url: buildApiUrl('/auth/me'),
+            message: error?.message || error
+          });
         }
-      } else if (process.env.NODE_ENV !== 'production') {
-        console.warn('Auth check failed:', _error?.message || _error);
+      } else if (import.meta.env.DEV) {
+        console.warn('Auth check failed:', error?.message || error);
       }
       return null;
     } finally {
@@ -135,7 +170,7 @@ export function AuthProvider({ children }) {
       return response.data;
     } catch (error) {
       const data = error?.response?.data;
-      const err = new Error(data?.message || 'SMS gönderilemedi');
+      const err = new Error(data?.message || 'SMS gonderilemedi');
       err.code = data?.code;
       throw err;
     }

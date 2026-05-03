@@ -1,5 +1,12 @@
 import axios from 'axios';
-import { buildSurfaceHref, getBrowserOrigin, getBrowserHostname, getSurfaceBaseUrl, resolveSurfaceLabelFromHostname, SURFACE_LABELS } from '../config/surfaces';
+import {
+  buildSurfaceHref,
+  getBrowserOrigin,
+  getBrowserHostname,
+  getSurfaceBaseUrl,
+  resolveSurfaceLabelFromHostname,
+  SURFACE_LABELS
+} from '../config/surfaces';
 
 let unauthorizedHandler = null;
 
@@ -9,14 +16,45 @@ export const setUnauthorizedHandler = (handler) => {
 
 const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 const DEV_FALLBACK = 'http://localhost:3001/api';
-const PROD_FALLBACK = '/api';
+const PROD_FALLBACK = 'https://api.talepet.net.tr/api';
 const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
 const isAbsoluteHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
 const hasProxyPlaceholder = (value) => String(value || '').includes(':splat');
-export const API_BASE_URL =
-  ENV_API_BASE ||
-  getSurfaceBaseUrl('api') ||
-  (import.meta.env.DEV ? DEV_FALLBACK : PROD_FALLBACK);
+const normalizeApiBase = (value) => String(value || '').trim().replace(/\/$/, '');
+const isUsableApiBase = (value) => {
+  const normalized = normalizeApiBase(value);
+  return Boolean(normalized) && !hasProxyPlaceholder(normalized) && isAbsoluteHttpUrl(normalized);
+};
+
+const resolveApiBaseUrl = () => {
+  const hostSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
+  const candidateList = [ENV_API_BASE, getSurfaceBaseUrl('api')]
+    .map(normalizeApiBase)
+    .filter((value) => isUsableApiBase(value) && (import.meta.env.DEV || !isLocalhost(value)));
+
+  if (import.meta.env.DEV) {
+    return candidateList[0] || DEV_FALLBACK;
+  }
+
+  if (
+    hostSurface === SURFACE_LABELS.web ||
+    hostSurface === SURFACE_LABELS.app ||
+    hostSurface === SURFACE_LABELS.admin
+  ) {
+    return candidateList[0] || PROD_FALLBACK;
+  }
+
+  return candidateList[0] || PROD_FALLBACK;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
+export const buildApiUrl = (path = '') => {
+  const normalizedPath = String(path || '').trim();
+  if (!normalizedPath) {
+    return API_BASE_URL;
+  }
+  return normalizedPath.startsWith('/') ? `${API_BASE_URL}${normalizedPath}` : `${API_BASE_URL}/${normalizedPath}`;
+};
 
 const buildAbsoluteProviderUrl = (baseUrl, provider) => {
   const normalizedBase = String(baseUrl || '').trim().replace(/\/$/, '');
@@ -235,13 +273,14 @@ export const buildProtectedRequestConfig = (overrides = {}) => ({
 if (import.meta.env.DEV) {
   console.log('VITE_API_URL', import.meta.env.VITE_API_URL);
 } else if (!ENV_API_BASE) {
-  console.warn('VITE_API_URL missing in prod build; falling back to same-origin /api.');
+  console.warn(`VITE_API_URL missing in prod build; falling back to ${API_BASE_URL}.`);
 } else if (isLocalhost(ENV_API_BASE)) {
   console.warn('VITE_API_URL is localhost in prod build; this will likely fail.');
 }
 
 const api = axios.create({
-  baseURL: API_BASE_URL
+  baseURL: API_BASE_URL,
+  timeout: 10000
 });
 
 api.interceptors.request.use((config) => {

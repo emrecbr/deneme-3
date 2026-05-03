@@ -2,7 +2,8 @@ import axios from 'axios';
 import { API_BASE_URL } from './axios';
 
 const adminApi = axios.create({
-  baseURL: API_BASE_URL
+  baseURL: API_BASE_URL,
+  timeout: 10000
 });
 
 adminApi.interceptors.request.use((config) => {

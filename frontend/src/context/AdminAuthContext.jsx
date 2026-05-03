@@ -1,12 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import adminApi from '../api/adminApi';
 import { clearAdminSurfaceStorage, hasAdminAccess } from '../admin/adminAuthStorage';
+import { resolveSurfaceLabelFromHostname, SURFACE_LABELS } from '../config/surfaces';
 
 const AdminAuthContext = createContext(null);
+const isAdminSurface =
+  typeof window !== 'undefined' &&
+  resolveSurfaceLabelFromHostname(window.location.hostname) === SURFACE_LABELS.admin;
 
 export function AdminAuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isAdminSurface);
   const [error, setError] = useState('');
 
   const clearSession = useCallback(() => {
@@ -16,6 +20,13 @@ export function AdminAuthProvider({ children }) {
   }, []);
 
   const checkAdminAuth = useCallback(async () => {
+    if (!isAdminSurface) {
+      setAdmin(null);
+      setError('');
+      setLoading(false);
+      return null;
+    }
+
     setLoading(true);
     setError('');
     const token = localStorage.getItem('admin_token');

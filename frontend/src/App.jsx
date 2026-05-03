@@ -58,7 +58,7 @@ const AdminAdmins = lazy(() => import('./admin/AdminAdmins'));
 const AdminChangePassword = lazy(() => import('./admin/AdminChangePassword'));
 import AdminProtectedRoute from './admin/AdminProtectedRoute';
 import PrivateRoute from './components/PrivateRoute';
-import api from './api/axios';
+import api, { buildApiUrl } from './api/axios';
 import {
   ADMIN_HOME_PATH,
   APP_HOME_PATH,
@@ -287,14 +287,6 @@ function App() {
   }, [user]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      return;
-    }
-    checkAuth();
-  }, [checkAuth]);
-
-  useEffect(() => {
     const openOnboarding = () => {
       if (user) {
         setShowOnboarding(true);
@@ -322,9 +314,33 @@ function App() {
 
   useEffect(() => {
     let active = true;
+    const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
     const loadMaintenance = async () => {
+      if (import.meta.env.DEV) {
+        console.info('MAINTENANCE_REQUEST', {
+          url: buildApiUrl('/system/maintenance'),
+          host: typeof window !== 'undefined' ? window.location.hostname : ''
+        });
+      }
       try {
-        const response = await api.get('/system/maintenance');
+        let response = null;
+
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            response = await api.get('/system/maintenance', {
+              timeout: 8000
+            });
+            break;
+          } catch (error) {
+            const retryable =
+              !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
+            if (attempt === 0 && retryable) {
+              await wait(300);
+              continue;
+            }
+            throw error;
+          }
+        }
         if (!active) return;
         const data = response.data?.data || {};
         setMaintenance({
@@ -332,9 +348,15 @@ function App() {
           enabled: Boolean(data.enabled),
           message: data.message || 'Sistem bakımda.'
         });
-      } catch (_error) {
+      } catch (error) {
         if (!active) return;
-        setMaintenance((prev) => ({ ...prev, loading: false }));
+        if (import.meta.env.DEV) {
+          console.warn('Maintenance check failed:', {
+            url: buildApiUrl('/system/maintenance'),
+            message: error?.message || error
+          });
+        }
+        setMaintenance({ loading: false, enabled: false, message: '' });
       }
     };
     loadMaintenance();
@@ -343,7 +365,9 @@ function App() {
     };
   }, []);
 
-  if (loading || adminLoading) {
+  const blockBootstrapRender = adminHost ? loading || adminLoading : appHost ? loading : false;
+
+  if (blockBootstrapRender) {
     return <div className="card">Yükleniyor...</div>;
   }
 
