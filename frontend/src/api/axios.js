@@ -17,6 +17,8 @@ export const setUnauthorizedHandler = (handler) => {
 const ENV_API_BASE = (import.meta.env.VITE_API_URL || '').trim().replace(/\/$/, '');
 const DEV_FALLBACK = 'http://localhost:3001/api';
 const PROD_FALLBACK = 'https://api.talepet.net.tr/api';
+const OAUTH_WAKE_TIMEOUT_MS = 6000;
+const OAUTH_WAKE_RETRY_DELAYS_MS = [0, 3000, 5000];
 const isLocalhost = (value) => /^https?:\/\/localhost(?::\d+)?\/api$/.test(String(value || '').trim());
 const isAbsoluteHttpUrl = (value) => /^https?:\/\//i.test(String(value || '').trim());
 const hasProxyPlaceholder = (value) => String(value || '').includes(':splat');
@@ -278,6 +280,111 @@ export const clearSocialLoginReturnTarget = () => {
     return;
   }
   window.sessionStorage.removeItem('talepet_social_return');
+};
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const getHeaderValue = (headers, key) => {
+  if (!headers || !key) {
+    return '';
+  }
+
+  if (typeof headers.get === 'function') {
+    return headers.get(key) || '';
+  }
+
+  const normalizedKey = String(key).toLowerCase();
+  return headers[normalizedKey] || headers[key] || '';
+};
+
+const resolveRetryDelayMs = (headers, fallbackMs) => {
+  const retryAfterValue = Number.parseInt(getHeaderValue(headers, 'retry-after'), 10);
+  if (Number.isFinite(retryAfterValue) && retryAfterValue > 0) {
+    return clamp(retryAfterValue * 1000, 2000, 6000);
+  }
+  return fallbackMs;
+};
+
+const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+export const warmApiForInteractiveAuth = async ({ provider = 'google', onStatus } = {}) => {
+  const normalizedProvider = String(provider || 'google').trim().toLowerCase();
+  const targetUrl = buildApiUrl('/health');
+
+  for (let attempt = 0; attempt < OAUTH_WAKE_RETRY_DELAYS_MS.length; attempt += 1) {
+    if (attempt > 0) {
+      onStatus?.('Sunucu uyaniyor, tekrar deneniyor...', { phase: 'retry', attempt: attempt + 1 });
+      await wait(OAUTH_WAKE_RETRY_DELAYS_MS[attempt]);
+    } else {
+      onStatus?.('Sunucu kontrol ediliyor...', { phase: 'start', attempt: 1 });
+    }
+
+    try {
+      const response = await api.get(
+        '/health',
+        buildPublicRequestConfig({
+          timeout: OAUTH_WAKE_TIMEOUT_MS
+        })
+      );
+
+      if (import.meta.env.DEV) {
+        console.info('OAUTH_WAKE_OK', {
+          provider: normalizedProvider,
+          url: targetUrl,
+          attempt: attempt + 1,
+          status: response.status
+        });
+      }
+
+      return { ok: true };
+    } catch (error) {
+      const status = error?.response?.status || 0;
+      const headers = error?.response?.headers;
+      const renderRouting = getHeaderValue(headers, 'x-render-routing');
+      const retryDelayMs = resolveRetryDelayMs(headers, OAUTH_WAKE_RETRY_DELAYS_MS[attempt] || 3000);
+
+      if (import.meta.env.DEV) {
+        console.warn('OAUTH_WAKE_FAIL', {
+          provider: normalizedProvider,
+          url: targetUrl,
+          attempt: attempt + 1,
+          status,
+          renderRouting,
+          retryAfter: getHeaderValue(headers, 'retry-after'),
+          message: error?.message || error
+        });
+      }
+
+      if (status === 503 && renderRouting === 'hibernate-pending-wake' && attempt < OAUTH_WAKE_RETRY_DELAYS_MS.length - 1) {
+        onStatus?.('Sunucu uyaniyor, tekrar deneniyor...', {
+          phase: 'hibernate',
+          attempt: attempt + 1,
+          retryDelayMs
+        });
+        await wait(retryDelayMs);
+        continue;
+      }
+
+      if ((!error?.response || error?.code === 'ECONNABORTED') && attempt < OAUTH_WAKE_RETRY_DELAYS_MS.length - 1) {
+        onStatus?.('Baglanti kuruluyor, tekrar deneniyor...', {
+          phase: 'network_retry',
+          attempt: attempt + 1,
+          retryDelayMs
+        });
+        await wait(retryDelayMs);
+        continue;
+      }
+
+      return {
+        ok: false,
+        status,
+        renderRouting,
+        retryAfter: getHeaderValue(headers, 'retry-after'),
+        error
+      };
+    }
+  }
+
+  return { ok: false, status: 0, renderRouting: '', retryAfter: '', error: null };
 };
 
 export const buildProviderAuthUrl = (provider) => {

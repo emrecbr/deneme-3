@@ -4,6 +4,7 @@ import api, {
   buildApiUrl,
   buildProviderAuthUrl,
   buildPublicRequestConfig,
+  warmApiForInteractiveAuth,
   rememberSocialLoginReturnTarget
 } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
@@ -33,6 +34,7 @@ function Login({ embedded = false }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [providerLoading, setProviderLoading] = useState('');
   const [showForgotLink, setShowForgotLink] = useState(false);
 
   const completeAuthRedirect = (role = 'user') => {
@@ -169,6 +171,7 @@ function Login({ embedded = false }) {
     setError('');
     setNotice('');
     setLoading(false);
+    setProviderLoading('');
     setShowForgotLink(false);
   };
 
@@ -273,8 +276,25 @@ function Login({ embedded = false }) {
     navigate(`/register?email=${encodeURIComponent(em)}`);
   };
 
-  const handleProviderLogin = (provider) => {
+  const handleProviderLogin = async (provider) => {
+    const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
+    setError('');
+    setNotice('');
+    setProviderLoading(provider);
     rememberSocialLoginReturnTarget();
+
+    const wakeResult = await warmApiForInteractiveAuth({
+      provider,
+      onStatus: (message) => setNotice(message)
+    });
+
+    if (!wakeResult.ok) {
+      setProviderLoading('');
+      setNotice('');
+      setError(`${providerLabel} ile giris su an kullanilamiyor. 10 sn sonra tekrar deneyin.`);
+      return;
+    }
+
     window.location.href = buildProviderAuthUrl(provider);
   };
 
@@ -415,7 +435,7 @@ function Login({ embedded = false }) {
         <div className="auth-social">
           <div className="muted small">Hizli devam et</div>
           <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-            Google ile devam et
+            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
           </button>
           <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
             <span className="social-icon" aria-hidden="true">
@@ -430,7 +450,9 @@ function Login({ embedded = false }) {
                 <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
               </svg>
             </span>
-            <span className="social-text">Apple ile devam et</span>
+            <span className="social-text">
+              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+            </span>
           </button>
         </div>
 
@@ -485,7 +507,7 @@ function Login({ embedded = false }) {
             <div className="auth-social">
               <div className="muted small">Hizli devam et</div>
               <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-                Google ile devam et
+                {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
               </button>
               <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
                 <span className="social-icon" aria-hidden="true">
@@ -500,7 +522,9 @@ function Login({ embedded = false }) {
                     <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
                   </svg>
                 </span>
-                <span className="social-text">Apple ile devam et</span>
+                <span className="social-text">
+                  {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+                </span>
               </button>
             </div>
 
@@ -546,7 +570,7 @@ function Login({ embedded = false }) {
         <div className="auth-social">
           <div className="muted small">Hizli devam et</div>
           <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-            Google ile devam et
+            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
           </button>
           <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
             <span className="social-icon" aria-hidden="true">
@@ -561,7 +585,9 @@ function Login({ embedded = false }) {
                 <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
               </svg>
             </span>
-            <span className="social-text">Apple ile devam et</span>
+            <span className="social-text">
+              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+            </span>
           </button>
         </div>
 
