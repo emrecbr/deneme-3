@@ -8,6 +8,7 @@ const adminApi = axios.create({
 });
 
 adminApi.interceptors.request.use((config) => {
+  // Keep admin JWT attachment isolated to the admin surface helper.
   const token = readAdminToken();
   config.headers = config.headers || {};
   if (token) {
