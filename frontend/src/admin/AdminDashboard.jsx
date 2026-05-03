@@ -2,30 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 import { sanitizeAdminErrorMessage } from './adminErrorUtils';
-import AdminDonutChart from './AdminDonutChart';
 
 const SUMMARY_TIMEOUT_MS = 10000;
 const USER_ROLE_PAGE_LIMIT = 1;
 const USER_ROLE_KEYS = ['buyer', 'supplier', 'user', 'moderator', 'admin'];
 const USER_ROLE_LABELS = {
-  buyer: 'Alici',
-  supplier: 'Hizmet Veren',
-  user: 'Genel',
-  moderator: 'Moderator',
+  buyer: 'buyer',
+  supplier: 'seller',
+  user: 'genel',
+  moderator: 'moderator',
   admin: 'Admin',
   other: 'Diger'
-};
-
-const CHART_COLORS = {
-  pending: '#f39c12',
-  active: '#007bff',
-  passive: '#6c757d',
-  buyer: '#17a2b8',
-  supplier: '#28a745',
-  user: '#6610f2',
-  moderator: '#fd7e14',
-  admin: '#dc3545',
-  other: '#adb5bd'
 };
 
 const formatDate = (value) => {
@@ -33,6 +20,13 @@ const formatDate = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('tr-TR');
+};
+
+const formatPercent = (value, total) => {
+  const safeTotal = Number(total || 0);
+  const safeValue = Number(value || 0);
+  if (!Number.isFinite(safeTotal) || safeTotal <= 0) return '%0';
+  return `%${Math.round((safeValue / safeTotal) * 100)}`;
 };
 
 const resolveSummaryUrl = () => `${String(API_BASE_URL || '').replace(/\/$/, '')}/admin/dashboard/summary`;
@@ -169,27 +163,29 @@ export default function AdminDashboard() {
   const moderationQueue = summary?.moderationQueue || [];
   const adminActions = summary?.recentAdminActions || [];
   const hasSummary = Boolean(summary);
-  const rfqStatusSegments = useMemo(() => {
+  const rfqStatusRows = useMemo(() => {
     const pending = Number(stats.rfqPending || 0);
     const passive = Number(stats.rfqPassive || 0);
     const openTotal = Number(stats.rfqActive || 0);
     const active = Math.max(openTotal - pending, 0);
+    const total = pending + active + passive;
 
     return [
-      { label: 'Bekleyen', value: pending, color: CHART_COLORS.pending },
-      { label: 'Yayinda', value: active, color: CHART_COLORS.active },
-      { label: 'Pasif', value: passive, color: CHART_COLORS.passive }
-    ].filter((segment) => segment.value > 0);
+      { key: 'pending', label: 'Bekleyen', value: pending, percent: formatPercent(pending, total) },
+      { key: 'active', label: 'Yayinda', value: active, percent: formatPercent(active, total) },
+      { key: 'passive', label: 'Pasif', value: passive, percent: formatPercent(passive, total) }
+    ];
   }, [stats.rfqActive, stats.rfqPassive, stats.rfqPending]);
+  const roleSummaryRows = useMemo(() => {
+    const total = Number(roleChartState.total || 0);
+    const findValue = (key) => Number(roleChartState.segments.find((segment) => segment.key === key)?.value || 0);
 
-  const premiumChartState = useMemo(
-    () => ({
-      loading: false,
-      error: '',
-      segments: []
-    }),
-    []
-  );
+    return [
+      { key: 'buyer', label: 'buyer', value: findValue('buyer'), percent: formatPercent(findValue('buyer'), total) },
+      { key: 'supplier', label: 'seller', value: findValue('supplier'), percent: formatPercent(findValue('supplier'), total) },
+      { key: 'admin', label: 'admin', value: findValue('admin'), percent: formatPercent(findValue('admin'), total) }
+    ];
+  }, [roleChartState.segments, roleChartState.total]);
 
   return (
     <div className="admin-dashboard">
@@ -269,47 +265,70 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="admin-dashboard__charts admin-chart-grid">
-        <AdminDonutChart
-          title="RFQ durum dagilimi"
-          subtitle="Bekleyen, yayindaki ve pasif talep orani."
-          segments={rfqStatusSegments}
-          totalLabel="RFQ"
-          size={80}
-          showLegend={false}
-          loading={loading}
-          error={error}
-          emptyMessage="Durum dagilimi icin yeterli RFQ verisi bulunamadi."
-          onRetry={loadSummary}
-          note="Bekleyen sayi acik RFQ toplamindan ayrilarak cakismasiz hesaplandi."
-        />
+      <div className="admin-split-grid">
+        <div className="admin-panel">
+          <div className="admin-panel-title">Ozet Dagilim - RFQ durumlari</div>
+          <div className="admin-panel-body">
+            {loading ? (
+              <div className="admin-empty">Yukleniyor...</div>
+            ) : (
+              <ul className="admin-list">
+                {rfqStatusRows.map((item) => (
+                  <li key={item.key}>
+                    <div>
+                      <strong>{item.label}</strong>
+                      <span className="admin-muted">
+                        {item.value} · {item.percent}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="admin-muted">Bekleyen sayi, acik RFQ toplamindan ayrilarak cakismasiz hesaplanir.</div>
+          </div>
+        </div>
 
-        <AdminDonutChart
-          title="Kullanici rol dagilimi"
-          subtitle="Rol bazli kullanici dagilimi."
-          segments={roleChartState.segments}
-          totalLabel="Kullanici"
-          size={80}
-          showLegend={false}
-          loading={roleChartState.loading}
-          error={roleChartState.error}
-          emptyMessage="Rol dagilimi icin kullanici verisi bulunamadi."
-          onRetry={() => loadRoleDistribution(summary?.stats?.userTotal)}
-          note="Kaynak: /admin/users rol filtreleri ve toplam kullanici snapshot'i."
-        />
+        <div className="admin-panel">
+          <div className="admin-panel-title">Ozet Dagilim - Kullanici rolleri</div>
+          <div className="admin-panel-body">
+            {roleChartState.loading ? (
+              <div className="admin-empty">Yukleniyor...</div>
+            ) : roleChartState.error ? (
+              <div className="admin-warning">
+                <div>{roleChartState.error}</div>
+                <div className="admin-action-row" style={{ marginTop: 12 }}>
+                  <button type="button" className="admin-btn" onClick={() => loadRoleDistribution(summary?.stats?.userTotal)}>
+                    Tekrar dene
+                  </button>
+                </div>
+              </div>
+            ) : roleChartState.total <= 0 ? (
+              <div className="admin-empty">Rol dagilimi icin kullanici verisi bulunamadi.</div>
+            ) : (
+              <ul className="admin-list">
+                {roleSummaryRows.map((item) => (
+                  <li key={item.key}>
+                    <div>
+                      <strong>{item.label}</strong>
+                      <span className="admin-muted">
+                        {item.value} · {item.percent}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="admin-muted">Kaynak: /admin/users rol filtreleri ve toplam kullanici snapshot'i.</div>
+          </div>
+        </div>
 
-        <AdminDonutChart
-          title="Premium vs normal kullanici orani"
-          subtitle="Premium kullanici ayrimi hazir oldugunda burada gorunur."
-          segments={premiumChartState.segments}
-          totalLabel="Kullanici"
-          size={80}
-          showLegend={false}
-          loading={premiumChartState.loading}
-          error={premiumChartState.error}
-          emptyMessage="Mevcut admin kullanici endpoint'i premium alanini donmedigi icin bu grafik su anda hesaplanamiyor."
-          note="Sahte oran uretmedik; backend premium toplamlarini expose ettiginde aktif olacak."
-        />
+        <div className="admin-panel">
+          <div className="admin-panel-title">Ozet Dagilim - Premium</div>
+          <div className="admin-panel-body">
+            <div className="admin-muted">Premium verisi mevcut degil.</div>
+          </div>
+        </div>
       </div>
 
       <div className="admin-split-grid">
