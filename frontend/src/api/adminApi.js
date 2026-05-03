@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from './axios';
+import { readAdminToken } from '../admin/adminAuthStorage';
 
 const adminApi = axios.create({
   baseURL: API_BASE_URL,
@@ -7,7 +8,7 @@ const adminApi = axios.create({
 });
 
 adminApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem('admin_token');
+  const token = readAdminToken();
   config.headers = config.headers || {};
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

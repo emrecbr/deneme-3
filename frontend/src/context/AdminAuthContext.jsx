@@ -1,6 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import adminApi from '../api/adminApi';
-import { clearAdminSurfaceStorage, hasAdminAccess } from '../admin/adminAuthStorage';
+import {
+  clearAdminSurfaceStorage,
+  hasAdminAccess,
+  readAdminToken,
+  writeAdminToken
+} from '../admin/adminAuthStorage';
 import { resolveSurfaceLabelFromHostname, SURFACE_LABELS } from '../config/surfaces';
 
 const AdminAuthContext = createContext(null);
@@ -29,7 +34,7 @@ export function AdminAuthProvider({ children }) {
 
     setLoading(true);
     setError('');
-    const token = localStorage.getItem('admin_token');
+    const token = readAdminToken();
 
     if (!token) {
       setAdmin(null);
@@ -70,7 +75,7 @@ export function AdminAuthProvider({ children }) {
         throw new Error('Token bulunamadi.');
       }
 
-      localStorage.setItem('admin_token', token);
+      writeAdminToken(token);
 
       try {
         const adminResponse = await adminApi.get('/admin/auth/me');

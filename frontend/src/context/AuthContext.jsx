@@ -1,5 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import api, { buildApiUrl, setUnauthorizedHandler } from '../api/axios';
+import api, {
+  buildApiUrl,
+  buildProtectedRequestConfig,
+  readUserAccessToken,
+  sanitizeNonAdminSurfaceAuthState,
+  setUnauthorizedHandler
+} from '../api/axios';
 import { buildCurrentSurfaceHref } from '../config/surfaces';
 import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
@@ -59,7 +65,8 @@ export function AuthProvider({ children }) {
   const checkAuth = useCallback(async () => {
     setLoading(true);
     setNetworkError('');
-    const storedToken = localStorage.getItem('token');
+    sanitizeNonAdminSurfaceAuthState();
+    const storedToken = readUserAccessToken();
 
     if (!storedToken) {
       delete api.defaults.headers.common.Authorization;
@@ -83,10 +90,12 @@ export function AuthProvider({ children }) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           response = await api.get('/auth/me', {
+            ...buildProtectedRequestConfig({
+              timeout: AUTH_BOOTSTRAP_TIMEOUT_MS
+            }),
             headers: {
               Authorization: `Bearer ${storedToken}`
-            },
-            timeout: AUTH_BOOTSTRAP_TIMEOUT_MS
+            }
           });
           break;
         } catch (error) {
@@ -206,6 +215,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    sanitizeNonAdminSurfaceAuthState();
     setUnauthorizedHandler(() => {
       logout({ redirect: true });
     });

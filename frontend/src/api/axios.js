@@ -25,6 +25,64 @@ const isUsableApiBase = (value) => {
   const normalized = normalizeApiBase(value);
   return Boolean(normalized) && !hasProxyPlaceholder(normalized) && isAbsoluteHttpUrl(normalized);
 };
+const safeReadStorage = (storage, key) => {
+  if (!storage) {
+    return '';
+  }
+
+  try {
+    return storage.getItem(key) || '';
+  } catch (_error) {
+    return '';
+  }
+};
+
+const safeRemoveStorageKey = (storage, key) => {
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.removeItem(key);
+  } catch (_error) {
+    // Ignore storage issues on restricted browsers.
+  }
+};
+
+const decodeJwtPayload = (token) => {
+  const normalizedToken = String(token || '').trim();
+  const parts = normalizedToken.split('.');
+
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const decoded = typeof atob === 'function' ? atob(padded) : '';
+    return decoded ? JSON.parse(decoded) : null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const isAdminScopedToken = (token) => {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  if (payload.isAdmin === true) {
+    return true;
+  }
+
+  if (Array.isArray(payload.roles) && payload.roles.includes('admin')) {
+    return true;
+  }
+
+  return payload.role === 'admin' || payload.role === 'moderator';
+};
 
 const resolveApiBaseUrl = () => {
   const hostSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
@@ -48,6 +106,42 @@ const resolveApiBaseUrl = () => {
 };
 
 export const API_BASE_URL = resolveApiBaseUrl();
+export const sanitizeNonAdminSurfaceAuthState = () => {
+  const hostSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
+
+  if (hostSurface === SURFACE_LABELS.admin || typeof window === 'undefined') {
+    return;
+  }
+
+  const localStorageRef = window.localStorage;
+  const sessionStorageRef = window.sessionStorage;
+  const adminToken = safeReadStorage(localStorageRef, 'admin_token');
+  const userToken = safeReadStorage(localStorageRef, 'token');
+
+  safeRemoveStorageKey(localStorageRef, 'admin_token');
+  safeRemoveStorageKey(sessionStorageRef, 'admin_token');
+
+  if (userToken && (userToken === adminToken || isAdminScopedToken(userToken))) {
+    safeRemoveStorageKey(localStorageRef, 'token');
+    safeRemoveStorageKey(localStorageRef, 'authToken');
+    safeRemoveStorageKey(localStorageRef, 'accessToken');
+    safeRemoveStorageKey(localStorageRef, 'userName');
+    safeRemoveStorageKey(sessionStorageRef, 'token');
+    safeRemoveStorageKey(sessionStorageRef, 'authToken');
+    safeRemoveStorageKey(sessionStorageRef, 'accessToken');
+  }
+};
+
+export const readUserAccessToken = () => {
+  sanitizeNonAdminSurfaceAuthState();
+
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return safeReadStorage(window.localStorage, 'token');
+};
+
 export const buildApiUrl = (path = '') => {
   const normalizedPath = String(path || '').trim();
   if (!normalizedPath) {
@@ -284,7 +378,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = readUserAccessToken();
 
   config.headers = config.headers || {};
   config.headers['Cache-Control'] = 'no-cache';

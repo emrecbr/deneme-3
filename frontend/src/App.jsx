@@ -328,7 +328,8 @@ function App() {
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
             response = await api.get('/system/maintenance', {
-              timeout: 8000
+              timeout: 8000,
+              skipUnauthorizedRedirect: true
             });
             break;
           } catch (error) {
