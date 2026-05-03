@@ -269,12 +269,13 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="admin-chart-grid">
+      <div className="admin-dashboard__charts admin-chart-grid">
         <AdminDonutChart
           title="RFQ durum dagilimi"
           subtitle="Bekleyen, yayindaki ve pasif talepler ayni snapshot uzerinden hesaplanir."
           segments={rfqStatusSegments}
           totalLabel="RFQ"
+          size={200}
           loading={loading}
           error={error}
           emptyMessage="Durum dagilimi icin yeterli RFQ verisi bulunamadi."
@@ -287,6 +288,7 @@ export default function AdminDashboard() {
           subtitle="Admin kullanici listesi uzerinden rol bazli toplamlar cekilir."
           segments={roleChartState.segments}
           totalLabel="Kullanici"
+          size={200}
           loading={roleChartState.loading}
           error={roleChartState.error}
           emptyMessage="Rol dagilimi icin kullanici verisi bulunamadi."
@@ -299,6 +301,7 @@ export default function AdminDashboard() {
           subtitle="Bu alan yalniz mevcut admin endpoint'leri premium kullanici ayrimi donerse cizilir."
           segments={premiumChartState.segments}
           totalLabel="Kullanici"
+          size={200}
           loading={premiumChartState.loading}
           error={premiumChartState.error}
           emptyMessage="Mevcut admin kullanici endpoint'i premium alanini donmedigi icin bu grafik su anda hesaplanamiyor."

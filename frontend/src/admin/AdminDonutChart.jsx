@@ -2,6 +2,15 @@ const CHART_SIZE = 160;
 const STROKE_WIDTH = 18;
 const RADIUS = (CHART_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const DEFAULT_RENDER_SIZE = 200;
+const MIN_RENDER_SIZE = 160;
+const MAX_RENDER_SIZE = 220;
+
+const clampRenderSize = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_RENDER_SIZE;
+  return Math.min(Math.max(parsed, MIN_RENDER_SIZE), MAX_RENDER_SIZE);
+};
 
 const formatPercent = (value, total) => {
   if (!Number.isFinite(total) || total <= 0) return '0%';
@@ -17,8 +26,14 @@ export default function AdminDonutChart({
   error = '',
   emptyMessage = 'Grafik verisi bulunamadi.',
   onRetry,
-  note
+  note,
+  size = DEFAULT_RENDER_SIZE
 }) {
+  const renderSize = clampRenderSize(size);
+  const chartStyle = {
+    '--admin-donut-size': `${renderSize}px`
+  };
+
   const normalizedSegments = segments
     .map((segment) => ({
       ...segment,
@@ -74,32 +89,34 @@ export default function AdminDonutChart({
           </div>
         ) : (
           <div className="admin-chart-card__content">
-            <div className="admin-donut-chart" aria-hidden="true">
-              <svg viewBox={`0 0 ${CHART_SIZE} ${CHART_SIZE}`} className="admin-donut-chart__svg">
-                <circle
-                  className="admin-donut-chart__track"
-                  cx={CHART_SIZE / 2}
-                  cy={CHART_SIZE / 2}
-                  r={RADIUS}
-                  strokeWidth={STROKE_WIDTH}
-                />
-                {chartSegments.map((segment) => (
+            <div className="admin-chart-card__slot">
+              <div className="admin-donut-chart" aria-hidden="true" style={chartStyle}>
+                <svg viewBox={`0 0 ${CHART_SIZE} ${CHART_SIZE}`} className="admin-donut-chart__svg">
                   <circle
-                    key={segment.label}
-                    className="admin-donut-chart__segment"
+                    className="admin-donut-chart__track"
                     cx={CHART_SIZE / 2}
                     cy={CHART_SIZE / 2}
                     r={RADIUS}
                     strokeWidth={STROKE_WIDTH}
-                    stroke={segment.color}
-                    strokeDasharray={segment.dashArray}
-                    strokeDashoffset={segment.dashOffset}
                   />
-                ))}
-              </svg>
-              <div className="admin-donut-chart__center">
-                <strong>{total}</strong>
-                <span>{totalLabel}</span>
+                  {chartSegments.map((segment) => (
+                    <circle
+                      key={segment.label}
+                      className="admin-donut-chart__segment"
+                      cx={CHART_SIZE / 2}
+                      cy={CHART_SIZE / 2}
+                      r={RADIUS}
+                      strokeWidth={STROKE_WIDTH}
+                      stroke={segment.color}
+                      strokeDasharray={segment.dashArray}
+                      strokeDashoffset={segment.dashOffset}
+                    />
+                  ))}
+                </svg>
+                <div className="admin-donut-chart__center">
+                  <strong>{total}</strong>
+                  <span>{totalLabel}</span>
+                </div>
               </div>
             </div>
 

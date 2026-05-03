@@ -8817,13 +8817,19 @@ html[data-surface="admin"] .admin-menu-link.active .nav-icon.admin-menu-link__ic
 
 html[data-surface="admin"] .admin-chart-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
   margin-top: 1rem;
+}
+
+html[data-surface="admin"] .admin-dashboard__charts {
+  align-items: stretch;
 }
 
 html[data-surface="admin"] .admin-chart-card {
   margin-top: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 html[data-surface="admin"] .admin-chart-card__body {
@@ -8858,21 +8864,32 @@ html[data-surface="admin"] .admin-chart-card__state {
 
 html[data-surface="admin"] .admin-chart-card__content {
   display: grid;
-  grid-template-columns: minmax(140px, 180px) 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
+  align-items: start;
+  min-width: 0;
+}
+
+html[data-surface="admin"] .admin-chart-card__slot {
+  display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 0;
 }
 
 html[data-surface="admin"] .admin-donut-chart {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: clamp(160px, var(--admin-donut-size, 200px), 220px);
+  height: clamp(160px, var(--admin-donut-size, 200px), 220px);
+  max-width: 220px;
+  max-height: 220px;
+  aspect-ratio: 1 / 1;
   margin: 0 auto;
 }
 
 html[data-surface="admin"] .admin-donut-chart__svg {
-  width: 160px;
-  height: 160px;
+  width: 100%;
+  height: 100%;
   transform: rotate(-90deg);
 }
 
@@ -8914,6 +8931,7 @@ html[data-surface="admin"] .admin-chart-legend {
   margin: 0;
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__item {
@@ -8933,20 +8951,29 @@ html[data-surface="admin"] .admin-chart-legend__swatch {
 html[data-surface="admin"] .admin-chart-legend__text {
   display: grid;
   gap: 0.15rem;
+  min-width: 0;
 }
 
 html[data-surface="admin"] .admin-chart-legend__text strong {
   font-size: 0.96rem;
   color: #212529;
+  line-height: 1.35;
 }
 
 html[data-surface="admin"] .admin-chart-legend__text span {
   font-size: 0.88rem;
   color: #6c757d;
+  line-height: 1.4;
 }
 
-@media (max-width: 991.98px) {
-  html[data-surface="admin"] .admin-chart-card__content {
+@media (min-width: 1400px) {
+  html[data-surface="admin"] .admin-chart-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  html[data-surface="admin"] .admin-chart-grid {
     grid-template-columns: 1fr;
   }
 }
