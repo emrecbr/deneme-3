@@ -8817,8 +8817,8 @@ html[data-surface="admin"] .admin-menu-link.active .nav-icon.admin-menu-link__ic
 
 html[data-surface="admin"] .admin-chart-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 10px;
   margin-top: 1rem;
 }
 
@@ -8834,7 +8834,7 @@ html[data-surface="admin"] .admin-chart-card {
 
 html[data-surface="admin"] .admin-chart-card__body {
   gap: 0.75rem;
-  padding: 12px;
+  padding: 10px;
 }
 
 html[data-surface="admin"] .admin-chart-card__header {
@@ -8844,11 +8844,17 @@ html[data-surface="admin"] .admin-chart-card__header {
   align-items: flex-start;
 }
 
+html[data-surface="admin"] .admin-chart-card__header .admin-panel-title {
+  margin-bottom: 0.2rem;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
 html[data-surface="admin"] .admin-chart-card__subtitle,
 html[data-surface="admin"] .admin-chart-card__note {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  font-size: 0.76rem;
+  line-height: 1.25;
   color: #6c757d;
 }
 
@@ -8858,7 +8864,7 @@ html[data-surface="admin"] .admin-chart-card__note {
 }
 
 html[data-surface="admin"] .admin-chart-card__state {
-  min-height: 180px;
+  min-height: 140px;
   display: flex;
   align-items: center;
 }
@@ -8876,18 +8882,19 @@ html[data-surface="admin"] .admin-chart-card__slot {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  max-height: 160px;
+  max-height: 120px;
   overflow: hidden;
 }
 
 html[data-surface="admin"] .admin-donut-chart {
   position: relative;
-  width: clamp(112px, var(--admin-donut-size, 128px), 144px);
-  height: clamp(112px, var(--admin-donut-size, 128px), 144px);
-  max-width: var(--admin-donut-max, 144px);
-  max-height: var(--admin-donut-max, 144px);
+  width: clamp(72px, var(--admin-donut-size, 80px), 88px);
+  height: clamp(72px, var(--admin-donut-size, 80px), 88px);
+  max-width: var(--admin-donut-max, 88px);
+  max-height: var(--admin-donut-max, 88px);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
+  flex: 0 0 auto;
 }
 
 html[data-surface="admin"] .admin-donut-chart__svg {
@@ -8915,14 +8922,14 @@ html[data-surface="admin"] .admin-donut-chart__center {
 }
 
 html[data-surface="admin"] .admin-donut-chart__center strong {
-  font-size: 1.15rem;
+  font-size: 0.88rem;
   line-height: 1;
   color: #212529;
 }
 
 html[data-surface="admin"] .admin-donut-chart__center span {
   margin-top: 0.2rem;
-  font-size: 0.68rem;
+  font-size: 0.56rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #6c757d;

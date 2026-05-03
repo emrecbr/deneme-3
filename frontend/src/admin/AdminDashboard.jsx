@@ -272,40 +272,43 @@ export default function AdminDashboard() {
       <div className="admin-dashboard__charts admin-chart-grid">
         <AdminDonutChart
           title="RFQ durum dagilimi"
-          subtitle="Bekleyen, yayindaki ve pasif talepler ayni snapshot uzerinden hesaplanir."
+          subtitle="Bekleyen, yayindaki ve pasif talep orani."
           segments={rfqStatusSegments}
           totalLabel="RFQ"
-          size={128}
+          size={80}
+          showLegend={false}
           loading={loading}
           error={error}
           emptyMessage="Durum dagilimi icin yeterli RFQ verisi bulunamadi."
           onRetry={loadSummary}
-          note="Not: Bekleyen RFQ sayisi, acik RFQ toplamindan ayrilarak cakismasiz yuzdelere donusturuldu."
+          note="Bekleyen sayi acik RFQ toplamindan ayrilarak cakismasiz hesaplandi."
         />
 
         <AdminDonutChart
           title="Kullanici rol dagilimi"
-          subtitle="Admin kullanici listesi uzerinden rol bazli toplamlar cekilir."
+          subtitle="Rol bazli kullanici dagilimi."
           segments={roleChartState.segments}
           totalLabel="Kullanici"
-          size={128}
+          size={80}
+          showLegend={false}
           loading={roleChartState.loading}
           error={roleChartState.error}
           emptyMessage="Rol dagilimi icin kullanici verisi bulunamadi."
           onRetry={() => loadRoleDistribution(summary?.stats?.userTotal)}
-          note="Kaynak: /admin/users role filtreleri + toplam kullanici snapshot'i."
+          note="Kaynak: /admin/users rol filtreleri ve toplam kullanici snapshot'i."
         />
 
         <AdminDonutChart
           title="Premium vs normal kullanici orani"
-          subtitle="Bu alan yalniz mevcut admin endpoint'leri premium kullanici ayrimi donerse cizilir."
+          subtitle="Premium kullanici ayrimi hazir oldugunda burada gorunur."
           segments={premiumChartState.segments}
           totalLabel="Kullanici"
-          size={128}
+          size={80}
+          showLegend={false}
           loading={premiumChartState.loading}
           error={premiumChartState.error}
           emptyMessage="Mevcut admin kullanici endpoint'i premium alanini donmedigi icin bu grafik su anda hesaplanamiyor."
-          note="Sahte oran uretmedik. Bu grafik backend premium kullanici sayisini expose ettiginde otomatik baglanacak."
+          note="Sahte oran uretmedik; backend premium toplamlarini expose ettiginde aktif olacak."
         />
       </div>
 

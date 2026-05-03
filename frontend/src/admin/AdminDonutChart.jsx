@@ -1,10 +1,10 @@
 const CHART_SIZE = 160;
-const STROKE_WIDTH = 10;
+const STROKE_WIDTH = 6;
 const RADIUS = (CHART_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const DEFAULT_RENDER_SIZE = 128;
-const MIN_RENDER_SIZE = 112;
-const MAX_RENDER_SIZE = 144;
+const DEFAULT_RENDER_SIZE = 80;
+const MIN_RENDER_SIZE = 72;
+const MAX_RENDER_SIZE = 88;
 
 const clampRenderSize = (value) => {
   const parsed = Number(value);
@@ -28,7 +28,7 @@ export default function AdminDonutChart({
   onRetry,
   note,
   size = DEFAULT_RENDER_SIZE,
-  showLegend = true
+  showLegend = false
 }) {
   const renderSize = clampRenderSize(size);
   const chartStyle = {
