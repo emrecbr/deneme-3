@@ -92,7 +92,7 @@ export const SURFACE_LABELS = {
 export const getSurfaceBaseUrl = (surface) => trimTrailingSlash(SURFACE_URLS?.[surface] || '');
 export const getSurfaceHostname = (surface) => normalizeHostname(getSurfaceBaseUrl(surface));
 
-const TALepet_HOST_ALIASES = {
+const TALEPET_HOST_ALIASES = {
   web: ['talepet.net.tr', 'www.talepet.net.tr'],
   app: ['app.talepet.net.tr'],
   admin: ['admin.talepet.net.tr'],
@@ -100,7 +100,7 @@ const TALepet_HOST_ALIASES = {
 };
 
 const getKnownSurfaceHosts = (surface) =>
-  [...new Set([getSurfaceHostname(surface), ...(TALepet_HOST_ALIASES[surface] || [])].filter(Boolean))];
+  [...new Set([getSurfaceHostname(surface), ...(TALEPET_HOST_ALIASES[surface] || [])].filter(Boolean))];
 
 const isKnownSurfaceHost = (surface, hostname) => {
   const normalizedHostname = normalizeHostname(hostname);
@@ -140,10 +140,8 @@ export const isAppSurfaceHost = (hostname = getBrowserHostname()) =>
 export const isAdminSurfaceHost = (hostname = getBrowserHostname()) =>
   resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.admin;
 
-export const shouldUseWebFirstSurface = (hostname = getBrowserHostname()) => {
-  const surface = resolveSurfaceLabelFromHostname(hostname);
-  return surface === SURFACE_LABELS.web || !surface;
-};
+export const shouldUseWebFirstSurface = (hostname = getBrowserHostname()) =>
+  TALEPET_HOST_ALIASES.web.includes(normalizeHostname(hostname));
 
 export const isWebsiteAuthPath = (pathname = '') => {
   const normalizedPath = normalizePath(pathname);
@@ -186,7 +184,7 @@ export const resolvePostAuthHref = (role = 'user', hostname = getBrowserHostname
     return buildSurfaceHref('admin', ADMIN_HOME_PATH) || ADMIN_HOME_PATH;
   }
 
-  if (hostSurface === SURFACE_LABELS.web || shouldUseWebFirstSurface(hostname)) {
+  if (shouldUseWebFirstSurface(hostname)) {
     return WEBSITE_DISCOVERY_PATH;
   }
 
