@@ -277,21 +277,16 @@ function Login({ embedded = false }) {
   };
 
   const handleProviderLogin = async (provider) => {
-    const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
     setError('');
     setNotice('');
     setProviderLoading(provider);
     rememberSocialLoginReturnTarget();
 
-    const wakeResult = await warmApiForInteractiveAuth({
-      provider,
-      onStatus: (message) => setNotice(message)
-    });
+    const wakeResult = await warmApiForInteractiveAuth({ provider });
 
     if (!wakeResult.ok) {
       setProviderLoading('');
-      setNotice('');
-      setError(`${providerLabel} ile giris su an kullanilamiyor. 10 sn sonra tekrar deneyin.`);
+      setError('Sunucu mesgul, tekrar deneyin.');
       return;
     }
 
