@@ -140,6 +140,11 @@ export const isAppSurfaceHost = (hostname = getBrowserHostname()) =>
 export const isAdminSurfaceHost = (hostname = getBrowserHostname()) =>
   resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.admin;
 
+export const shouldUseWebFirstSurface = (hostname = getBrowserHostname()) => {
+  const surface = resolveSurfaceLabelFromHostname(hostname);
+  return surface === SURFACE_LABELS.web || !surface;
+};
+
 export const isWebsiteAuthPath = (pathname = '') => {
   const normalizedPath = normalizePath(pathname);
   return WEBSITE_AUTH_PATHS.includes(normalizedPath);
@@ -181,7 +186,7 @@ export const resolvePostAuthHref = (role = 'user', hostname = getBrowserHostname
     return buildSurfaceHref('admin', ADMIN_HOME_PATH) || ADMIN_HOME_PATH;
   }
 
-  if (hostSurface === SURFACE_LABELS.web) {
+  if (hostSurface === SURFACE_LABELS.web || shouldUseWebFirstSurface(hostname)) {
     return WEBSITE_DISCOVERY_PATH;
   }
 

@@ -31,9 +31,9 @@ function WebsiteProfileShell({
   return (
     <div className="website-profile-shell">
       <header className="website-profile-shell__topbar">
-        <Link to={WEB_HOME_PATH} className="landing-brand">
+        <a href={buildSurfaceHref('web', WEB_HOME_PATH)} className="landing-brand">
           Talepet
-        </Link>
+        </a>
 
         <div className="website-profile-shell__topbar-actions">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
@@ -107,9 +107,9 @@ function WebsiteProfileShell({
               ulas.
             </p>
             <div className="website-profile-shell__support-links">
-              <Link to="/iletisim">Destek</Link>
-              <Link to="/gizlilik-sozlesmesi">Gizlilik</Link>
-              <Link to="/mesafeli-satis-sozlesmesi">Mesafeli Satis</Link>
+              <a href={buildSurfaceHref('web', '/iletisim')}>Destek</a>
+              <a href={buildSurfaceHref('web', '/gizlilik-sozlesmesi')}>Gizlilik</a>
+              <a href={buildSurfaceHref('web', '/mesafeli-satis-sozlesmesi')}>Mesafeli Satis</a>
             </div>
           </div>
 

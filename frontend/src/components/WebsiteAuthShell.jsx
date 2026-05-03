@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import PublicFooter from './PublicFooter';
 import { APP_HOME_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
@@ -17,9 +17,9 @@ function WebsiteAuthShell({
   return (
     <div className="website-auth-shell">
       <header className="website-auth-topbar">
-        <Link to="/" className="landing-brand">
-          Talepet
-        </Link>
+          <a href={buildSurfaceHref('web', '/')} className="landing-brand">
+            Talepet
+          </a>
 
         <div className="landing-topbar-actions">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">

@@ -116,15 +116,15 @@ function LandingPage() {
         </Link>
 
         <nav className="landing-topbar-actions" aria-label="Website auth actions">
-          <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
+          <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-link-button">
             Paketler
-          </Link>
-          <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
+          </a>
+          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
             Giris Yap
-          </Link>
-          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+          </a>
+          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
             Kayit Ol
-          </Link>
+          </a>
         </nav>
       </header>
 
@@ -136,22 +136,22 @@ function LandingPage() {
           <p>{LANDING_CONTENT.hero.subtitle}</p>
 
           <div className="landing-cta-row" aria-label="Hero eylemleri">
-            <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+            <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
-            </Link>
-            <Link to={WEBSITE_LOGIN_PATH} className="landing-secondary-button">
+            </a>
+            <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
-            </Link>
+            </a>
             <a
               href={buildSurfaceHref('app', APP_HOME_PATH)}
               className="landing-link-button landing-link-button-strong"
             >
               {LANDING_CONTENT.hero.tertiaryCta.label}
             </a>
-            <a
-              href={isAuthenticated ? '/premium' : WEBSITE_LOGIN_PATH}
-              className="landing-secondary-button landing-secondary-button-strong"
-            >
+              <a
+                href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+                className="landing-secondary-button landing-secondary-button-strong"
+              >
               Premium Satin Al
             </a>
           </div>
@@ -167,7 +167,7 @@ function LandingPage() {
                 <div className="landing-purchase-card__price">{card.priceLabel}</div>
                 <div className="landing-purchase-card__duration">{card.duration}</div>
                 <a
-                  href={isAuthenticated ? '/premium' : WEBSITE_LOGIN_PATH}
+                  href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
                   className="landing-primary-button landing-purchase-card__cta"
                 >
                   Satin Al
@@ -289,12 +289,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-discovery-cta-row">
-          <Link to={WEBSITE_CATEGORIES_PATH} className="landing-secondary-button">
+          <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.publicDiscovery.detailCta.label}
-          </Link>
-          <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
+          </a>
+          <a href={buildSurfaceHref('web', WEBSITE_CREATE_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.publicDiscovery.createCta.label}
-          </Link>
+          </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.publicDiscovery.appCta.label}
           </a>
@@ -357,7 +357,7 @@ function LandingPage() {
                 <a
                   href={
                     item.to === '/login'
-                      ? WEBSITE_LOGIN_PATH
+                      ? buildSurfaceHref('web', WEBSITE_LOGIN_PATH)
                       : item.to
                   }
                   className="landing-secondary-button"
@@ -414,12 +414,12 @@ function LandingPage() {
         </div>
 
         <div className="landing-cta-row" aria-label="Footer eylemleri">
-          <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
-          </Link>
-          <Link to={WEBSITE_LOGIN_PATH} className="landing-secondary-button">
+          </a>
+          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
-          </Link>
+          </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
             {LANDING_CONTENT.footerCta.tertiary.label}
           </a>

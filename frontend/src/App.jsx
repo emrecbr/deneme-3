@@ -70,6 +70,7 @@ import {
   isWebSurfaceHost,
   resolveSurfaceLabel,
   resolveSurfaceLabelFromHostname,
+  shouldUseWebFirstSurface,
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
   WEBSITE_PACKAGES_PATH,
@@ -187,10 +188,10 @@ function App() {
   const { user, loading, checkAuth } = useAuth();
   const { admin, loading: adminLoading } = useAdminAuth();
   const location = useLocation();
-  const websiteHost = isWebSurfaceHost();
   const appHost = isAppSurfaceHost();
   const adminHost = isAdminSurfaceHost();
-  const websiteAuthRoute = websiteHost && isWebsiteAuthPath(location.pathname);
+  const webSurfacePreferred = shouldUseWebFirstSurface();
+  const websiteAuthRoute = webSurfacePreferred && isWebsiteAuthPath(location.pathname);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [maintenance, setMaintenance] = useState({ loading: true, enabled: false, message: '' });
@@ -215,7 +216,7 @@ function App() {
 
   const renderAuthShell = useCallback(
     (content, options = {}) => {
-      if (!websiteHost) {
+      if (!webSurfacePreferred) {
         return (
           <Layout showBottomNav={options.showBottomNav ?? true} theme={theme} onToggleTheme={toggleTheme}>
             {content}
@@ -233,7 +234,7 @@ function App() {
         </WebsiteAuthShell>
       );
     },
-    [theme, toggleTheme, websiteHost]
+    [theme, toggleTheme, webSurfacePreferred]
   );
 
   const renderProductShell = useCallback(
@@ -249,7 +250,7 @@ function App() {
 
   const renderWebsiteProductShell = useCallback(
     (content, options = {}) => {
-      if (websiteHost) {
+      if (webSurfacePreferred) {
         return (
           <WebsiteProductShell title={options.title} description={options.description}>
             {content}
@@ -259,12 +260,12 @@ function App() {
 
       return renderProductShell(content, options);
     },
-    [renderProductShell, websiteHost]
+    [renderProductShell, webSurfacePreferred]
   );
 
   const renderWebsiteProfileShell = useCallback(
     (content, options = {}) => {
-      if (websiteHost) {
+      if (webSurfacePreferred) {
         return (
           <WebsiteProfileShell title={options.title} description={options.description}>
             {content}
@@ -274,7 +275,7 @@ function App() {
 
       return <Navigate to={options.fallbackTo || '/profile'} replace />;
     },
-    [websiteHost]
+    [webSurfacePreferred]
   );
 
   useEffect(() => {
@@ -347,7 +348,11 @@ function App() {
   }
 
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
-  const defaultAuthenticatedPath = isAdminRole ? ADMIN_HOME_PATH : APP_HOME_PATH;
+  const defaultAuthenticatedPath = isAdminRole
+    ? ADMIN_HOME_PATH
+    : webSurfacePreferred
+      ? WEBSITE_DISCOVERY_PATH
+      : APP_HOME_PATH;
   const websiteProductHomeElement = renderWebsiteProductShell(<RFQList surfaceVariant="web" />, {
     title: 'Talepet website kesif alani',
     description:
@@ -368,7 +373,7 @@ function App() {
     description:
       'App hostunda kategori deneyimi mevcut mobil/app-first layout icinde calisir.'
   });
-  const categoriesElement = websiteHost ? websiteCategoriesElement : appCategoriesElement;
+  const categoriesElement = webSurfacePreferred ? websiteCategoriesElement : appCategoriesElement;
   const maintenanceBlocking =
     !maintenance.loading &&
     maintenance.enabled &&
@@ -473,7 +478,7 @@ function App() {
           ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            renderAuthShell(<Login embedded={websiteHost} />, {
+            renderAuthShell(<Login embedded={webSurfacePreferred} />, {
               eyebrow: 'Website girisi',
               title: 'Talepet hesabina website uzerinden giris yap.',
               description:
@@ -525,7 +530,7 @@ function App() {
           user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
-            renderAuthShell(<RegisterOtp embedded={websiteHost} />, {
+            renderAuthShell(<RegisterOtp embedded={webSurfacePreferred} />, {
               eyebrow: 'Website kaydi',
               title: 'Talepet hesabini website uzerinden olustur.',
               description:
@@ -611,14 +616,14 @@ function App() {
 
       <Route
         path={WEBSITE_DISCOVERY_PATH}
-        element={websiteHost ? websiteProductHomeElement : <Navigate to={APP_HOME_PATH} replace />}
+        element={webSurfacePreferred ? websiteProductHomeElement : <Navigate to={APP_HOME_PATH} replace />}
       />
 
       <Route
         path={WEBSITE_CREATE_PATH}
         element={
           <PrivateRoute>
-              {websiteHost
+                {webSurfacePreferred
                 ? renderWebsiteProductShell(<RFQCreate surfaceVariant="web" />, {
                     title: 'Talep olusturma akisini website icinden yonet',
                     description:
@@ -636,13 +641,13 @@ function App() {
       <Route path="/rfq/create" element={<Navigate to="/create" replace />} />
       <Route
         path="/rfq"
-        element={<Navigate to={websiteHost ? WEBSITE_DISCOVERY_PATH : APP_HOME_PATH} replace />}
+        element={<Navigate to={webSurfacePreferred ? WEBSITE_DISCOVERY_PATH : APP_HOME_PATH} replace />}
       />
 
       <Route
         path="/rfq/:id"
         element={
-            websiteHost ? (
+            webSurfacePreferred ? (
               renderWebsiteProductShell(<RFQDetail surfaceVariant="web" />, {
                 title: 'Talep detayina website icinden bak',
                 description: 'Talep detayi website urun shell icinde acilir; mobil app hissi root domainde zorunlu kalmaz.'
@@ -660,7 +665,7 @@ function App() {
         path="/messages"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -675,7 +680,7 @@ function App() {
         path="/messages/:chatId"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -690,7 +695,7 @@ function App() {
         path="/notifications"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -705,7 +710,7 @@ function App() {
         path="/profile"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -720,7 +725,7 @@ function App() {
         path="/profile/requests"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_REQUESTS_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -735,7 +740,7 @@ function App() {
         path="/profile/account"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_ACCOUNT_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -750,7 +755,7 @@ function App() {
         path="/profile/addresses"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_ADDRESSES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -765,7 +770,7 @@ function App() {
         path="/profile/offers"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_OFFERS_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -780,7 +785,7 @@ function App() {
         path="/favorites"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <Navigate to={WEBSITE_PROFILE_FAVORITES_PATH} replace />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>
@@ -795,7 +800,7 @@ function App() {
         path="/premium"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               renderWebsiteProfileShell(<Premium surfaceVariant="web" />, {
                 title: 'Premium',
                 description: 'Premium paketler, gorunurluk ve odeme akislarini website profile shell icinde yonet.',
@@ -814,7 +819,7 @@ function App() {
         path="/premium/return"
         element={
           <PrivateRoute>
-            {websiteHost ? (
+            {webSurfacePreferred ? (
               <SurfaceRedirect targetPath="/premium/return" preserveCurrentPath surface="app" />
             ) : (
               <Layout theme={theme} onToggleTheme={toggleTheme}>

@@ -51,30 +51,30 @@ function WebsiteProductShell({
         <div className="website-product-shell__actions">
           {!user ? (
             <>
-              <Link to={WEBSITE_CATEGORIES_PATH} className="landing-link-button">
+              <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-link-button">
                 Kategoriler
-              </Link>
-              <Link to={WEBSITE_PACKAGES_PATH} className="landing-link-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-link-button">
                 Paketler
-              </Link>
-              <Link to={WEBSITE_LOGIN_PATH} className="landing-link-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
                 Giris Yap
-              </Link>
-              <Link to={WEBSITE_REGISTER_PATH} className="landing-primary-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
                 Kayit Ol
-              </Link>
+              </a>
             </>
           ) : (
             <>
-              <Link to={WEBSITE_CATEGORIES_PATH} className="landing-link-button">
+              <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-link-button">
                 Kategoriler
-              </Link>
-              <Link to={WEBSITE_PROFILE_HOME_PATH} className="landing-link-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_PROFILE_HOME_PATH)} className="landing-link-button">
                 Profilim
-              </Link>
-              <Link to={WEBSITE_CREATE_PATH} className="landing-primary-button">
+              </a>
+              <a href={buildSurfaceHref('web', WEBSITE_CREATE_PATH)} className="landing-primary-button">
                 Talep Olustur
-              </Link>
+              </a>
             </>
           )}
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
