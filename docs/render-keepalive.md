@@ -14,6 +14,15 @@ Talepet API servisinde `503` ve `x-render-routing=hibernate-pending-wake` gorulu
 
 Sleeping servis kendi icinden calisan bir interval ile kendini uyanik tutamaz. Bu nedenle dis ping gerekir.
 
+Hedef ping:
+
+- URL:
+  `https://api.talepet.net.tr/api/health`
+- Siklik:
+  her 5 dakika
+- Beklenen sonuc:
+  servis uykuya dusmeden warm kalir, `/api/auth/google` icin `503 hibernate-pending-wake` ihtimali azalir
+
 ### Secenek 1: Render Cron Job
 
 - Command:
@@ -29,6 +38,16 @@ Sleeping servis kendi icinden calisan bir interval ile kendini uyanik tutamaz. B
   `https://api.talepet.net.tr/api/health`
 - Interval:
   5 dakika
+- HTTP Method:
+  `GET`
+
+## Frontend davranisi
+
+- Google login butonu kullaniciya uzun bir uyari gostermemelidir.
+- Frontend tarafinda sessiz wake-up / retry kullanilir.
+- Toplam deneme mantigi:
+  ilk deneme + en fazla 2 retry
+- Tum denemeler basarisiz olursa kullaniciya yalniz kisa bir genel hata gosterilir.
 
 ## Manual test
 

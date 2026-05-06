@@ -1,0 +1,9 @@
+template-sources/
+template-sources.zip
+*.zip
+*.p8
+*.pem
+*.p12
+apple-test-key.p8
+test-apple-key.mjs
+ersC1Desktoptalepetfrontendsrcconfigsurfaces.js

@@ -12,8 +12,11 @@ uploads
 
 # Local secrets and private key material
 *.p8
+*.pem
+*.p12
 apple-test-key.p8
 test-apple-key.mjs
+ersC1Desktoptalepetfrontendsrcconfigsurfaces.js
 
 # Experimental surface split folders
 frontend/src/app/
