@@ -10025,16 +10025,15 @@ body.dark-mode .category-selector-modal {
 }
 
 .create-sheet-drag-zone {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  gap: 0;
-  padding: 4px 0 2px;
-}
-
-.create-sheet-drag-zone .rb-sheet-handle-wrap {
-  height: 18px;
+  display: block;
+  min-height: 8px;
+  height: 8px;
+  padding: 0;
+  margin: 0 0 2px;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .create-sheet-content.create-sheet-expanded {
