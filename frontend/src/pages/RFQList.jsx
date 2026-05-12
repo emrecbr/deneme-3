@@ -1219,12 +1219,16 @@ function RFQList({ surfaceVariant = 'app' }) {
   const getCreateSheetSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
     const sheetHeight =
-      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
-    const halfVisible = Math.min(Math.max(vh * 0.75, 560), 760);
-    const full = 0;
-    const half = Math.max(sheetHeight - halfVisible, 0);
-    const closed = Math.max(sheetHeight - 80, half);
-    createSheetSnapRef.current = { full, half, closed };
+      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.92);
+    const expandedVisible = Math.min(sheetHeight, vh * 0.88);
+    const midVisible = Math.min(sheetHeight, vh * 0.58);
+    const collapsedVisible = Math.min(sheetHeight, vh * 0.28);
+    const closedVisible = Math.min(sheetHeight, vh * 0.09);
+    const expanded = Math.max(sheetHeight - expandedVisible, 0);
+    const mid = Math.max(sheetHeight - midVisible, expanded);
+    const collapsed = Math.max(sheetHeight - collapsedVisible, mid);
+    const closed = Math.max(sheetHeight - closedVisible, collapsed);
+    createSheetSnapRef.current = { expanded, mid, collapsed, closed };
     return createSheetSnapRef.current;
   }, []);
 
@@ -1355,9 +1359,9 @@ function RFQList({ surfaceVariant = 'app' }) {
     setIsCreateSheetMounted(true);
     window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     window.requestAnimationFrame(() => {
-      setCreateSheetState('open-half');
+      setCreateSheetState('expanded');
       const snap = getCreateSheetSnapPoints();
-      setCreateSheetTranslate(snap.half, { syncState: true });
+      setCreateSheetTranslate(snap.expanded, { syncState: true });
     });
   }, [closeCompetingSheets, getCreateSheetSnapPoints, setCreateSheetTranslate]);
 
@@ -1387,8 +1391,9 @@ function RFQList({ surfaceVariant = 'app' }) {
     getCurrentTranslate: () => createSheetDragTranslateRef.current,
     onTranslate: applyCreateSheetTranslate,
     getSnapCandidates: (points) => [
-      { key: 'open-full', value: points.full },
-      { key: 'open-half', value: points.half },
+      { key: 'expanded', value: points.expanded },
+      { key: 'mid', value: points.mid },
+      { key: 'collapsed', value: points.collapsed },
       { key: 'closed', value: points.closed }
     ],
     onDragStart: () => {

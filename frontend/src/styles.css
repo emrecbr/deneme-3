@@ -10008,7 +10008,8 @@ body.dark-mode .category-selector-modal {
   left: 50%;
   bottom: 0;
   width: min(100%, 480px);
-  height: 85vh;
+  height: 92vh;
+  max-height: 92vh;
   transform: translate3d(-50%, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   border-top-left-radius: 24px;
@@ -10040,12 +10041,16 @@ body.dark-mode .category-selector-modal {
   justify-self: end;
 }
 
-.create-sheet-content.create-sheet-open-full {
+.create-sheet-content.create-sheet-expanded {
   transform: translate3d(-50%, 0, 0);
 }
 
-.create-sheet-content.create-sheet-open-half {
-  transform: translate3d(-50%, 35%, 0);
+.create-sheet-content.create-sheet-mid {
+  transform: translate3d(-50%, 32%, 0);
+}
+
+.create-sheet-content.create-sheet-collapsed {
+  transform: translate3d(-50%, 64%, 0);
 }
 
 .create-sheet-content.create-sheet-closed {
