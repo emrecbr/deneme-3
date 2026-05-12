@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useBottomSheetDrag from '../hooks/useBottomSheetDrag';
+import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
 
 function ReusableBottomSheet({
   open,
@@ -22,6 +23,7 @@ function ReusableBottomSheet({
   const previousFocusRef = useRef(null);
   const closeTimerRef = useRef(null);
   const snapTimerRef = useRef(null);
+  const lockKeyRef = useRef(`rb-sheet-${Math.random().toString(36).slice(2)}`);
 
   const computeSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
@@ -113,10 +115,10 @@ function ReusableBottomSheet({
     if (open) {
       previousFocusRef.current = document.activeElement;
       sheetRef.current?.focus();
-      document.body.classList.add('sheet-open');
+      lockSheetSurface(lockKeyRef.current);
     }
     return () => {
-      document.body.classList.remove('sheet-open');
+      unlockSheetSurface(lockKeyRef.current);
       if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
         previousFocusRef.current.focus();
       }
@@ -170,7 +172,7 @@ function ReusableBottomSheet({
 
   return (
     <div
-      className={`sheet-overlay premium-filter-sheet-overlay ${overlayClassName}`}
+      className={`sheet-overlay premium-filter-sheet-overlay ${open ? 'sheet-overlay--open' : 'sheet-overlay--closing'} ${overlayClassName}`}
       onClick={onClose}
     >
       <div

@@ -10093,7 +10093,19 @@ body.dark-mode .rb-sheet-handle {
   z-index: 10050;
   display: flex;
   align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.sheet-overlay.sheet-overlay--open {
+  opacity: 1;
   pointer-events: auto;
+}
+
+.sheet-overlay.sheet-overlay--closing {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sheet-content {

@@ -16,6 +16,7 @@ import { triggerHaptic } from '../utils/haptic';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
 import { extractRfqCityName, extractRfqDistrictName, formatRfqLocation } from '../utils/rfqFormatters';
+import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
 import { FavoriteIcon } from '../components/ui/AppIcons';
 
 const PAGE_LIMIT = 10;
@@ -146,6 +147,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const resultsToastTimerRef = useRef(null);
   const resultsToastHideTimerRef = useRef(null);
   const createSheetCloseTimerRef = useRef(null);
+  const createSheetLockKeyRef = useRef(`rfq-create-sheet-${Math.random().toString(36).slice(2)}`);
   const locationAutoApplyRef = useRef(false);
   const createSheetDragTranslateRef = useRef(0);
   const createSheetRef = useRef(null);
@@ -1074,17 +1076,6 @@ function RFQList({ surfaceVariant = 'app' }) {
   );
 
   useEffect(() => {
-    const openFilterSheet = () => {
-      setDraftFilters({ ...filters });
-      setIsFilterSheetOpen(true);
-    };
-    window.addEventListener('open-rfq-filter-sheet', openFilterSheet);
-    return () => {
-      window.removeEventListener('open-rfq-filter-sheet', openFilterSheet);
-    };
-  }, [filters]);
-
-  useEffect(() => {
     if (isFilterSheetOpen) {
       window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     } else {
@@ -1225,13 +1216,98 @@ function RFQList({ surfaceVariant = 'app' }) {
     handleRadiusChange(nextRadius);
   }, [filters.radius, handleRadiusChange, maxRadiusKm, radiusConfig.default]);
 
+  const getCreateSheetSnapPoints = useCallback(() => {
+    const vh = window.innerHeight || 0;
+    const sheetHeight =
+      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
+    const halfVisible = Math.min(Math.max(vh * 0.75, 560), 760);
+    const full = 0;
+    const half = Math.max(sheetHeight - halfVisible, 0);
+    const closed = Math.max(sheetHeight - 80, half);
+    createSheetSnapRef.current = { full, half, closed };
+    return createSheetSnapRef.current;
+  }, []);
+
+  const applyCreateSheetTranslate = useCallback((value) => {
+    createSheetDragTranslateRef.current = value;
+    if (createSheetRef.current) {
+      createSheetRef.current.style.transform = `translate3d(-50%, ${value}px, 0)`;
+    }
+  }, []);
+
+  const setCreateSheetTranslate = useCallback((value, { syncState = false } = {}) => {
+    createSheetDragTranslateRef.current = value;
+    if (syncState) {
+      setCreateSheetRenderTranslate(value);
+    }
+    applyCreateSheetTranslate(value);
+  }, [applyCreateSheetTranslate]);
+
+  const closeCreateSheet = useCallback(({ immediate = false, restoreBottomNav = true } = {}) => {
+    if (createSheetCloseTimerRef.current) {
+      window.clearTimeout(createSheetCloseTimerRef.current);
+      createSheetCloseTimerRef.current = null;
+    }
+
+    setCreateSheetState('closed');
+
+    if (!immediate) {
+      const snap = getCreateSheetSnapPoints();
+      setCreateSheetTranslate(snap.closed, { syncState: true });
+    }
+
+    if (restoreBottomNav) {
+      window.dispatchEvent(new CustomEvent('bottomnav:show'));
+    }
+
+    if (immediate) {
+      setCreateSheetRenderTranslate(0);
+      setIsCreateSheetMounted(false);
+      return;
+    }
+
+    createSheetCloseTimerRef.current = window.setTimeout(() => {
+      setIsCreateSheetMounted(false);
+    }, 350);
+  }, [getCreateSheetSnapPoints, setCreateSheetTranslate]);
+
+  const closeCompetingSheets = useCallback((keep) => {
+    if (keep !== 'filter') {
+      setIsFilterSheetOpen(false);
+      setDraftFilters(null);
+    }
+    if (keep !== 'category') {
+      setIsCategoryModalOpen(false);
+    }
+    if (keep !== 'city-picker') {
+      setIsCityPickerOpen(false);
+    }
+    if (keep !== 'create') {
+      closeCreateSheet({ immediate: true, restoreBottomNav: false });
+    }
+  }, [closeCreateSheet]);
+
+  useEffect(() => {
+    const openFilterSheet = () => {
+      closeCompetingSheets('filter');
+      setDraftFilters({ ...filters });
+      setIsFilterSheetOpen(true);
+    };
+    window.addEventListener('open-rfq-filter-sheet', openFilterSheet);
+    return () => {
+      window.removeEventListener('open-rfq-filter-sheet', openFilterSheet);
+    };
+  }, [closeCompetingSheets, filters]);
+
   const handleSelectCity = useCallback(() => {
     if (isWebSurface) {
+      closeCompetingSheets('city-picker');
       setCityPickerQuery(selectedCity?.name || '');
       setCityPickerError('');
       setIsCityPickerOpen(true);
       return;
     }
+    closeCompetingSheets('filter');
     window.dispatchEvent(new Event('open-rfq-filter-sheet'));
     window.setTimeout(() => {
       const input = document.querySelector('.city-search-input');
@@ -1239,7 +1315,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         input.focus();
       }
     }, 250);
-  }, [isWebSurface, selectedCity?.name]);
+  }, [closeCompetingSheets, isWebSurface, selectedCity?.name]);
 
   const handleWebsiteCitySelect = useCallback((city) => {
     const normalizedCity = city?._id && city?.name
@@ -1270,38 +1346,12 @@ function RFQList({ surfaceVariant = 'app' }) {
     setCityPickerQuery(normalizedCity?.name || '');
   }, [setSelectedCity, setSelectedDistrict]);
 
-  const getCreateSheetSnapPoints = useCallback(() => {
-    const vh = window.innerHeight || 0;
-    const sheetHeight =
-      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.85);
-    const halfVisible = Math.min(Math.max(vh * 0.75, 560), 760);
-    const full = 0;
-    const half = Math.max(sheetHeight - halfVisible, 0);
-    const closed = Math.max(sheetHeight - 80, half);
-    createSheetSnapRef.current = { full, half, closed };
-    return createSheetSnapRef.current;
-  }, []);
-
-  const applyCreateSheetTranslate = useCallback((value) => {
-    createSheetDragTranslateRef.current = value;
-    if (createSheetRef.current) {
-      createSheetRef.current.style.transform = `translate3d(-50%, ${value}px, 0)`;
-    }
-  }, []);
-
-  const setCreateSheetTranslate = useCallback((value, { syncState = false } = {}) => {
-    createSheetDragTranslateRef.current = value;
-    if (syncState) {
-      setCreateSheetRenderTranslate(value);
-    }
-    applyCreateSheetTranslate(value);
-  }, [applyCreateSheetTranslate]);
-
   const openCreateSheet = useCallback(() => {
     if (createSheetCloseTimerRef.current) {
       window.clearTimeout(createSheetCloseTimerRef.current);
       createSheetCloseTimerRef.current = null;
     }
+    closeCompetingSheets('create');
     setIsCreateSheetMounted(true);
     window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     window.requestAnimationFrame(() => {
@@ -1309,7 +1359,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       const snap = getCreateSheetSnapPoints();
       setCreateSheetTranslate(snap.half, { syncState: true });
     });
-  }, [getCreateSheetSnapPoints, setCreateSheetTranslate]);
+  }, [closeCompetingSheets, getCreateSheetSnapPoints, setCreateSheetTranslate]);
 
   useEffect(() => {
     const handleOpenCreateSheet = () => openCreateSheet();
@@ -1318,16 +1368,6 @@ function RFQList({ surfaceVariant = 'app' }) {
       window.removeEventListener('open-rfq-create-sheet', handleOpenCreateSheet);
     };
   }, [openCreateSheet]);
-
-  const closeCreateSheet = useCallback(() => {
-    setCreateSheetState('closed');
-    const snap = getCreateSheetSnapPoints();
-    setCreateSheetTranslate(snap.closed, { syncState: true });
-    window.dispatchEvent(new CustomEvent('bottomnav:show'));
-    createSheetCloseTimerRef.current = window.setTimeout(() => {
-      setIsCreateSheetMounted(false);
-    }, 350);
-  }, [getCreateSheetSnapPoints, setCreateSheetTranslate]);
 
   useEffect(() => {
     if (isCreateSheetMounted) {
@@ -1373,6 +1413,21 @@ function RFQList({ surfaceVariant = 'app' }) {
   useEffect(() => () => {
     resetCreateSheetDrag();
   }, [resetCreateSheetDrag]);
+
+  useEffect(() => {
+    if (isCreateSheetMounted && createSheetState !== 'closed') {
+      lockSheetSurface(createSheetLockKeyRef.current);
+      return () => unlockSheetSurface(createSheetLockKeyRef.current);
+    }
+
+    unlockSheetSurface(createSheetLockKeyRef.current);
+    return undefined;
+  }, [createSheetState, isCreateSheetMounted]);
+
+  const handleOpenCategoryModal = useCallback(() => {
+    closeCompetingSheets('category');
+    setIsCategoryModalOpen(true);
+  }, [closeCompetingSheets]);
 
   const loadMore = useCallback(() => {
     if (loading || loadingMore || !hasMore || error) {
@@ -2809,7 +2864,7 @@ function RFQList({ surfaceVariant = 'app' }) {
           <button
             type="button"
             className="secondary-btn home-filter-btn cats-title-btn"
-            onClick={() => setIsCategoryModalOpen(true)}
+            onClick={handleOpenCategoryModal}
           >
             {categoryLabel || 'Tüm Kategoriler'}
           </button>
