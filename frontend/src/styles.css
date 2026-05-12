@@ -9306,8 +9306,8 @@ body.sheet-open .bottom-nav {
 .rb-sheet-handle {
   position: relative;
   pointer-events: none;
-  width: 56px;
-  height: 6px;
+  width: 42px;
+  height: 4px;
   border-radius: 999px;
   margin: 0 auto;
   opacity: 0.85;
@@ -10025,20 +10025,17 @@ body.dark-mode .category-selector-modal {
 }
 
 .create-sheet-drag-zone {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  min-height: 0;
+  gap: 0;
   cursor: grab;
-  padding-bottom: 4px;
+  padding: 4px 0 2px;
 }
 
 .create-sheet-drag-zone .rb-sheet-handle-wrap {
-  grid-column: 1 / -1;
-}
-
-.create-sheet-drag-zone .create-sheet-close {
-  justify-self: end;
+  height: 18px;
 }
 
 .create-sheet-content.create-sheet-expanded {
@@ -10075,20 +10072,6 @@ body.sheet-dragging {
 
 body.dark-mode .rb-sheet-handle {
   background: rgba(255, 255, 255, 0.16);
-}
-
-.create-sheet-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #e2e8f0;
-  border-radius: 10px;
-  height: 32px;
-  padding: 0 10px;
 }
 
 .sheet-overlay {

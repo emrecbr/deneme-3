@@ -3237,9 +3237,6 @@ function RFQList({ surfaceVariant = 'app' }) {
               >
                 <div className="rb-sheet-handle" />
               </div>
-              <button type="button" className="create-sheet-close" onClick={closeCreateSheet} data-rb-no-drag="true">
-                Kapat
-              </button>
             </div>
             <RFQCreate />
           </div>
