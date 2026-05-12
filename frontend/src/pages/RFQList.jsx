@@ -3227,7 +3227,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             ref={createSheetRef}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="create-sheet-drag-zone" onPointerDown={onCreateSheetSurfacePointerDown} data-rb-drag-surface="header">
+            <div className="create-sheet-drag-zone">
               <div
                 className="rb-sheet-handle-wrap"
                 onPointerDown={onCreateSheetSurfacePointerDown}

@@ -10030,7 +10030,6 @@ body.dark-mode .category-selector-modal {
   justify-content: center;
   min-height: 0;
   gap: 0;
-  cursor: grab;
   padding: 4px 0 2px;
 }
 
