@@ -153,7 +153,7 @@ function LandingPage() {
               {LANDING_CONTENT.hero.tertiaryCta.label}
             </a>
               <a
-                href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+                href={isAuthenticated ? buildSurfaceHref('web', WEBSITE_PACKAGES_PATH) : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
                 className="landing-secondary-button landing-secondary-button-strong"
               >
               Premium Paketlerini Incele
@@ -171,7 +171,7 @@ function LandingPage() {
                 <div className="landing-purchase-card__price">{card.priceLabel}</div>
                 <div className="landing-purchase-card__duration">{card.duration}</div>
                 <a
-                  href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+                  href={isAuthenticated ? buildSurfaceHref('web', WEBSITE_PACKAGES_PATH) : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
                   className="landing-primary-button landing-purchase-card__cta"
                 >
                   Dijital Paketi Incele

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import api, { buildPublicRequestConfig } from '../api/axios';
+import api, { buildProtectedRequestConfig, buildPublicRequestConfig } from '../api/axios';
 import PublicFooter from '../components/PublicFooter';
 import PublicTopBar from '../components/PublicTopBar';
 import { PRICING_PAGE_CONTENT } from '../content/pricingContent';
@@ -196,6 +196,7 @@ function PricingPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [processing, setProcessing] = useState('');
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -241,16 +242,43 @@ function PricingPage() {
 
   const visiblePlans = useMemo(() => plans.slice(0, 6), [plans]);
 
-  const handlePurchase = (plan) => {
+  const resolveCheckoutPlanCode = (plan) => {
+    if (plan.key === 'listing_extra') {
+      return 'listing_extra';
+    }
+    if (plan.key === 'featured_listing') {
+      return plan.planCodes?.monthly || 'featured_monthly';
+    }
+    return plan.planCodes?.monthly || 'premium_monthly';
+  };
+
+  const handlePurchase = async (plan) => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
-    if (plan.key === 'listing_extra') {
-      navigate('/premium');
-      return;
+
+    const planCode = resolveCheckoutPlanCode(plan);
+
+    try {
+      setProcessing(planCode);
+      setError('');
+      const response = await api.post(
+        '/billing/checkout',
+        { planCode },
+        buildProtectedRequestConfig()
+      );
+      const url = response.data?.checkoutUrl;
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (requestError) {
+      const message =
+        requestError.response?.data?.message || 'Dijital paket baslatilamadi. Lutfen tekrar dene.';
+      setError(message);
+    } finally {
+      setProcessing('');
     }
-    navigate('/premium');
   };
 
   return (
@@ -380,8 +408,9 @@ function PricingPage() {
                 type="button"
                 className="landing-primary-button pricing-plan-card__cta"
                 onClick={() => handlePurchase(plan)}
+                disabled={processing === resolveCheckoutPlanCode(plan)}
               >
-                {getActionLabel(plan.key)}
+                {processing === resolveCheckoutPlanCode(plan) ? 'Yonlendiriliyor...' : getActionLabel(plan.key)}
               </button>
             </article>
           ))}

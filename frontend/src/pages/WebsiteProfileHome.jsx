@@ -4,11 +4,11 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { websiteProfileNavItems } from '../content/profileNavigation';
 import {
+  WEBSITE_PACKAGES_PATH,
   WEBSITE_PROFILE_ACCOUNT_PATH,
   WEBSITE_PROFILE_ALERTS_PATH,
   WEBSITE_PROFILE_FAVORITES_PATH,
   WEBSITE_PROFILE_MESSAGES_PATH,
-  WEBSITE_PROFILE_PREMIUM_PATH,
   WEBSITE_PROFILE_REQUESTS_PATH
 } from '../config/surfaces';
 import { formatListingQuotaResetDate } from '../utils/listingQuota';
@@ -72,9 +72,9 @@ function WebsiteProfileHome() {
         helper: 'Bilgiler, guvenlik ve odeme alani'
       },
       {
-        label: 'Premium Alani',
-        to: WEBSITE_PROFILE_PREMIUM_PATH,
-        helper: 'Paketler, gorunurluk ve odeme baglantilari'
+        label: 'Paketler ve Uyelik',
+        to: WEBSITE_PACKAGES_PATH,
+        helper: 'Tek pricing sistemi, dijital haklar ve compliance aciklamalari'
       },
       {
         label: 'Takiplerini Ac',
@@ -143,7 +143,7 @@ function WebsiteProfileHome() {
           <p className="landing-eyebrow">Website profil girisi</p>
           <h2>{user?.name || 'Talepet kullanicisi'}</h2>
           <p>
-            Profil alani artik website yuzeyi icinde modul modul ilerliyor. Hesap, premium, takipler ve gunluk
+            Profil alani artik website yuzeyi icinde modul modul ilerliyor. Hesap, paketler, takipler ve gunluk
             aksiyonlar ayni shell icinde daha net bir bilgi mimarisiyle aciliyor.
           </p>
         </div>

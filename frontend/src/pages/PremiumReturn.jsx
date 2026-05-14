@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
+import { WEBSITE_PACKAGES_PATH } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 
@@ -60,9 +61,9 @@ function PremiumReturn() {
                 console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
                   source: 'premium_return_poll',
                   paymentId,
-                  target: '/premium'
+                  target: WEBSITE_PACKAGES_PATH
                 });
-                navigate('/premium');
+                navigate(WEBSITE_PACKAGES_PATH);
               }, 1500);
             }
           }
@@ -124,9 +125,9 @@ function PremiumReturn() {
       console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
         source: 'premium_return_consent',
         paymentId,
-        target: '/profile'
+        target: WEBSITE_PACKAGES_PATH
       });
-      navigate('/profile');
+      navigate(WEBSITE_PACKAGES_PATH);
     } catch (requestError) {
       setSaveLoading(false);
       setMessage(requestError.response?.data?.message || 'Kart kaydi guncellenemedi.');
@@ -152,9 +153,9 @@ function PremiumReturn() {
         <button
           type="button"
           className="primary-btn"
-          onClick={() => navigate(planCode === 'payment_method_setup' ? '/profile' : '/premium')}
+          onClick={() => navigate(WEBSITE_PACKAGES_PATH)}
         >
-          Profile don
+          Paketlere don
         </button>
       </section>
 

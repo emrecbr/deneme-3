@@ -5,7 +5,7 @@ import BackIconButton from '../components/BackIconButton';
 import CategorySelector from '../components/CategorySelector';
 import ProfileLegalSection from '../components/ProfileLegalSection';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
-import { WEBSITE_PROFILE_ALERTS_PATH, WEBSITE_PROFILE_PREMIUM_PATH } from '../config/surfaces';
+import { WEBSITE_PACKAGES_PATH, WEBSITE_PROFILE_ALERTS_PATH } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 import { formatListingQuotaResetDate, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
@@ -1019,8 +1019,8 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         )}
         {isWebSurface ? (
           <div className="website-profile-inline-actions">
-            <Link to={WEBSITE_PROFILE_PREMIUM_PATH} className="secondary-btn">
-              Premium alanını aç
+            <Link to={WEBSITE_PACKAGES_PATH} className="secondary-btn">
+              Paketleri ac
             </Link>
           </div>
         ) : null}

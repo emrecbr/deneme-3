@@ -1,4 +1,5 @@
 import {
+  WEBSITE_PACKAGES_PATH,
   WEBSITE_PROFILE_ACCOUNT_PATH,
   WEBSITE_PROFILE_ADDRESSES_PATH,
   WEBSITE_PROFILE_ALERTS_PATH,
@@ -6,55 +7,53 @@ import {
   WEBSITE_PROFILE_HOME_PATH,
   WEBSITE_PROFILE_MESSAGES_PATH,
   WEBSITE_PROFILE_OFFERS_PATH,
-  WEBSITE_PROFILE_PREMIUM_PATH,
   WEBSITE_PROFILE_REQUESTS_PATH
 } from '../config/surfaces';
 
 export const websiteProfileNavItems = [
   {
-    label: 'Genel Bakış',
+    label: 'Genel Bakis',
     to: WEBSITE_PROFILE_HOME_PATH,
-    description: 'Hesap özeti, hızlı aksiyonlar ve temel görünüm.'
+    description: 'Hesap ozeti, hizli aksiyonlar ve temel gorunum.'
   },
   {
     label: 'Hesap',
     to: WEBSITE_PROFILE_ACCOUNT_PATH,
-    description: 'Kullanıcı bilgileri, güvenlik ve hesap ayarları.'
+    description: 'Kullanici bilgileri, guvenlik ve hesap ayarlari.'
   },
   {
     label: 'Taleplerim',
     to: WEBSITE_PROFILE_REQUESTS_PATH,
-    description: 'Oluşturduğun talepler ve durumları.'
+    description: 'Olusturdugun talepler ve durumlari.'
   },
   {
     label: 'Tekliflerim',
     to: WEBSITE_PROFILE_OFFERS_PATH,
-    description: 'Verdiğin teklifler ve süreçleri.'
+    description: 'Verdigin teklifler ve surecleri.'
   },
   {
     label: 'Favoriler',
     to: WEBSITE_PROFILE_FAVORITES_PATH,
-    description: 'Kaydettiğin RFQ ve ilanlar.'
+    description: 'Kaydettigin RFQ ve ilanlar.'
   },
   {
     label: 'Mesajlar',
     to: WEBSITE_PROFILE_MESSAGES_PATH,
-    description: 'Sohbet ve iletişim giriş noktaları.'
+    description: 'Sohbet ve iletisim giris noktalari.'
   },
   {
     label: 'Adresler',
     to: WEBSITE_PROFILE_ADDRESSES_PATH,
-    description: 'Konum ve adres kayıtların.'
+    description: 'Konum ve adres kayitlarin.'
   },
   {
-    label: 'Premium',
-    to: WEBSITE_PROFILE_PREMIUM_PATH,
-    description: 'Paket, kota ve premium görünürlük alanı.'
+    label: 'Paketler',
+    to: WEBSITE_PACKAGES_PATH,
+    description: 'Dijital hizmet paketleri, uyelik farklari ve compliance aciklamalari.'
   },
   {
     label: 'Takiplerim',
     to: WEBSITE_PROFILE_ALERTS_PATH,
-    description: 'Kategori, şehir ve anahtar kelime takiplerin.'
+    description: 'Kategori, sehir ve anahtar kelime takiplerin.'
   }
 ];
-

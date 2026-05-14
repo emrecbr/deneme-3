@@ -111,7 +111,6 @@ const ProfileAccount = lazy(() => import('./pages/ProfileAccount'));
 const ProfileAddresses = lazy(() => import('./pages/ProfileAddresses'));
 const Messages = lazy(() => import('./pages/Messages'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
-const Premium = lazy(() => import('./pages/Premium'));
 const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
 const Categories = lazy(() => import('./pages/Categories'));
 const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
@@ -126,10 +125,6 @@ const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 const WebsiteProfileHome = lazy(() => import('./pages/WebsiteProfileHome'));
 
 function WebsiteProfilePlaceholder({ title, description }) {
-  if (String(title || '').toLowerCase().includes('premium')) {
-    return <Premium surfaceVariant="web" />;
-  }
-
   if (String(title || '').toLowerCase().includes('takiplerim')) {
     return <ProfileAccount surfaceVariant="web" focusSection="alerts" />;
   }
@@ -832,17 +827,7 @@ function App() {
         path="/premium"
         element={
           <PrivateRoute>
-            {webSurfacePreferred ? (
-              renderWebsiteProfileShell(<Premium surfaceVariant="web" />, {
-                title: 'Premium',
-                description: 'Premium paketler, gorunurluk ve odeme akislarini website profile shell icinde yonet.',
-                fallbackTo: '/premium'
-              })
-            ) : (
-              <Layout theme={theme} onToggleTheme={toggleTheme}>
-                <Premium />
-              </Layout>
-            )}
+            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
           </PrivateRoute>
         }
       />
@@ -981,6 +966,15 @@ function App() {
         path={WEBSITE_PROFILE_PREMIUM_PATH}
         element={
           <PrivateRoute>
+            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path={WEBSITE_PROFILE_PREMIUM_PATH}
+        element={
+          <PrivateRoute>
             {renderWebsiteProfileShell(
               <WebsiteProfilePlaceholder
                 title="Premium alanı hazırlanıyor"
@@ -989,7 +983,7 @@ function App() {
               {
                 title: 'Premium',
                 description: 'Premium paketlerin, görünürlük seçeneklerin ve ödeme bağlantıların website shell içinde açılır.',
-                fallbackTo: '/premium'
+                fallbackTo: WEBSITE_PACKAGES_PATH
               }
             )}
           </PrivateRoute>
@@ -1071,11 +1065,7 @@ function App() {
 
       <Route
         path={WEBSITE_PACKAGES_PATH}
-        element={
-          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
-            <PricingPage />
-          </Layout>
-        }
+        element={<PricingPage />}
       />
 
       <Route
