@@ -387,9 +387,9 @@ function Profile() {
                 </button>
                 <button type="button" className="profile-sub-item" onClick={(event) => {
                   event.stopPropagation();
-                  navigate('/paketler');
+                  navigate('/premium');
                 }}>
-                  <span>Paketler ve Uyelik</span>
+                  <span>Premium ve Paketler</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>

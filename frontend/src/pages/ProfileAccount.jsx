@@ -1023,7 +1023,13 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
               Paketleri ac
             </Link>
           </div>
-        ) : null}
+        ) : (
+          <div className="account-inline-actions">
+            <button type="button" className="secondary-btn" onClick={() => navigate('/premium')}>
+              Premium ve Paketleri Ac
+            </button>
+          </div>
+        )}
       </section>
       ) : null}
 
@@ -1122,7 +1128,9 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
               Paketleri İncele
             </Link>
           ) : (
-            <div className="account-muted">Yeni ilan hakkı ve paket bilgileri website yüzeyinde listelenir.</div>
+            <button type="button" className="primary-btn" onClick={() => navigate('/premium')}>
+              Premium ve Paketleri İncele
+            </button>
           )}
         </div>
         {isWebSurface && paymentSheetOpen ? renderPaymentEntryPanel() : null}

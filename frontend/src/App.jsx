@@ -111,6 +111,7 @@ const ProfileAccount = lazy(() => import('./pages/ProfileAccount'));
 const ProfileAddresses = lazy(() => import('./pages/ProfileAddresses'));
 const Messages = lazy(() => import('./pages/Messages'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const Premium = lazy(() => import('./pages/Premium'));
 const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
 const Categories = lazy(() => import('./pages/Categories'));
 const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
@@ -827,7 +828,13 @@ function App() {
         path="/premium"
         element={
           <PrivateRoute>
-            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+            {webSurfacePreferred ? (
+              <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+            ) : (
+              <Layout theme={theme} onToggleTheme={toggleTheme}>
+                <Premium surfaceVariant="app" />
+              </Layout>
+            )}
           </PrivateRoute>
         }
       />
@@ -972,25 +979,6 @@ function App() {
       />
 
       <Route
-        path={WEBSITE_PROFILE_PREMIUM_PATH}
-        element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <WebsiteProfilePlaceholder
-                title="Premium alanı hazırlanıyor"
-                description="Paket, kota ve premium görünürlük bilgileri website profile shell içine taşınacak."
-              />,
-              {
-                title: 'Premium',
-                description: 'Premium paketlerin, görünürlük seçeneklerin ve ödeme bağlantıların website shell içinde açılır.',
-                fallbackTo: WEBSITE_PACKAGES_PATH
-              }
-            )}
-          </PrivateRoute>
-        }
-      />
-
-      <Route
         path={WEBSITE_PROFILE_ALERTS_PATH}
         element={
           <PrivateRoute>
@@ -1065,7 +1053,15 @@ function App() {
 
       <Route
         path={WEBSITE_PACKAGES_PATH}
-        element={<PricingPage />}
+        element={
+          webSurfacePreferred ? (
+            <PricingPage />
+          ) : (
+            <PrivateRoute>
+              <Navigate to="/premium" replace />
+            </PrivateRoute>
+          )
+        }
       />
 
       <Route
