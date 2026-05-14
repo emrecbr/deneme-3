@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
+import { buildSurfaceHref, WEBSITE_HOW_IT_WORKS_PATH, WEBSITE_PACKAGES_PATH } from '../config/surfaces';
 
 function Register() {
   const navigate = useNavigate();
@@ -100,6 +101,19 @@ function Register() {
 
         <div className="auth-divider">
           <span>veya</span>
+        </div>
+
+        <div className="auth-alert">
+          Talepet kullanicilar arasinda odeme araciligi yapmaz. Premium ve paket odemeleri
+          yalnizca dijital platform hizmetleri icindir.
+          <div className="auth-footer-links">
+            <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="link-btn">
+              Nasil Calisir
+            </a>
+            <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="link-btn">
+              Paketleri Incele
+            </a>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>

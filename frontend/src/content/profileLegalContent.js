@@ -4,6 +4,7 @@ export const profileLegalContent = {
     'Talepet, kullanicilarin talep olusturdugu ve hizmet verenlerin teklif sundugu dijital bir platformdur. Premium paketler, one cikarma ve ek ilan haklari gibi hizmetler elektronik ortamda saglanir; fiziksel teslimat yapilmaz.',
   links: [
     { to: '/paketler', label: 'Paketler ve Fiyatlandirma' },
+    { to: '/nasil-calisir', label: 'Nasil Calisir' },
     { to: '/hakkimizda', label: 'Hakkimizda' },
     { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sozlesmesi' },
     { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satis Sozlesmesi' },
@@ -11,6 +12,7 @@ export const profileLegalContent = {
     { to: '/iletisim', label: 'Iletisim' }
   ],
   sslText: 'Odemeleriniz 256-bit SSL guvenlik sertifikasi ile korunur.',
-  paymentText: 'Visa • MasterCard • iyzico ile Ode',
-  paymentSubtext: 'Odeme islemleri iyzico altyapisi uzerinden guvenli sekilde gerceklestirilir.'
+  paymentText: 'Visa - MasterCard - iyzico ile Ode',
+  paymentSubtext:
+    'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'
 };

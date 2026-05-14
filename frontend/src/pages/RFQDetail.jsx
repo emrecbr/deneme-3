@@ -1266,9 +1266,15 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 </button>
                 {featuredCredits <= 0 && !featuredActive ? (
                   <button type="button" className="primary-btn" onClick={handlePurchaseFeatured}>
-                    Öne Çıkar Satın Al
+                    One Cikarma Paketini Aktiflestir
                   </button>
                 ) : null}
+              </div>
+            ) : null}
+            {isOwner ? (
+              <div className="rfq-sub">
+                Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
+                araciligi yapmaz.
               </div>
             ) : null}
             <p className="detail-description">{rfq.description}</p>

@@ -18,6 +18,7 @@ export const WEBSITE_DISCOVERY_PATH = '/kesfet';
 export const WEBSITE_CATEGORIES_PATH = '/categories';
 export const WEBSITE_CREATE_PATH = '/create';
 export const WEBSITE_PACKAGES_PATH = '/paketler';
+export const WEBSITE_HOW_IT_WORKS_PATH = '/nasil-calisir';
 export const WEBSITE_PROFILE_HOME_PATH = '/profil';
 export const WEBSITE_PROFILE_ACCOUNT_PATH = '/profil/hesap';
 export const WEBSITE_PROFILE_REQUESTS_PATH = '/profil/taleplerim';
@@ -55,6 +56,7 @@ export const PUBLIC_WEB_PATHS = [
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
   WEBSITE_PACKAGES_PATH,
+  WEBSITE_HOW_IT_WORKS_PATH,
   '/hakkimizda',
   '/gizlilik-sozlesmesi',
   '/mesafeli-satis-sozlesmesi',

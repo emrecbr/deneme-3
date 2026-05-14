@@ -7,16 +7,33 @@ const initialQuota = {
   extraEnabled: true
 };
 
+const defaultMetadata = {
+  digitalServiceLabel: 'Dijital hizmet paketi',
+  listingRights: 'Standart ilan haklarin korunur',
+  featuredDurationDaysMonthly: 0,
+  featuredDurationDaysYearly: 0,
+  premiumBadgeIncluded: false,
+  visibilityBoostLabel: '',
+  offerPriorityLabel: '',
+  durationLabelMonthly: '',
+  durationLabelYearly: ''
+};
+
 const formatPrice = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 const normalizeModes = (modes) =>
   Array.isArray(modes) && modes.length ? modes : ['monthly', 'yearly'];
 
 const planHelpTexts = {
   premium_listing:
-    'Premium ilan, normal ilana göre daha görünür olacak ücretli ilan tipidir. Buradan aylık ve yıllık fiyatını belirleyebilirsiniz.',
+    'Premium paket, hesap rozetini ve platform ici premium gorunurluk avantajini yonetir.',
   featured_listing:
-    'Öne çıkarılan ilan, listelerde daha üstte veya daha dikkat çekici görünmesi için kullanılan ücretli ilan seçeneğidir.'
+    'One cikarma paketi, secilen talebin listelerde daha gorunur olmasi icin kullanilan dijital haktir.'
 };
+
+const sanitizeMetadata = (metadata = {}) => ({
+  ...defaultMetadata,
+  ...(metadata || {})
+});
 
 export default function AdminMonetizationPlans() {
   const [plans, setPlans] = useState([]);
@@ -39,7 +56,8 @@ export default function AdminMonetizationPlans() {
     monthlyPrice: formatPrice(plan.monthlyPrice),
     yearlyPrice: formatPrice(plan.yearlyPrice),
     currency: plan.currency || 'TRY',
-    sortOrder: Number(plan.sortOrder || 0)
+    sortOrder: Number(plan.sortOrder || 0),
+    metadata: sanitizeMetadata(plan.metadata)
   });
 
   const load = async () => {
@@ -49,17 +67,14 @@ export default function AdminMonetizationPlans() {
         api.get('/admin/monetization/plans'),
         api.get('/admin/system/listing-quota')
       ]);
-      const incomingPlans = (plansRes.data?.items || []).map((item) => ({
-        ...item,
-        billingModes: normalizeModes(item.billingModes)
-      }));
+      const incomingPlans = (plansRes.data?.items || []).map(sanitizePlan);
       setPlans(incomingPlans);
-      setInitialPlans(incomingPlans.map(sanitizePlan));
+      setInitialPlans(incomingPlans);
       const incomingQuota = quotaRes.data?.data || initialQuota;
       setQuota(incomingQuota);
       setInitialQuotaSnapshot(incomingQuota);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Veriler alınamadı.');
+      setError(err?.response?.data?.message || 'Veriler alinamadi.');
     }
   };
 
@@ -68,8 +83,16 @@ export default function AdminMonetizationPlans() {
   }, []);
 
   const updatePlanField = (id, field, value) => {
+    setPlans((prev) => prev.map((item) => (item._id === id ? { ...item, [field]: value } : item)));
+  };
+
+  const updateMetadataField = (id, field, value) => {
     setPlans((prev) =>
-      prev.map((item) => (item._id === id ? { ...item, [field]: value } : item))
+      prev.map((item) =>
+        item._id === id
+          ? { ...item, metadata: { ...sanitizeMetadata(item.metadata), [field]: value } }
+          : item
+      )
     );
   };
 
@@ -91,12 +114,12 @@ export default function AdminMonetizationPlans() {
   const validatePlan = (plan) => {
     if (!plan.isActive || !plan.showInApp) return '';
     const modes = normalizeModes(plan.billingModes);
-    if (!modes.length) return 'En az bir fatura modu seçilmelidir.';
+    if (!modes.length) return 'En az bir fatura modu secilmelidir.';
     if (modes.includes('monthly') && Number(plan.monthlyPrice) <= 0) {
-      return 'Aylık fiyat 0 olamaz.';
+      return 'Aylik fiyat 0 olamaz.';
     }
     if (modes.includes('yearly') && Number(plan.yearlyPrice) <= 0) {
-      return 'Yıllık fiyat 0 olamaz.';
+      return 'Yillik fiyat 0 olamaz.';
     }
     return '';
   };
@@ -141,7 +164,8 @@ export default function AdminMonetizationPlans() {
             monthlyPrice: formatPrice(plan.monthlyPrice),
             yearlyPrice: formatPrice(plan.yearlyPrice),
             currency: plan.currency,
-            sortOrder: plan.sortOrder
+            sortOrder: plan.sortOrder,
+            metadata: sanitizeMetadata(plan.metadata)
           })
         )
       );
@@ -160,47 +184,51 @@ export default function AdminMonetizationPlans() {
 
   return (
     <div className="admin-panel">
-      <div className="admin-panel-title">İlan Paketleri & Ücretlendirme</div>
+      <div className="admin-panel-title">Paketler ve Dijital Haklar</div>
       <div className="admin-panel-body">
         <div className="admin-info">
-          Bu ekrandaki ayarlar uygulamadaki ilan paketleri ve fiyatlarını doğrudan etkiler.
-          Değişiklikten sonra uygulama yeni fiyatları API üzerinden alır.
+          Bu ekrandaki ayarlar public paket sayfasi, premium ekranlari ve uygulama ici fiyatlari
+          dogrudan etkiler.
         </div>
-        {isDirty ? <div className="admin-warning">Kaydedilmemiş değişiklikleriniz var.</div> : null}
+        {isDirty ? <div className="admin-warning">Kaydedilmemis degisiklikleriniz var.</div> : null}
         {error ? <div className="admin-error">{error}</div> : null}
 
         <div className="admin-card admin-plan-card">
-          <div className="admin-card-title">Ücretsiz İlan Hakkı</div>
+          <div className="admin-card-title">Ucretsiz Ilan HakkI</div>
           <div className="admin-muted">
-            Bir kullanıcının belirli süre içinde ücretsiz oluşturabileceği ilan sayısını belirler.
+            Bir kullanicinin belirli sure icinde ucretsiz olusturabilecegi ilan sayisini belirler.
           </div>
           <div className="admin-form-grid">
             <label>
-              <span>Hak Periyodu (gün)</span>
+              <span>Hak Periyodu (gun)</span>
               <input
                 type="number"
                 value={quota.periodDays || 0}
-                onChange={(event) => setQuota((prev) => ({ ...prev, periodDays: Number(event.target.value) }))}
+                onChange={(event) =>
+                  setQuota((prev) => ({ ...prev, periodDays: Number(event.target.value) }))
+                }
               />
             </label>
             <label>
-              <span>Ücretsiz Hak</span>
+              <span>Ucretsiz Hak</span>
               <input
                 type="number"
                 value={quota.maxFree || 0}
-                onChange={(event) => setQuota((prev) => ({ ...prev, maxFree: Number(event.target.value) }))}
+                onChange={(event) =>
+                  setQuota((prev) => ({ ...prev, maxFree: Number(event.target.value) }))
+                }
               />
             </label>
             <label>
-              <span>Ücretli İlan Aktif</span>
+              <span>Ek Ilan Satin Alma</span>
               <select
                 value={quota.extraEnabled ? 'true' : 'false'}
                 onChange={(event) =>
                   setQuota((prev) => ({ ...prev, extraEnabled: event.target.value === 'true' }))
                 }
               >
-                <option value="true">Açık</option>
-                <option value="false">Kapalı</option>
+                <option value="true">Acik</option>
+                <option value="false">Kapali</option>
               </select>
             </label>
           </div>
@@ -217,71 +245,21 @@ export default function AdminMonetizationPlans() {
                   value={plan.isActive ? 'true' : 'false'}
                   onChange={(event) => updatePlanField(plan._id, 'isActive', event.target.value === 'true')}
                 >
-                  <option value="true">Açık</option>
-                  <option value="false">Kapalı</option>
+                  <option value="true">Acik</option>
+                  <option value="false">Kapali</option>
                 </select>
               </label>
               <label>
-                <span>Uygulamada Göster</span>
+                <span>Uygulamada Goster</span>
                 <select
                   value={plan.showInApp ? 'true' : 'false'}
-                  onChange={(event) => updatePlanField(plan._id, 'showInApp', event.target.value === 'true')}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'showInApp', event.target.value === 'true')
+                  }
                 >
                   <option value="true">Evet</option>
-                  <option value="false">Hayır</option>
+                  <option value="false">Hayir</option>
                 </select>
-              </label>
-              <label>
-                <span>Fatura Modları</span>
-                <div className="admin-inline-actions">
-                  <label className="admin-inline-option">
-                    <input
-                      type="checkbox"
-                      checked={normalizeModes(plan.billingModes).includes('monthly')}
-                      onChange={(event) => updateBillingMode(plan._id, 'monthly', event.target.checked)}
-                    />
-                    <span>Aylık</span>
-                  </label>
-                  <label className="admin-inline-option">
-                    <input
-                      type="checkbox"
-                      checked={normalizeModes(plan.billingModes).includes('yearly')}
-                      onChange={(event) => updateBillingMode(plan._id, 'yearly', event.target.checked)}
-                    />
-                    <span>Yıllık</span>
-                  </label>
-                </div>
-              </label>
-              <label>
-                <span>Aylık Ücret (TRY)</span>
-                <input
-                  type="number"
-                  value={formatPrice(plan.monthlyPrice)}
-                  onChange={(event) => updatePlanField(plan._id, 'monthlyPrice', Number(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>Yıllık Ücret (TRY)</span>
-                <input
-                  type="number"
-                  value={formatPrice(plan.yearlyPrice)}
-                  onChange={(event) => updatePlanField(plan._id, 'yearlyPrice', Number(event.target.value))}
-                />
-              </label>
-              <label>
-                <span>Kısa Açıklama</span>
-                <input
-                  value={plan.shortDescription || ''}
-                  onChange={(event) => updatePlanField(plan._id, 'shortDescription', event.target.value)}
-                />
-              </label>
-              <label>
-                <span>Uzun Açıklama</span>
-                <textarea
-                  rows={3}
-                  value={plan.longDescription || ''}
-                  onChange={(event) => updatePlanField(plan._id, 'longDescription', event.target.value)}
-                />
               </label>
               <label>
                 <span>Rozet</span>
@@ -291,11 +269,175 @@ export default function AdminMonetizationPlans() {
                 />
               </label>
               <label>
-                <span>Sıralama</span>
+                <span>Fatura Modlari</span>
+                <div className="admin-inline-actions">
+                  <label className="admin-inline-option">
+                    <input
+                      type="checkbox"
+                      checked={normalizeModes(plan.billingModes).includes('monthly')}
+                      onChange={(event) =>
+                        updateBillingMode(plan._id, 'monthly', event.target.checked)
+                      }
+                    />
+                    <span>Aylik</span>
+                  </label>
+                  <label className="admin-inline-option">
+                    <input
+                      type="checkbox"
+                      checked={normalizeModes(plan.billingModes).includes('yearly')}
+                      onChange={(event) =>
+                        updateBillingMode(plan._id, 'yearly', event.target.checked)
+                      }
+                    />
+                    <span>Yillik</span>
+                  </label>
+                </div>
+              </label>
+              <label>
+                <span>Aylik Ucret (TRY)</span>
+                <input
+                  type="number"
+                  value={formatPrice(plan.monthlyPrice)}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'monthlyPrice', Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                <span>Yillik Ucret (TRY)</span>
+                <input
+                  type="number"
+                  value={formatPrice(plan.yearlyPrice)}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'yearlyPrice', Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                <span>Kisa Aciklama</span>
+                <input
+                  value={plan.shortDescription || ''}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'shortDescription', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Uzun Aciklama</span>
+                <textarea
+                  rows={3}
+                  value={plan.longDescription || ''}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'longDescription', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Dijital Hizmet Etiketi</span>
+                <input
+                  value={plan.metadata?.digitalServiceLabel || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'digitalServiceLabel', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Ilan Hakki Metni</span>
+                <input
+                  value={plan.metadata?.listingRights || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'listingRights', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>One Cikarma Suresi (Aylik, gun)</span>
+                <input
+                  type="number"
+                  value={Number(plan.metadata?.featuredDurationDaysMonthly || 0)}
+                  onChange={(event) =>
+                    updateMetadataField(
+                      plan._id,
+                      'featuredDurationDaysMonthly',
+                      Number(event.target.value)
+                    )
+                  }
+                />
+              </label>
+              <label>
+                <span>One Cikarma Suresi (Yillik, gun)</span>
+                <input
+                  type="number"
+                  value={Number(plan.metadata?.featuredDurationDaysYearly || 0)}
+                  onChange={(event) =>
+                    updateMetadataField(
+                      plan._id,
+                      'featuredDurationDaysYearly',
+                      Number(event.target.value)
+                    )
+                  }
+                />
+              </label>
+              <label>
+                <span>Premium Badge Dahil</span>
+                <select
+                  value={plan.metadata?.premiumBadgeIncluded ? 'true' : 'false'}
+                  onChange={(event) =>
+                    updateMetadataField(
+                      plan._id,
+                      'premiumBadgeIncluded',
+                      event.target.value === 'true'
+                    )
+                  }
+                >
+                  <option value="true">Evet</option>
+                  <option value="false">Hayir</option>
+                </select>
+              </label>
+              <label>
+                <span>Gorunurluk Metni</span>
+                <input
+                  value={plan.metadata?.visibilityBoostLabel || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'visibilityBoostLabel', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Teklif Onceligi Metni</span>
+                <input
+                  value={plan.metadata?.offerPriorityLabel || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'offerPriorityLabel', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Sure Metni (Aylik)</span>
+                <input
+                  value={plan.metadata?.durationLabelMonthly || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'durationLabelMonthly', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Sure Metni (Yillik)</span>
+                <input
+                  value={plan.metadata?.durationLabelYearly || ''}
+                  onChange={(event) =>
+                    updateMetadataField(plan._id, 'durationLabelYearly', event.target.value)
+                  }
+                />
+              </label>
+              <label>
+                <span>Siralama</span>
                 <input
                   type="number"
                   value={plan.sortOrder || 0}
-                  onChange={(event) => updatePlanField(plan._id, 'sortOrder', Number(event.target.value))}
+                  onChange={(event) =>
+                    updatePlanField(plan._id, 'sortOrder', Number(event.target.value))
+                  }
                 />
               </label>
             </div>
@@ -304,7 +446,12 @@ export default function AdminMonetizationPlans() {
         ))}
 
         <div className="admin-form-actions">
-          <button type="button" className="primary-btn" onClick={handleSave} disabled={saving || hasValidationError}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleSave}
+            disabled={saving || hasValidationError}
+          >
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>

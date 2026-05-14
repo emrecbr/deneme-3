@@ -116,6 +116,7 @@ const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
 const Categories = lazy(() => import('./pages/Categories'));
 const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
+const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 const DistanceSalesPage = lazy(() => import('./pages/DistanceSalesPage'));
 const DeliveryReturnsPage = lazy(() => import('./pages/DeliveryReturnsPage'));
@@ -1011,6 +1012,15 @@ function App() {
               }
             )}
           </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/nasil-calisir"
+        element={
+          <Layout showBottomNav={false} theme={theme} onToggleTheme={toggleTheme}>
+            <HowItWorksPage />
+          </Layout>
         }
       />
 

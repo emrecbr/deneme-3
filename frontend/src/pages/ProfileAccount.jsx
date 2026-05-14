@@ -833,13 +833,15 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         </div>
       </div>
       <div className="account-muted">
-        Kart bilgilerin uygulamada saklanmaz. Güvenli ödeme sağlayıcısının ekranında tekrar doğrulanacaktır.
+        Kart bilgilerin uygulamada saklanmaz. Bu adim dijital platform hizmetleri icin guvenli
+        odeme saglayicisinin ekraninda tamamlanir. Talepet kullanicilar arasinda odeme araciligi
+        yapmaz.
       </div>
       {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
       {paymentError ? <div className="error">{paymentError}</div> : null}
       <div className="website-profile-inline-actions">
         <button type="button" className="primary-btn" onClick={handleAddPaymentMethod} disabled={paymentLoading}>
-          {paymentLoading ? 'Yönlendiriliyor…' : 'Ödemeye Geç'}
+          {paymentLoading ? 'Yonlendiriliyor...' : 'Guvenli Odeme Ekranini Ac'}
         </button>
         <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen(false)}>
           Vazgeç
@@ -1102,7 +1104,10 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         ) : (
           <div className="payment-empty">
             <div>Henüz kayıtlı kart yok.</div>
-            <div className="account-muted">Kart eklemek için güvenli ödeme ekranına yönlendirileceksin.</div>
+            <div className="account-muted">
+              Kart eklemek icin guvenli odeme ekranina yonlendirileceksin. Bu akim kullanicilar
+              arasi para transferi degil, dijital platform hizmeti odeme zeminidir.
+            </div>
           </div>
         )}
 

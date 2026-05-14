@@ -1,5 +1,6 @@
 export const PUBLIC_FOOTER_LINKS = [
   { to: '/paketler', label: 'Paketler' },
+  { to: '/nasil-calisir', label: 'Nasil Calisir' },
   { to: '/hakkimizda', label: 'Hakkimizda' },
   { to: '/gizlilik-sozlesmesi', label: 'Gizlilik Sozlesmesi' },
   { to: '/mesafeli-satis-sozlesmesi', label: 'Mesafeli Satis Sozlesmesi' },
@@ -25,8 +26,9 @@ export const PUBLIC_PAGE_CONTENT = {
       {
         heading: 'Gelir modeli ve dijital hizmetler',
         paragraphs: [
-          'Talepet fiziksel urun stogu tutan bir magazadan ziyade, platform ici dijital hizmetler sunan bir yapidir.',
-          'Premium paketler, one cikarilan ilanlar ve ek ilan haklari; kullanicinin talebini platform icinde daha gorunur hale getiren satin alinabilir dijital hizmetlerdir.'
+          'Talepet fiziksel urun stogu tutan bir magaza degil; platform ici dijital hizmetler sunan bir yapidir.',
+          'Premium paketler, one cikarilan ilanlar ve ek ilan haklari; kullanicinin talebini platform icinde daha gorunur hale getiren satin alinabilir dijital hizmetlerdir.',
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz ve komisyon almaz.'
         ]
       },
       {
@@ -34,6 +36,36 @@ export const PUBLIC_PAGE_CONTENT = {
         paragraphs: [
           'Talepet, hesap dogrulama, moderasyon, sehir-ilce baglami ve odeme altyapisi gibi katmanlari kullanarak daha kontrollu bir talep ve teklif deneyimi kurmayi hedefler.',
           'Kurumsal ve hukuki sayfalarimiz, kullanicinin satin alabildigi dijital hizmetleri ve platformun calisma mantigini seffaf bicimde aciklar.'
+        ]
+      }
+    ]
+  },
+  howItWorks: {
+    title: 'Nasil Calisir',
+    description:
+      'Talepet uzerinde talep verme, teklif alma ve premium paketlerin ne ise yaradigini acik bir dille anlatir.',
+    lead:
+      'Talepet; kullanicinin talep olusturdugu, hizmet verenlerin teklif ilettigi ve platformun yalnizca dijital gorunurluk hizmetleri sattigi bir yapidir.',
+    sections: [
+      {
+        heading: 'Talep ve teklif akisi',
+        paragraphs: [
+          'Kullanici ihtiyacini talep olarak yayinlar; hizmet verenler bu talebi gorur ve tekliflerini iletir.',
+          'Platformun temel isi, talep ile teklifin dijital ortamda daha net eslesmesini saglamaktir.'
+        ]
+      },
+      {
+        heading: 'Odeme ve anlasma modeli',
+        paragraphs: [
+          'Kullanici ile hizmet veren nihai hizmet bedelini platform disinda kararlastirir.',
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz ve komisyon almaz.'
+        ]
+      },
+      {
+        heading: 'Talepet ne satar?',
+        paragraphs: [
+          'Talepet premium gorunurluk, one cikarma ve ek ilan hakki gibi dijital platform hizmetleri satar.',
+          'Satinalinan sey fiziksel urun degil, platform ici dijital hak ve gorunurluk avantajidir.'
         ]
       }
     ]
@@ -56,7 +88,8 @@ export const PUBLIC_PAGE_CONTENT = {
         heading: 'Isleme amaclari',
         paragraphs: [
           'Hesap olusturma, kimlik dogrulama, talep yayinlama, teklif ve mesajlasma akislarini yurutme, uygun eslesmeleri gosterme ve kullanici destek sureclerini yonetme amaclariyla veri islenir.',
-          'Premium uyelik, one cikarma ve ek ilan hakki gibi dijital hizmetlerin saglanmasi icin odeme ve siparis durumu bilgileri de tutulabilir.'
+          'Premium uyelik, one cikarma ve ek ilan hakki gibi dijital hizmetlerin saglanmasi icin odeme ve siparis durumu bilgileri de tutulabilir.',
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz.'
         ]
       },
       {
@@ -90,10 +123,10 @@ export const PUBLIC_PAGE_CONTENT = {
         ]
       },
       {
-        heading: 'Kullanim kosullari',
+        heading: 'Platform siniri',
         paragraphs: [
-          'Premium paketler ve one cikarma haklari yalnizca Talepet platformu icinde gecerli olup baska bir platforma devredilemez.',
-          'Platform kurallarina aykiri veya moderasyon nedeniyle kaldirilan icerikler icin dijital hizmetlerin uygulanma sekli hizmet kosullarina gore degerlendirilir.'
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz ve komisyon almaz.',
+          'Premium paketler ve one cikarma haklari yalnizca Talepet platformu icinde gecerli dijital hizmetlerdir.'
         ]
       }
     ]
@@ -120,10 +153,10 @@ export const PUBLIC_PAGE_CONTENT = {
         ]
       },
       {
-        heading: 'Destek sureci',
+        heading: 'Platform siniri',
         paragraphs: [
-          'Odeme, aktivasyon veya hesapta hak gorunmemesi gibi durumlarda kullanici destek kanallari uzerinden kayit olusturabilirsiniz.',
-          'Giris yapan kullanicilar profil alanindaki Sorun Bildir akisiyla destek talebi baslatabilir.'
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz.',
+          'Destek gerektiren durumlarda odeme, aktivasyon veya hak gorunurlugu icin kullanici destek kanallari devreye girer.'
         ]
       }
     ]
@@ -147,7 +180,7 @@ export const PUBLIC_PAGE_CONTENT = {
         heading: 'Talepet ne satar?',
         paragraphs: [
           'Talepet, premium uyelik, one cikarilan ilanlar ve ek ilan hakki gibi platform ici dijital hizmetler sunar.',
-          'Bu hizmetler kullanicinin talebini daha gorunur hale getirmek, ek ilan yayini yapmak veya platform icindeki premium avantajlardan yararlanmak icin satin alinabilir.'
+          'Talepet kullanicilar arasinda odeme araciligi yapmaz ve komisyon almaz.'
         ]
       },
       {

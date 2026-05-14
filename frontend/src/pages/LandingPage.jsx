@@ -7,6 +7,7 @@ import {
   APP_HOME_PATH,
   WEBSITE_CATEGORIES_PATH,
   WEBSITE_CREATE_PATH,
+  WEBSITE_HOW_IT_WORKS_PATH,
   WEBSITE_LOGIN_PATH,
   WEBSITE_PACKAGES_PATH,
   WEBSITE_REGISTER_PATH,
@@ -116,6 +117,9 @@ function LandingPage() {
         </Link>
 
         <nav className="landing-topbar-actions" aria-label="Website auth actions">
+          <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="landing-link-button">
+            Nasil Calisir
+          </a>
           <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-link-button">
             Paketler
           </a>
@@ -139,7 +143,7 @@ function LandingPage() {
             <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
             </a>
-            <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-secondary-button">
+            <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
             </a>
             <a
@@ -152,7 +156,7 @@ function LandingPage() {
                 href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
                 className="landing-secondary-button landing-secondary-button-strong"
               >
-              Premium Satin Al
+              Premium Paketlerini Incele
             </a>
           </div>
 
@@ -170,7 +174,7 @@ function LandingPage() {
                   href={isAuthenticated ? buildSurfaceHref('web', '/premium') : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
                   className="landing-primary-button landing-purchase-card__cta"
                 >
-                  Satin Al
+                  Dijital Paketi Incele
                 </a>
               </article>
             ))}
@@ -213,6 +217,9 @@ function LandingPage() {
             Bu website yuzeyi kullaniciya platformun mantigini aciklar. Talep olusturma, teklif toplama ve
             profil yonetimi ise uygulama tarafinda devam eder.
           </p>
+          <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="landing-link-button landing-link-button-strong">
+            Detayli sayfayi ac
+          </a>
         </div>
 
         <div className="landing-process-grid">

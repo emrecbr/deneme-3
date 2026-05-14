@@ -11150,3 +11150,107 @@ body.dark-mode .premium-web-summary__card strong {
     align-items: stretch;
   }
 }
+
+.public-footer-copy--muted {
+  max-width: 42rem;
+  opacity: 0.82;
+}
+
+.pricing-page-service-note {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.pricing-plan-card--detailed {
+  gap: 0.85rem;
+}
+
+.pricing-plan-card__badge--accent {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.pricing-plan-card__facts {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.pricing-plan-card__facts div {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.pricing-plan-card__facts dt {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.pricing-plan-card__facts dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.premium-status-card--notice {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.premium-web-summary--stacked {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.premium-plan-card--detailed {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.premium-plan-duration,
+.premium-plan-note {
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.premium-plan-facts {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.premium-plan-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.premium-plan-fact span {
+  color: #64748b;
+}
+
+.premium-plan-fact strong {
+  color: #0f172a;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .premium-web-summary--stacked {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-plan-fact {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+}

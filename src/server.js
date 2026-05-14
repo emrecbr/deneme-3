@@ -39,7 +39,7 @@ import Subscription from '../models/Subscription.js';
 import AppSetting from '../models/AppSetting.js';
 import iyzico from './providers/iyzico/index.js';
 import { ensureAdminSeed } from './utils/adminSeed.js';
-import { getAllowedSurfaceOrigins } from './config/surfaceConfig.js';
+import { getAllowedSurfaceOrigins, isDemoPreviewOrigin } from './config/surfaceConfig.js';
 import { startAdminDashboardJob } from './jobs/adminDashboardJob.js';
 
 dotenv.config();
@@ -85,6 +85,7 @@ const isAllowedOrigin = (origin, requestPath = '') => {
   if (!origin) return true;
   if (origin === APPLE_SIGN_IN_ORIGIN && isAppleAuthRoute(requestPath)) return true;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (isDemoPreviewOrigin(origin)) return true;
   if (/^https:\/\/.*\.vercel\.app$/.test(origin)) return true;
   return false;
 };

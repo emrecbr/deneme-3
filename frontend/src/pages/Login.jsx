@@ -8,7 +8,14 @@ import api, {
   rememberSocialLoginReturnTarget
 } from '../api/axios';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
-import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
+import {
+  buildSurfaceHref,
+  isAbsoluteHref,
+  isWebSurfaceHost,
+  resolvePostAuthHref,
+  WEBSITE_HOW_IT_WORKS_PATH,
+  WEBSITE_PACKAGES_PATH
+} from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 const PRECHECK_TIMEOUT_MS = 8000;
@@ -525,6 +532,19 @@ function Login({ embedded = false }) {
 
             <div className="auth-divider">
               <span>veya</span>
+            </div>
+
+            <div className="auth-alert">
+              Talepet kullanicilar arasinda odeme araciligi yapmaz. Premium ve paket odemeleri
+              yalnizca dijital platform hizmetleri icindir.
+              <div className="auth-footer-links">
+                <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="link-btn">
+                  Nasil Calisir
+                </a>
+                <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="link-btn">
+                  Paketleri Incele
+                </a>
+              </div>
             </div>
 
             {showExistingSessionCard ? (

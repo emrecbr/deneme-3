@@ -1,9 +1,43 @@
 const trimTrailingSlash = (value) => String(value || '').trim().replace(/\/$/, '');
 const trimLeadingSlash = (value) => String(value || '').trim().replace(/^\/+/, '');
+const isProductionRuntime = () => process.env.NODE_ENV === 'production';
 const normalizePath = (value = '/') => {
   const text = String(value || '/').trim();
   if (!text || text === '/') return '/';
   return `/${trimLeadingSlash(text)}`;
+};
+
+const isPrivateIpv4Hostname = (hostname = '') => {
+  const host = String(hostname || '').trim();
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+
+  const match = host.match(/^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (!match) return false;
+
+  const secondOctet = Number(match[1]);
+  return secondOctet >= 16 && secondOctet <= 31;
+};
+
+export const isDemoPreviewOrigin = (origin) => {
+  if (isProductionRuntime() || !origin) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== 'http:' || parsed.port !== '4173') {
+      return false;
+    }
+
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      isPrivateIpv4Hostname(parsed.hostname)
+    );
+  } catch (_error) {
+    return false;
+  }
 };
 
 const firstDefined = (...pairs) => {
@@ -40,12 +74,6 @@ export const getApiSurfaceConfig = () =>
 
 export const getAllowedSurfaceOrigins = () => {
   const candidates = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:4173',
-    'http://127.0.0.1:4173',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
     'https://app.talepet.net.tr',
     'https://talepet.net.tr',
     'https://www.talepet.net.tr',
@@ -62,6 +90,17 @@ export const getAllowedSurfaceOrigins = () => {
     process.env.MARKETING_SITE_URL,
     process.env.API_BASE_URL
   ];
+
+  if (!isProductionRuntime()) {
+    candidates.push(
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:4173',
+      'http://127.0.0.1:4173',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    );
+  }
 
   return [...new Set(candidates.map(trimTrailingSlash).filter(Boolean))];
 };

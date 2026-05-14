@@ -6,11 +6,11 @@ export const LANDING_CONTENT = {
     'Talepet; hizmet, esya, otomobil ve is odakli talepleri sehir ve ilce baglamiyla eslestiren, teklif toplama, moderasyon ve premium gorunurluk katmanlarini tek deneyimde birlestiren platformdur.',
   hero: {
     eyebrow: 'Sehir ve ilce bazli talep platformu',
-    title: 'Ihtiyacini netlestir, dogru kisilerden teklifleri tek yerde topla.',
+    title: 'Ihtiyacini olustur, dogru teklifleri hizlica al.',
     subtitle:
-      'Talepet; kullanicinin ihtiyacini kategori, konum ve akisa gore toplar. Website yuzeyi platformu anlatir, auth deneyimini baslatir ve uygulamaya gecmeden once kullaniciya net bir karar zemini sunar.',
-    primaryCta: { label: 'Kayit Ol ve Basla', to: '/register' },
-    secondaryCta: { label: 'Giris Yap', to: '/login' },
+      'Yazilim, mobil uygulama, web sitesi, tasarim, tadilat, nakliye ve daha birçok hizmet icin talep olustur; uygun hizmet verenlerden teklif topla.',
+    primaryCta: { label: 'Talep Olustur', to: '/register' },
+    secondaryCta: { label: 'Kategorileri Incele', to: '/categories' },
     tertiaryCta: { label: 'Uygulamayi Ac', to: APP_HOME_PATH },
     metrics: [
       { label: 'Segment kapsami', value: '4 ana kategori alani' },
@@ -49,15 +49,15 @@ export const LANDING_CONTENT = {
     },
     {
       step: '02',
-      title: 'Teklifleri ayni akista gor ve karsilastir',
+      title: 'Hizmet verenler teklif gondersin',
       body:
         'Ilgili hizmet verenler, saticilar veya uzmanlar taleplerine teklif sunar. Kullanici bu teklifleri tek bir akista inceleyebilir.'
     },
     {
       step: '03',
-      title: 'Sureci profil, bildirim ve premium araclarla yonet',
+      title: 'Odeme ve anlasmayi platform disinda tamamla',
       body:
-        'Talep durumu, mesajlar, bildirimler ve gorunurluk araclari kullanicinin uygulama akisinda daha duzenli karar vermesini saglar.'
+        'Talepet odeme araciligi yapmaz. Taraflar hizmet kosullarini platform disinda kararlastirir; Talepet ise dijital gorunurluk ve premium haklar sunar.'
     }
   ],
   categories: [

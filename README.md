@@ -1,5 +1,10 @@
 # Telepet Backend - OTP
 
+## Frontend Build Note
+
+- Build only in `/frontend`
+- Static frontend deploy icin dogru calisma dizini: `frontend`
+
 ## Environment
 
 Set these in `.env`:
