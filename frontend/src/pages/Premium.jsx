@@ -51,6 +51,13 @@ const getCheckoutLabel = (plan, mode) => {
   return mode === 'yearly' ? 'Yillik Premium Paketini Aktiflestir' : 'Aylik Premium Paketini Aktiflestir';
 };
 
+const PREMIUM_BENEFITS = [
+  'Dijital hizmet paketi olarak premium gorunurluk',
+  'Profilde premium rozet ve guven sinyali',
+  'Ek ilan hakki ve one cikarma kredisi takibi',
+  'Kullanicilar arasi odeme degil, yalnizca uyelik ve gorunurluk modeli'
+];
+
 function Premium({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const { user, checkAuth } = useAuth();
@@ -169,6 +176,11 @@ function Premium({ surfaceVariant = 'app' }) {
           Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi
           yapmaz ve komisyon almaz.
         </p>
+        <div className="premium-disclaimer-inline">
+          {PREMIUM_BENEFITS.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </div>
       </section>
 
       {error ? <div className="card ux-error-state">{error}</div> : null}
@@ -210,6 +222,7 @@ function Premium({ surfaceVariant = 'app' }) {
           <div>
             Kalan one cikarma kredisi: {subscriptionSummary?.featuredCredits ?? user?.featuredCredits ?? 0}
           </div>
+          <div>Dijital hizmet etiketi: Premium uyelik ve gorunurluk hizmeti</div>
           {subscriptionSummary?.subscription ? (
             subscriptionSummary.subscription.cancelAtPeriodEnd ? (
               <div className="status-pill pending">Donem sonunda iptal</div>
@@ -224,6 +237,10 @@ function Premium({ surfaceVariant = 'app' }) {
 
       <section className="card premium-plans">
         <h2>Paket karsilastirma alani</h2>
+        <p className="premium-plans__lead">
+          Asagidaki tum secenekler dijital platform hizmetidir. Kullanicilar arasi odeme, wallet,
+          transfer veya escrow mantigi bulunmaz.
+        </p>
         {loading ? <div>Yukleniyor...</div> : null}
         {!loading && !visiblePlans.length ? (
           <div className="account-muted">Gosterilecek dijital paket bulunamadi.</div>
@@ -267,6 +284,10 @@ function Premium({ surfaceVariant = 'app' }) {
                   <div className="premium-plan-note">
                     {plan.disclaimer ||
                       'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'}
+                  </div>
+                  <div className="premium-plan-checkout-note">
+                    Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
+                    araciligi yapmaz.
                   </div>
                   <div className="premium-cta-actions">
                     {modes.includes('monthly') ? (

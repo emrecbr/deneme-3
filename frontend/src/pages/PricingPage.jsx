@@ -168,6 +168,25 @@ const getActionLabel = (planKey) => {
   return 'Premium Paketini Aktiflestir';
 };
 
+const COMPLIANCE_POINTS = [
+  {
+    title: 'Premium uyelik',
+    body: 'Talepet premium uyelik paketleriyle profil rozeti, gorunurluk avantaji ve uyelik haklari satar.'
+  },
+  {
+    title: 'Dijital gorunurluk',
+    body: 'One cikarma ve premium rozet gibi hizmetler yalnizca platform ici dijital gorunurluk hakkidir.'
+  },
+  {
+    title: 'Ilan haklari',
+    body: 'Ek ilan kredileri fiziksel urun degil, platform icinde yeni talep yayini acma hakkidir.'
+  },
+  {
+    title: 'Kullanicilar arasi odeme yok',
+    body: 'Talepet kullanicilar arasinda odeme araciligi yapmaz, escrow sunmaz ve komisyonla para toplamaz.'
+  }
+];
+
 function PricingPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -238,19 +257,33 @@ function PricingPage() {
     <div className="pricing-page-shell">
       <PublicTopBar title={PRICING_PAGE_CONTENT.title} />
 
-      <section className="public-hero pricing-page-hero">
-        <p className="public-eyebrow">{PRICING_PAGE_CONTENT.hero.eyebrow}</p>
-        <h1>{PRICING_PAGE_CONTENT.hero.title}</h1>
-        <p className="public-lead">{PRICING_PAGE_CONTENT.hero.body}</p>
-
-        <div className="pricing-page-highlights">
-          {PRICING_PAGE_CONTENT.highlights.map((item) => (
-            <div key={item} className="pricing-page-highlight">
-              <span className="landing-trust-dot" aria-hidden="true" />
-              <span>{item}</span>
-            </div>
-          ))}
+      <section className="pricing-page-hero">
+        <div className="pricing-page-hero__copy">
+          <p className="public-eyebrow">{PRICING_PAGE_CONTENT.hero.eyebrow}</p>
+          <h1>Talepet Premium Hizmet Paketleri</h1>
+          <p className="public-lead">
+            Talepet kullanicilar arasinda odeme araciligi yapmaz. Platform yalnizca dijital
+            gorunurluk, premium listeleme ve uyelik hizmetleri sunar.
+          </p>
+          <div className="pricing-page-highlights">
+            {PRICING_PAGE_CONTENT.highlights.map((item) => (
+              <div key={item} className="pricing-page-highlight">
+                <span className="landing-trust-dot" aria-hidden="true" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
         </div>
+        <aside className="pricing-page-hero__panel">
+          <span className="pricing-page-hero__panel-badge">Dijital hizmet modeli</span>
+          <h2>Reviewer icin net urun ozeti</h2>
+          <ul className="pricing-page-hero__panel-list">
+            <li>Talepet fiziksel urun satmaz.</li>
+            <li>Talepet kullanicilar arasinda odeme toplamaz.</li>
+            <li>Gelir modeli premium uyelik ve gorunurluk paketleridir.</li>
+            <li>Ek ilan ve one cikarma haklari dijital platform hakkidir.</li>
+          </ul>
+        </aside>
       </section>
 
       <section className="pricing-page-trust-grid">
@@ -304,7 +337,9 @@ function PricingPage() {
               </div>
               <p>{plan.shortDescription}</p>
               <div className="pricing-plan-card__price">{getBillingSummary(plan)}</div>
-              <div className="pricing-plan-card__duration">{getDurationSummary(plan)}</div>
+              <div className="pricing-plan-card__duration">
+                {getPlanTypeLabel(plan)} · {getDurationSummary(plan)}
+              </div>
 
               <dl className="pricing-plan-card__facts">
                 <div>
@@ -348,6 +383,26 @@ function PricingPage() {
               >
                 {getActionLabel(plan.key)}
               </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="public-page-card pricing-page-compliance">
+        <div className="pricing-page-compliance__intro">
+          <p className="public-eyebrow">Gelir modeli</p>
+          <h2>Talepet Nasil Gelir Elde Eder?</h2>
+          <p>
+            Talepet kullanicilar arasinda odeme yapilan bir pazar yeri degildir. Platform gelirini
+            premium uyelik, dijital gorunurluk, one cikarma haklari ve ek ilan kredilerinden elde
+            eder.
+          </p>
+        </div>
+        <div className="pricing-page-compliance__grid">
+          {COMPLIANCE_POINTS.map((item) => (
+            <article key={item.title} className="pricing-page-compliance__item">
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
             </article>
           ))}
         </div>
