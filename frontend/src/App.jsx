@@ -111,7 +111,6 @@ const ProfileAccount = lazy(() => import('./pages/ProfileAccount'));
 const ProfileAddresses = lazy(() => import('./pages/ProfileAddresses'));
 const Messages = lazy(() => import('./pages/Messages'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
-const Premium = lazy(() => import('./pages/Premium'));
 const PremiumReturn = lazy(() => import('./pages/PremiumReturn'));
 const Categories = lazy(() => import('./pages/Categories'));
 const AdminCarImport = lazy(() => import('./pages/AdminCarImport'));
@@ -828,13 +827,7 @@ function App() {
         path="/premium"
         element={
           <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PACKAGES_PATH} replace />
-            ) : (
-              <Layout theme={theme} onToggleTheme={toggleTheme}>
-                <Premium surfaceVariant="app" />
-              </Layout>
-            )}
+            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
           </PrivateRoute>
         }
       />
@@ -1053,15 +1046,7 @@ function App() {
 
       <Route
         path={WEBSITE_PACKAGES_PATH}
-        element={
-          webSurfacePreferred ? (
-            <PricingPage />
-          ) : (
-            <PrivateRoute>
-              <Navigate to="/premium" replace />
-            </PrivateRoute>
-          )
-        }
+        element={webSurfacePreferred ? <PricingPage /> : renderProductShell(<PricingPage />, { showBottomNav: false })}
       />
 
       <Route

@@ -1025,8 +1025,8 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           </div>
         ) : (
           <div className="account-inline-actions">
-            <button type="button" className="secondary-btn" onClick={() => navigate('/premium')}>
-              Premium ve Paketleri Ac
+            <button type="button" className="secondary-btn" onClick={() => navigate('/paketler')}>
+              Paketler ve Fiyatlandirmayi Ac
             </button>
           </div>
         )}
@@ -1128,8 +1128,8 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
               Paketleri İncele
             </Link>
           ) : (
-            <button type="button" className="primary-btn" onClick={() => navigate('/premium')}>
-              Premium ve Paketleri İncele
+            <button type="button" className="primary-btn" onClick={() => navigate('/paketler')}>
+              Paketleri ve Fiyatlari İncele
             </button>
           )}
         </div>
