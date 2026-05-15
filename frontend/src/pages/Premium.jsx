@@ -4,6 +4,10 @@ import api, { buildProtectedRequestConfig, buildPublicRequestConfig } from '../a
 import ProfileLegalSection from '../components/ProfileLegalSection';
 import { useAuth } from '../context/AuthContext';
 import BackIconButton from '../components/BackIconButton';
+import {
+  PREMIUM_PURCHASE_DISABLED_MESSAGE,
+  PREMIUM_PURCHASES_ENABLED
+} from '../config/featureFlags';
 
 const formatPrice = (value, currency = 'TRY') =>
   new Intl.NumberFormat('tr-TR', {
@@ -113,6 +117,7 @@ function Premium({ surfaceVariant = 'app' }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [purchaseNotice, setPurchaseNotice] = useState('');
   const [processing, setProcessing] = useState('');
   const [subscriptionSummary, setSubscriptionSummary] = useState(null);
   const [quotaSummary, setQuotaSummary] = useState(null);
@@ -153,6 +158,11 @@ function Premium({ surfaceVariant = 'app' }) {
   }, []);
 
   const handleCheckout = async (planCode) => {
+    if (!PREMIUM_PURCHASES_ENABLED) {
+      setPurchaseNotice(PREMIUM_PURCHASE_DISABLED_MESSAGE);
+      return;
+    }
+
     const hasStoredToken = Boolean(localStorage.getItem('token'));
     if (!hasStoredToken && !user) {
       navigate('/login');
@@ -247,6 +257,12 @@ function Premium({ surfaceVariant = 'app' }) {
       )}
 
       {error ? <div className="card ux-error-state">{error}</div> : null}
+      {!error && purchaseNotice ? (
+        <div className="website-profile-state-card">
+          <strong>Yakinda aktif</strong>
+          <p>{purchaseNotice}</p>
+        </div>
+      ) : null}
 
       <section className="card premium-membership-hero">
         <div className="premium-membership-hero__header">
@@ -331,6 +347,15 @@ function Premium({ surfaceVariant = 'app' }) {
           Asagidaki tum secenekler dijital platform hizmetidir. Tek bir checkout akisi kullanilir;
           ikinci bir paket ekrani acilmaz.
         </p>
+        {!PREMIUM_PURCHASES_ENABLED ? (
+          <div className="website-profile-state-card">
+            <strong>Gecici olarak pasif</strong>
+            <p>
+              Premium paket satin alma yakinda aktif olacak. Paket haklari ve fiyatlar su anda
+              inceleme amacli gosterilmektedir.
+            </p>
+          </div>
+        ) : null}
         {loading ? <div>Yukleniyor...</div> : null}
         {!loading && !visiblePlans.length ? (
           <div className="account-muted">Gosterilecek dijital paket bulunamadi.</div>

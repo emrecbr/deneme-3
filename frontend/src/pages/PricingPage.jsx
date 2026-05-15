@@ -9,6 +9,10 @@ import mastercardBadge from '../assets/payment/mastercard-badge.svg';
 import iyzicoBadge from '../assets/payment/iyzico-badge.svg';
 import { WEBSITE_PACKAGES_PATH, buildSurfaceHref, isWebSurfaceHost } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+import {
+  PREMIUM_PURCHASE_DISABLED_MESSAGE,
+  PREMIUM_PURCHASES_ENABLED
+} from '../config/featureFlags';
 
 const formatMoney = (value, currency = 'TRY') =>
   new Intl.NumberFormat('tr-TR', {
@@ -260,6 +264,11 @@ function PricingPage() {
       return;
     }
 
+    if (!PREMIUM_PURCHASES_ENABLED) {
+      setError(PREMIUM_PURCHASE_DISABLED_MESSAGE);
+      return;
+    }
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -352,6 +361,15 @@ function PricingPage() {
         </div>
 
         <div className="pricing-page-service-note">{notice}</div>
+        {!marketingOnlySurface && !PREMIUM_PURCHASES_ENABLED ? (
+          <div className="website-profile-state-card">
+            <strong>Yakinda aktif</strong>
+            <p>
+              Premium paket satin alma yakinda aktif olacak. App tarafinda paket kartlari
+              inceleme amacli gorunur; odeme henuz baslatilmaz.
+            </p>
+          </div>
+        ) : null}
 
         {loading ? <div className="website-profile-state-card">Paketler yukleniyor...</div> : null}
         {!loading && error ? <div className="website-profile-state-card">{error}</div> : null}
