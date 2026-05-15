@@ -413,7 +413,16 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
         success: false,
         code: publicCode,
         reason: publicCode,
-        message: 'Ödeme başlatılamadı. Lütfen daha sonra tekrar deneyin.'
+        message: 'Ödeme başlatılamadı. Lütfen daha sonra tekrar deneyin.',
+        debug: {
+          providerStatus: error?.payload?.providerStatus || null,
+          providerErrorCode: error?.payload?.providerErrorCode || null,
+          providerErrorMessage: error?.payload?.providerErrorMessage || null,
+          providerErrorGroup: error?.payload?.providerErrorGroup || null,
+          providerBaseHost: error?.payload?.providerAudit?.baseUrlHost || null,
+          providerBaseSource: error?.payload?.providerAudit?.baseUrlSource || null,
+          requestSummary: error?.payload?.requestSummary || null
+        }
       });
     }
     logBillingLifecycle('CHECKOUT_ERROR', {

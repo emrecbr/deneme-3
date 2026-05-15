@@ -131,12 +131,7 @@ const buildCheckoutRequest = ({ user, plan, mode, paymentId, clientIp, returnUrl
   const Iyzipay = getIyzicoClient().constructor;
   const price = toIyzicoPrice(plan?.price);
   const { buyer, billingAddress, shippingAddress } = buildBuyerProfile({ user, clientIp });
-  const paymentGroup =
-    plan?.code === 'listing_extra' || String(plan?.code || '').startsWith('featured')
-      ? Iyzipay.PAYMENT_GROUP.LISTING
-      : mode === 'subscription'
-        ? Iyzipay.PAYMENT_GROUP.SUBSCRIPTION
-        : Iyzipay.PAYMENT_GROUP.PRODUCT;
+  const paymentGroup = Iyzipay.PAYMENT_GROUP.PRODUCT;
   const paymentChannel = /iphone|ipad|android|mobile/i.test(String(userAgent || ''))
     ? Iyzipay.PAYMENT_CHANNEL.MOBILE_WEB
     : Iyzipay.PAYMENT_CHANNEL.WEB;
@@ -157,6 +152,24 @@ const buildCheckoutRequest = ({ user, plan, mode, paymentId, clientIp, returnUrl
     basketItems: [buildBasketItem({ plan, paymentId })]
   };
 };
+
+const buildRequestSummary = ({ plan, mode, paymentId, returnUrl, requestPayload }) => ({
+  planCode: plan?.code || null,
+  mode,
+  paymentId: String(paymentId || ''),
+  callbackHost: (() => {
+    try {
+      return new URL(returnUrl).host;
+    } catch (_error) {
+      return null;
+    }
+  })(),
+  paymentGroup: requestPayload?.paymentGroup || null,
+  paymentChannel: requestPayload?.paymentChannel || null,
+  currency: requestPayload?.currency || null,
+  price: requestPayload?.price || null,
+  basketItemType: requestPayload?.basketItems?.[0]?.itemType || null
+});
 
 const summarizeProviderResponse = (response) => ({
   status: response?.status || null,
@@ -195,6 +208,7 @@ export const createCheckout = async ({ user, plan, mode, paymentId, clientIp, us
     conversationId,
     userAgent
   });
+  const requestSummary = buildRequestSummary({ plan, mode, paymentId, returnUrl, requestPayload });
 
   try {
     const response = await invokeIyzico('checkoutFormInitialize', 'create', requestPayload);
@@ -211,7 +225,8 @@ export const createCheckout = async ({ user, plan, mode, paymentId, clientIp, us
         providerErrorCode: summary.errorCode,
         providerErrorMessage: summary.errorMessage,
         providerErrorGroup: summary.errorGroup,
-        providerAudit: getIyzicoConfigAudit()
+        providerAudit: getIyzicoConfigAudit(),
+        requestSummary
       };
       throw error;
     }
@@ -227,7 +242,8 @@ export const createCheckout = async ({ user, plan, mode, paymentId, clientIp, us
       error.payload = {
         responseKeys: summary.keys,
         providerStatus: summary.status,
-        providerAudit: getIyzicoConfigAudit()
+        providerAudit: getIyzicoConfigAudit(),
+        requestSummary
       };
       throw error;
     }
@@ -245,7 +261,8 @@ export const createCheckout = async ({ user, plan, mode, paymentId, clientIp, us
     error.publicCode = error.publicCode || error.code || 'provider_checkout_failed';
     error.payload = {
       ...(error.payload || {}),
-      providerAudit: error.payload?.providerAudit || getIyzicoConfigAudit()
+      providerAudit: error.payload?.providerAudit || getIyzicoConfigAudit(),
+      requestSummary: error.payload?.requestSummary || requestSummary
     };
     throw error;
   }
