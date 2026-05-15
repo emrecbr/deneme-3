@@ -195,7 +195,7 @@ export const LANDING_CONTENT = {
     eyebrow: 'Hazir oldugunda uygulamaya gec',
     title: 'Talebini olusturmak ve teklifleri yonetmek icin uygulamayi kullan.',
     body:
-      'Talepet website yuzeyi urunu tanitir. Gercek kullanici deneyimi, talep olusturma ve teklif akisi ise uygulama tarafinda ilerler.',
+      'Talepet ana sayfasi uygulamanin faydasini anlatir. Talep olusturma, teklif alma ve sureci takip etme deneyimi uygulama tarafinda ilerler.',
     primary: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
     secondary: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
     tertiary: { label: 'Uygulamayi Ac', to: APP_HOME_PATH }
