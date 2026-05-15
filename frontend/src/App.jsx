@@ -170,7 +170,7 @@ function RootSurfaceRoute({ user, authenticatedPath, appHomeElement }) {
   }
 
   if (hostSurface === SURFACE_LABELS.web) {
-    return user ? <Navigate to={WEBSITE_DISCOVERY_PATH} replace /> : <LandingPage />;
+    return <LandingPage />;
   }
 
   if (user) {
@@ -377,9 +377,7 @@ function App() {
   const isAdminRole = user?.role === 'admin' || user?.role === 'moderator';
   const defaultAuthenticatedPath = isAdminRole
     ? ADMIN_HOME_PATH
-    : webSurfacePreferred
-      ? WEBSITE_DISCOVERY_PATH
-      : APP_HOME_PATH;
+    : APP_HOME_PATH;
   const websiteProductHomeElement = renderWebsiteProductShell(<RFQList surfaceVariant="web" />, {
     title: 'Talepet website kesif alani',
     description:
@@ -502,6 +500,8 @@ function App() {
         element={
           adminHost ? (
             admin ? <Navigate to={ADMIN_HOME_PATH} replace /> : <AdminLogin />
+          ) : webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/login" preserveCurrentPath surface="app" />
           ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
@@ -518,7 +518,9 @@ function App() {
       <Route
         path="/forgot-password"
         element={
-          renderAuthShell(<ForgotPassword />, {
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/forgot-password" preserveCurrentPath surface="app" />
+          ) : renderAuthShell(<ForgotPassword />, {
             showBottomNav: false,
             eyebrow: 'Sifre yenileme',
             title: 'Sifreni website uzerinden yenile.',
@@ -530,7 +532,9 @@ function App() {
       <Route
         path="/reset-password"
         element={
-          renderAuthShell(<ResetPassword />, {
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/reset-password" preserveCurrentPath surface="app" />
+          ) : renderAuthShell(<ResetPassword />, {
             showBottomNav: false,
             eyebrow: 'Sifre sifirlama',
             title: 'Yeni sifreni belirle.',
@@ -542,7 +546,9 @@ function App() {
       <Route
         path="/auth/callback"
         element={
-          renderAuthShell(<AuthCallback />, {
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/auth/callback" preserveCurrentPath surface="app" />
+          ) : renderAuthShell(<AuthCallback />, {
             showBottomNav: false,
             eyebrow: 'Auth callback',
             title: 'Giris bilgilerin dogrulaniyor.',
@@ -554,7 +560,9 @@ function App() {
       <Route
         path="/register"
         element={
-          user && !websiteAuthRoute ? (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/register" preserveCurrentPath surface="app" />
+          ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<RegisterOtp embedded={webSurfacePreferred} />, {
@@ -570,7 +578,9 @@ function App() {
       <Route
         path="/sms-verify"
         element={
-          user && !websiteAuthRoute ? (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/sms-verify" preserveCurrentPath surface="app" />
+          ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<SmsVerify />, {
@@ -585,7 +595,9 @@ function App() {
       <Route
         path="/email-verify"
         element={
-          user && !websiteAuthRoute ? (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/email-verify" preserveCurrentPath surface="app" />
+          ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<EmailVerify />, {
@@ -600,7 +612,9 @@ function App() {
       <Route
         path="/login-otp"
         element={
-          user && !websiteAuthRoute ? (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/login-otp" preserveCurrentPath surface="app" />
+          ) : user && !websiteAuthRoute ? (
             <Navigate to={defaultAuthenticatedPath} replace />
           ) : (
             renderAuthShell(<LoginOtp />, {
@@ -615,7 +629,9 @@ function App() {
       <Route
         path="/verify-otp"
         element={
-          renderAuthShell(<OtpVerify />, {
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/verify-otp" preserveCurrentPath surface="app" />
+          ) : renderAuthShell(<OtpVerify />, {
             eyebrow: 'Kod dogrulama',
             title: 'Dogrulama kodunu gir.',
             description: 'Kod dogrulama adimini website auth deneyimi icinde tamamlayabilirsin.'
@@ -643,26 +659,30 @@ function App() {
 
       <Route
         path={WEBSITE_DISCOVERY_PATH}
-        element={webSurfacePreferred ? websiteProductHomeElement : <Navigate to={APP_HOME_PATH} replace />}
+        element={
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath={APP_HOME_PATH} surface="app" />
+          ) : (
+            <Navigate to={APP_HOME_PATH} replace />
+          )
+        }
       />
 
       <Route
         path={WEBSITE_CREATE_PATH}
         element={
-          <PrivateRoute>
-                {webSurfacePreferred
-                ? renderWebsiteProductShell(<RFQCreate surfaceVariant="web" />, {
-                    title: 'Talep olusturma akisini website icinden yonet',
-                    description:
-                      'Kategori, detay ve konum adimlari website hostunda daha genis bir form yerlesimiyle ilerler; app-first sheet hissi root domaine tasinmaz.'
-                  })
-                : renderProductShell(<RFQCreate surfaceVariant="app" />, {
-                    title: 'Talep olustur',
-                    description:
-                      'App hostunda talep olusturma akisi mevcut mobil/app-first deneyimle ilerler.'
-                  })}
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath={WEBSITE_CREATE_PATH} preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderProductShell(<RFQCreate surfaceVariant="app" />, {
+                title: 'Talep olustur',
+                description:
+                  'App hostunda talep olusturma akisi mevcut mobil/app-first deneyimle ilerler.'
+              })}
             </PrivateRoute>
-          }
+          )
+        }
         />
 
       <Route path="/rfq/create" element={<Navigate to="/create" replace />} />
@@ -675,11 +695,8 @@ function App() {
         path="/rfq/:id"
         element={
             webSurfacePreferred ? (
-              renderWebsiteProductShell(<RFQDetail surfaceVariant="web" />, {
-                title: 'Talep detayina website icinden bak',
-                description: 'Talep detayi website urun shell icinde acilir; mobil app hissi root domainde zorunlu kalmaz.'
-              })
-          ) : (
+              <SurfaceRedirect targetPath={location.pathname} preserveCurrentPath surface="app" />
+            ) : (
             renderProductShell(<RFQDetail surfaceVariant="app" />, {
               title: 'Talep detayi',
               description: 'App hostundaki talep detayi mevcut uygulama odakli shell icinde acilir.'
@@ -691,135 +708,135 @@ function App() {
       <Route
         path="/messages"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/messages" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Messages />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/messages/:chatId"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_MESSAGES_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath={location.pathname} preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Chat />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/notifications"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/notifications" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Notifications />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/profile"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_HOME_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile" surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <Profile />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/profile/requests"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_REQUESTS_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/requests" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileRequests />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/profile/account"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_ACCOUNT_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/account" surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileAccount />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/profile/addresses"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_ADDRESSES_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/addresses" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileAddresses />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/profile/offers"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_OFFERS_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/offers" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <ProfileOffers />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path="/favorites"
         element={
-          <PrivateRoute>
-            {webSurfacePreferred ? (
-              <Navigate to={WEBSITE_PROFILE_FAVORITES_PATH} replace />
-            ) : (
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/favorites" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
               <Layout theme={theme} onToggleTheme={toggleTheme}>
                 <FavoritesPage />
               </Layout>
-            )}
-          </PrivateRoute>
+            </PrivateRoute>
+          )
         }
       />
 
@@ -827,7 +844,11 @@ function App() {
         path="/premium"
         element={
           <PrivateRoute>
-            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+            {webSurfacePreferred ? (
+              <SurfaceRedirect targetPath={WEBSITE_PACKAGES_PATH} surface="app" />
+            ) : (
+              <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+            )}
           </PrivateRoute>
         }
       />
@@ -849,144 +870,186 @@ function App() {
 
       <Route
         path={WEBSITE_CATEGORIES_PATH}
-        element={categoriesElement}
+        element={
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath={WEBSITE_CATEGORIES_PATH} preserveCurrentPath surface="app" />
+          ) : (
+            categoriesElement
+          )
+        }
       />
 
       <Route
         path={WEBSITE_PROFILE_HOME_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(<WebsiteProfileHome />, {
-              title: 'Profil alanın',
-              description:
-                'Website içinde çalışan profil omurgası burada başlar. Genel bakış, hızlı aksiyonlar ve modül navigasyonu bu fazda kuruldu.',
-              fallbackTo: '/profile'
-            })}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(<WebsiteProfileHome />, {
+                title: 'Profil alanın',
+                description:
+                  'Website içinde çalışan profil omurgası burada başlar. Genel bakış, hızlı aksiyonlar ve modül navigasyonu bu fazda kuruldu.',
+                fallbackTo: '/profile'
+              })}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_ACCOUNT_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <ProfileAccount surfaceVariant="web" />,
-              {
-                title: 'Hesap',
-                description: 'Bilgilerim, güvenlik, ödeme yöntemi ve takip modülleri website shell içinde açılır.',
-                fallbackTo: '/profile/account'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/account" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <ProfileAccount surfaceVariant="web" />,
+                {
+                  title: 'Hesap',
+                  description: 'Bilgilerim, güvenlik, ödeme yöntemi ve takip modülleri website shell içinde açılır.',
+                  fallbackTo: '/profile/account'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_REQUESTS_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <ProfileRequests surfaceVariant="web" />,
-              {
-                title: 'Taleplerim',
-                description: 'Onaylanan ve bekleyen talepler website shell içinde gerçek veriyle açılır.',
-                fallbackTo: '/profile/requests'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/requests" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <ProfileRequests surfaceVariant="web" />,
+                {
+                  title: 'Taleplerim',
+                  description: 'Onaylanan ve bekleyen talepler website shell içinde gerçek veriyle açılır.',
+                  fallbackTo: '/profile/requests'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_OFFERS_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <ProfileOffers surfaceVariant="web" />,
-              {
-                title: 'Tekliflerim',
-                description: 'Teklif listesi website shell içinde gerçek veriyle açılır.',
-                fallbackTo: '/profile/offers'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/offers" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <ProfileOffers surfaceVariant="web" />,
+                {
+                  title: 'Tekliflerim',
+                  description: 'Teklif listesi website shell içinde gerçek veriyle açılır.',
+                  fallbackTo: '/profile/offers'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_FAVORITES_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <FavoritesPage surfaceVariant="web" />,
-              {
-                title: 'Favoriler',
-                description: 'Favori talepler website shell içinde gerçek içerikle açılır.',
-                fallbackTo: '/favorites'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/favorites" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <FavoritesPage surfaceVariant="web" />,
+                {
+                  title: 'Favoriler',
+                  description: 'Favori talepler website shell içinde gerçek içerikle açılır.',
+                  fallbackTo: '/favorites'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_MESSAGES_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <Messages surfaceVariant="web" />,
-              {
-                title: 'Mesajlar',
-                description: 'Mesaj listesi website shell içinde gerçek veriyle açılır.',
-                fallbackTo: '/messages'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/messages" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <Messages surfaceVariant="web" />,
+                {
+                  title: 'Mesajlar',
+                  description: 'Mesaj listesi website shell içinde gerçek veriyle açılır.',
+                  fallbackTo: '/messages'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_ADDRESSES_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <ProfileAddresses surfaceVariant="web" />,
-              {
-                title: 'Adresler',
-                description: 'Adres kayıtları website shell içinde gerçek veriyle açılır.',
-                fallbackTo: '/profile/addresses'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/addresses" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <ProfileAddresses surfaceVariant="web" />,
+                {
+                  title: 'Adresler',
+                  description: 'Adres kayıtları website shell içinde gerçek veriyle açılır.',
+                  fallbackTo: '/profile/addresses'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_PREMIUM_PATH}
         element={
-          <PrivateRoute>
-            <Navigate to={WEBSITE_PACKAGES_PATH} replace />
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath={WEBSITE_PACKAGES_PATH} surface="app" />
+          ) : (
+            <PrivateRoute>
+              <Navigate to={WEBSITE_PACKAGES_PATH} replace />
+            </PrivateRoute>
+          )
         }
       />
 
       <Route
         path={WEBSITE_PROFILE_ALERTS_PATH}
         element={
-          <PrivateRoute>
-            {renderWebsiteProfileShell(
-              <WebsiteProfilePlaceholder
-                title="Takiplerim alanı hazırlanıyor"
-                description="Kategori, şehir ve anahtar kelime takipleri website shell altında sonraki fazda taşınacak."
-              />,
-              {
-                title: 'Takiplerim',
-                description: 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde gerçek veriyle yönet.',
-                fallbackTo: '/profile/account'
-              }
-            )}
-          </PrivateRoute>
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/profile/account" surface="app" />
+          ) : (
+            <PrivateRoute>
+              {renderWebsiteProfileShell(
+                <WebsiteProfilePlaceholder
+                  title="Takiplerim alanı hazırlanıyor"
+                  description="Kategori, şehir ve anahtar kelime takipleri website shell altında sonraki fazda taşınacak."
+                />,
+                {
+                  title: 'Takiplerim',
+                  description: 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde gerçek veriyle yönet.',
+                  fallbackTo: '/profile/account'
+                }
+              )}
+            </PrivateRoute>
+          )
         }
       />
 

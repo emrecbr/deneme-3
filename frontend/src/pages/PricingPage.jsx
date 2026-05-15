@@ -7,6 +7,7 @@ import { PRICING_PAGE_CONTENT } from '../content/pricingContent';
 import visaBadge from '../assets/payment/visa-badge.svg';
 import mastercardBadge from '../assets/payment/mastercard-badge.svg';
 import iyzicoBadge from '../assets/payment/iyzico-badge.svg';
+import { WEBSITE_PACKAGES_PATH, buildSurfaceHref, isWebSurfaceHost } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 
 const formatMoney = (value, currency = 'TRY') =>
@@ -190,6 +191,7 @@ const COMPLIANCE_POINTS = [
 function PricingPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const marketingOnlySurface = isWebSurfaceHost();
   const [plans, setPlans] = useState(FALLBACK_PUBLIC_PLANS);
   const [notice, setNotice] = useState(
     'Talepet yalnizca dijital gorunurluk, premium hak ve ilan paketleri satar.'
@@ -253,6 +255,11 @@ function PricingPage() {
   };
 
   const handlePurchase = async (plan) => {
+    if (marketingOnlySurface) {
+      window.location.href = buildSurfaceHref('app', WEBSITE_PACKAGES_PATH);
+      return;
+    }
+
     if (!isAuthenticated) {
       navigate('/login');
       return;
@@ -408,9 +415,13 @@ function PricingPage() {
                 type="button"
                 className="landing-primary-button pricing-plan-card__cta"
                 onClick={() => handlePurchase(plan)}
-                disabled={processing === resolveCheckoutPlanCode(plan)}
+                disabled={!marketingOnlySurface && processing === resolveCheckoutPlanCode(plan)}
               >
-                {processing === resolveCheckoutPlanCode(plan) ? 'Yonlendiriliyor...' : getActionLabel(plan.key)}
+                {marketingOnlySurface
+                  ? 'Uygulamaya Git'
+                  : processing === resolveCheckoutPlanCode(plan)
+                    ? 'Yonlendiriliyor...'
+                    : getActionLabel(plan.key)}
               </button>
             </article>
           ))}

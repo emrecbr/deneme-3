@@ -13,7 +13,6 @@ import {
   WEBSITE_REGISTER_PATH,
   buildSurfaceHref
 } from '../config/surfaces';
-import { useAuth } from '../context/AuthContext';
 
 const LANDING_SHOWCASE_CARDS = PRICING_PAGE_CONTENT.fallbackCards.slice(0, 3);
 
@@ -55,8 +54,6 @@ const ensurePropertyMeta = (property) =>
   });
 
 function LandingPage() {
-  const { isAuthenticated } = useAuth();
-
   useEffect(() => {
     const previousTitle = document.title;
     const descriptionTag = ensureMetaDescription();
@@ -123,10 +120,10 @@ function LandingPage() {
           <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-link-button">
             Paketler
           </a>
-          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-link-button">
+          <a href={buildSurfaceHref('app', WEBSITE_LOGIN_PATH)} className="landing-link-button">
             Giris Yap
           </a>
-          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
             Kayit Ol
           </a>
         </nav>
@@ -140,10 +137,10 @@ function LandingPage() {
           <p>{LANDING_CONTENT.hero.subtitle}</p>
 
           <div className="landing-cta-row" aria-label="Hero eylemleri">
-            <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
+            <a href={buildSurfaceHref('app', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
               {LANDING_CONTENT.hero.primaryCta.label}
             </a>
-            <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
+            <a href={buildSurfaceHref('app', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
               {LANDING_CONTENT.hero.secondaryCta.label}
             </a>
             <a
@@ -153,7 +150,7 @@ function LandingPage() {
               {LANDING_CONTENT.hero.tertiaryCta.label}
             </a>
               <a
-                href={isAuthenticated ? buildSurfaceHref('web', WEBSITE_PACKAGES_PATH) : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+                href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)}
                 className="landing-secondary-button landing-secondary-button-strong"
               >
               Premium Paketlerini Incele
@@ -171,7 +168,7 @@ function LandingPage() {
                 <div className="landing-purchase-card__price">{card.priceLabel}</div>
                 <div className="landing-purchase-card__duration">{card.duration}</div>
                 <a
-                  href={isAuthenticated ? buildSurfaceHref('web', WEBSITE_PACKAGES_PATH) : buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
+                  href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)}
                   className="landing-primary-button landing-purchase-card__cta"
                 >
                   Dijital Paketi Incele
@@ -245,11 +242,15 @@ function LandingPage() {
 
         <div className="landing-segment-grid">
           {LANDING_CONTENT.categories.map((segment) => (
-            <Link key={segment.key} to={WEBSITE_CATEGORIES_PATH} className="landing-segment-card landing-segment-card--link">
+            <a
+              key={segment.key}
+              href={buildSurfaceHref('app', WEBSITE_CATEGORIES_PATH)}
+              className="landing-segment-card landing-segment-card--link"
+            >
               <h3>{segment.label}</h3>
               <div className="landing-segment-cue">{segment.cue}</div>
               <p>{segment.detail}</p>
-            </Link>
+            </a>
           ))}
         </div>
       </section>
@@ -296,10 +297,10 @@ function LandingPage() {
         </div>
 
         <div className="landing-discovery-cta-row">
-          <a href={buildSurfaceHref('web', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
+          <a href={buildSurfaceHref('app', WEBSITE_CATEGORIES_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.publicDiscovery.detailCta.label}
           </a>
-          <a href={buildSurfaceHref('web', WEBSITE_CREATE_PATH)} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', WEBSITE_CREATE_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.publicDiscovery.createCta.label}
           </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
@@ -364,7 +365,7 @@ function LandingPage() {
                 <a
                   href={
                     item.to === '/login'
-                      ? buildSurfaceHref('web', WEBSITE_LOGIN_PATH)
+                      ? buildSurfaceHref('app', WEBSITE_LOGIN_PATH)
                       : item.to
                   }
                   className="landing-secondary-button"
@@ -421,10 +422,10 @@ function LandingPage() {
         </div>
 
         <div className="landing-cta-row" aria-label="Footer eylemleri">
-          <a href={buildSurfaceHref('web', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
+          <a href={buildSurfaceHref('app', WEBSITE_REGISTER_PATH)} className="landing-primary-button">
             {LANDING_CONTENT.footerCta.primary.label}
           </a>
-          <a href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)} className="landing-secondary-button">
+          <a href={buildSurfaceHref('app', WEBSITE_LOGIN_PATH)} className="landing-secondary-button">
             {LANDING_CONTENT.footerCta.secondary.label}
           </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
