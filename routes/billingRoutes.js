@@ -341,7 +341,14 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
       mode,
       returnPath: '/premium/return'
     });
-    const checkout = await iyzico.createCheckout({ user, plan, mode, paymentId: payment._id.toString() });
+    const checkout = await iyzico.createCheckout({
+      user,
+      plan,
+      mode,
+      paymentId: payment._id.toString(),
+      clientIp: req.ip,
+      userAgent: req.get('user-agent')
+    });
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;
@@ -393,7 +400,13 @@ billingRoutes.post('/checkout', authMiddleware, async (req, res, next) => {
       code: publicCode,
       context: error?.context || null,
       message: error?.message || 'billing_checkout_failure',
-      providerResponseKeys: Array.isArray(error?.payload?.responseKeys) ? error.payload.responseKeys : []
+      providerResponseKeys: Array.isArray(error?.payload?.responseKeys) ? error.payload.responseKeys : [],
+      providerStatus: error?.payload?.providerStatus || null,
+      providerErrorCode: error?.payload?.providerErrorCode || null,
+      providerErrorMessage: error?.payload?.providerErrorMessage || null,
+      providerErrorGroup: error?.payload?.providerErrorGroup || null,
+      providerBaseHost: error?.payload?.providerAudit?.baseUrlHost || null,
+      providerBaseSource: error?.payload?.providerAudit?.baseUrlSource || null
     });
     if (error?.context === 'createCheckout') {
       return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 502).json({
@@ -454,7 +467,14 @@ billingRoutes.post('/listing-extra/checkout', authMiddleware, async (req, res, n
 
     await logAudit('listing_paid_create_started', { userId, paymentId: payment._id });
 
-    const checkout = await iyzico.createCheckout({ user, plan, mode: 'one_time', paymentId: payment._id.toString() });
+    const checkout = await iyzico.createCheckout({
+      user,
+      plan,
+      mode: 'one_time',
+      paymentId: payment._id.toString(),
+      clientIp: req.ip,
+      userAgent: req.get('user-agent')
+    });
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;
@@ -527,7 +547,14 @@ billingRoutes.post('/payment-method/checkout', authMiddleware, async (req, res, 
 
     await logAudit('payment_method_add', { userId, paymentId: payment._id });
 
-    const checkout = await iyzico.createCheckout({ user, plan, mode: 'one_time', paymentId: payment._id.toString() });
+    const checkout = await iyzico.createCheckout({
+      user,
+      plan,
+      mode: 'one_time',
+      paymentId: payment._id.toString(),
+      clientIp: req.ip,
+      userAgent: req.get('user-agent')
+    });
     payment.providerPaymentId = checkout.providerPaymentId || payment.providerPaymentId;
     payment.conversationId = checkout.conversationId || payment.conversationId;
     payment.rawLastEvent = checkout.raw || null;

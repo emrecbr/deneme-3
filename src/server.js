@@ -51,6 +51,14 @@ const maskEnv = (value) => {
   if (str.length <= 4) return `set (${str.length} chars)`;
   return `set (****${str.slice(-4)})`;
 };
+const safeEnvHost = (value) => {
+  if (!value) return null;
+  try {
+    return new URL(String(value)).host;
+  } catch (_error) {
+    return null;
+  }
+};
 const logEnvPresence = () => {
   const keys = [
     'SMS_PROVIDER',
@@ -68,11 +76,20 @@ const logEnvPresence = () => {
     'APP_SURFACE_URL',
     'WEB_BASE_URL',
     'ADMIN_BASE_URL',
-    'API_BASE_URL'
+    'API_BASE_URL',
+    'IYZICO_API_KEY',
+    'IYZICO_SECRET_KEY',
+    'IYZICO_BASE_URL'
   ];
   console.log('ENV CHECK (masked):');
   keys.forEach((key) => {
     console.log(`- ${key}: ${maskEnv(process.env[key])}`);
+    if (key.endsWith('_URL')) {
+      const host = safeEnvHost(process.env[key]);
+      if (host) {
+        console.log(`  -> ${key} host: ${host}`);
+      }
+    }
   });
 };
 logEnvPresence();
