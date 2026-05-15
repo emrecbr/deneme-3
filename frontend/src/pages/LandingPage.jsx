@@ -2,15 +2,11 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicFooter from '../components/PublicFooter';
 import { LANDING_CONTENT } from '../content/landingContent';
-import { PRICING_PAGE_CONTENT } from '../content/pricingContent';
 import {
   APP_HOME_PATH,
   WEBSITE_HOW_IT_WORKS_PATH,
-  WEBSITE_PACKAGES_PATH,
   buildSurfaceHref
 } from '../config/surfaces';
-
-const LANDING_SHOWCASE_CARDS = PRICING_PAGE_CONTENT.fallbackCards.slice(0, 3);
 
 const ensureMetaTag = (selector, buildTag) => {
   let tag = document.head.querySelector(selector);
@@ -130,35 +126,6 @@ function LandingPage() {
             <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
               Uygulamaya Gec
             </a>
-            <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-secondary-button">
-              Premium Paketlerini Incele
-            </a>
-            <a
-              href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)}
-              className="landing-link-button landing-link-button-strong"
-            >
-              Nasil Calisir
-            </a>
-          </div>
-
-          <div className="landing-purchase-grid" aria-label="One cikan dijital hizmetler">
-            {LANDING_SHOWCASE_CARDS.map((card) => (
-              <article key={card.key} className="landing-purchase-card">
-                <div className="landing-purchase-card__head">
-                  <span className="landing-purchase-card__badge">Dijital hizmet</span>
-                  <h2>{card.title}</h2>
-                </div>
-                <p>{card.description}</p>
-                <div className="landing-purchase-card__price">{card.priceLabel}</div>
-                <div className="landing-purchase-card__duration">{card.duration}</div>
-                <a
-                  href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)}
-                  className="landing-primary-button landing-purchase-card__cta"
-                >
-                  Dijital Paketi Incele
-                </a>
-              </article>
-            ))}
           </div>
 
           <div className="landing-metric-grid" aria-label="Platform highlights">
@@ -282,14 +249,8 @@ function LandingPage() {
         </div>
 
         <div className="landing-discovery-cta-row">
-          <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="landing-secondary-button">
-            Nasil calistigini incele
-          </a>
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
             Uygulamaya gec
-          </a>
-          <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-link-button">
-            Paketleri incele
           </a>
         </div>
       </section>
@@ -405,12 +366,6 @@ function LandingPage() {
         <div className="landing-cta-row" aria-label="Footer eylemleri">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
             Uygulamaya Gec
-          </a>
-          <a href={buildSurfaceHref('web', WEBSITE_PACKAGES_PATH)} className="landing-secondary-button">
-            Paketleri Incele
-          </a>
-          <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="landing-link-button">
-            Nasil Calisir
           </a>
         </div>
       </section>

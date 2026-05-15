@@ -1,63 +1,63 @@
-import { APP_HOME_PATH, WEBSITE_CATEGORIES_PATH, WEBSITE_DISCOVERY_PATH } from '../config/surfaces';
+import { APP_HOME_PATH } from '../config/surfaces';
 
 export const LANDING_CONTENT = {
-  title: 'Talepet | Talebini yayinla, teklifleri tek akista topla',
+  title: 'Talepet | Talep olustur, teklifleri uygulamada yonet',
   description:
-    'Talepet; hizmet, esya, otomobil ve is odakli talepleri sehir ve ilce baglamiyla eslestiren, teklif toplama, moderasyon ve premium gorunurluk katmanlarini tek deneyimde birlestiren platformdur.',
+    'Talepet; kategori ve konum bazli taleplerin uygulama icinde olusturuldugu, hizmet verenlerin teklif sundugu ve kullanicinin sureci tek ekrandan yonettigi mobil odakli platformdur.',
   hero: {
-    eyebrow: 'Sehir ve ilce bazli talep platformu',
-    title: 'Ihtiyacini olustur, dogru teklifleri hizlica al.',
+    eyebrow: 'Mobil odakli talep ve teklif deneyimi',
+    title: 'Talebini uygulamada olustur, teklifleri tek akista yonet.',
     subtitle:
-      'Yazilim, mobil uygulama, web sitesi, tasarim, tadilat, nakliye ve daha birçok hizmet icin talep olustur; uygun hizmet verenlerden teklif topla.',
-    primaryCta: { label: 'Talep Olustur', to: '/register' },
-    secondaryCta: { label: 'Kategorileri Incele', to: '/categories' },
+      'Talepet; hizmet, esya, otomobil ve uzmanlik ihtiyaclarinda kullaniciyi dogru kategori ve konum baglaminda hizmet verenlerle bulusturur.',
+    primaryCta: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
+    secondaryCta: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
     tertiaryCta: { label: 'Uygulamayi Ac', to: APP_HOME_PATH },
     metrics: [
-      { label: 'Segment kapsami', value: '4 ana kategori alani' },
-      { label: 'Eslesme mantigi', value: 'Sehir / ilce odakli' },
-      { label: 'Kalite katmani', value: 'Moderasyon + premium' }
+      { label: 'Talep olusturma', value: 'Kategori + konum odakli' },
+      { label: 'Teklif akisi', value: 'Uygulama icinde yonetilir' },
+      { label: 'Deneyim', value: 'Mobil ve hizli kullanim' }
     ],
     highlights: [
-      'Talep olusturma, teklif toplama ve karsilastirma mantigi',
-      'Yerel hizmet, urun ve uzmanlik ihtiyaclari icin ortak akış',
-      'Gorunurluk, guven ve operasyon katmanlarini ayni sistemde toplama'
+      'Talep olusturma, teklif alma ve karsilastirma mantigi',
+      'Kategori ve lokasyona gore daha isabetli eslesme deneyimi',
+      'Tum kullanici islemlerinin uygulama icinde tamamlanmasi'
     ]
   },
   featuredBenefits: [
     {
-      title: 'Talep mantigi tek, kategori dili farkli',
+      title: 'Kullanici talebini hizli ve net olusturur',
       body:
-        'Usta arayan da, urun arayan da, arac ihtiyaci olan da ayni temel mantikla hareket eder. Talepet kategoriye gore arayuzu karmasiklastirmadan ihtiyaci dogru sekilde toplar.'
+        'Talepet; ihtiyaci kategori, sehir ve ilce baglamiyla toplar. Boylece kullanici ne aradigini daha net ifade eder ve daha ilgili teklifler alir.'
     },
     {
-      title: 'Website karar verir, app islemi tamamlar',
+      title: 'Hizmet verenler dogrudan teklif gonderir',
       body:
-        'Website yuzeyi platformu tanitir, auth akisina sokar ve dogru CTA ile kullaniciyi yonlendirir. Talep verme, teklif izleme ve profil yonetimi uygulama tarafinda devam eder.'
+        'Talebi goren hizmet verenler veya saticilar uygulama uzerinden teklif sunar. Kullanici da bu teklifleri tek bir akista inceleyip karsilastirir.'
     },
     {
-      title: 'Gorunurluk ve kalite ayni urun tasariminin parcasi',
+      title: 'Tum akis uygulamada tamamlanir',
       body:
-        'Premium gorunurluk, bildirim akislari, dogrulama ve operasyonel moderasyon; yalnizca ilan yayinlamayi degil, daha saglikli eslesme ve daha net teklif surecini destekler.'
+        'Talep verme, teklifleri izleme, profil yonetimi ve bildirim deneyimi uygulama tarafinda ilerler. Website ise yalnizca urunu ve sistemi tanitir.'
     }
   ],
   howItWorks: [
     {
       step: '01',
-      title: 'Talebini acik ve yerel baglamla yayinla',
+      title: 'Kullanici uygulamada talep olusturur',
       body:
-        'Kategori, sehir, ilce ve ihtiyac detayini netlestir. Talepet talebi dogru baglamda isleyerek alakasiz cevaplari azaltir.'
+        'Kategori, sehir, ilce ve ihtiyac detayini netlestirir. Talepet talebi dogru baglamda isleyerek daha ilgili teklifleri one cikarir.'
     },
     {
       step: '02',
-      title: 'Hizmet verenler teklif gondersin',
+      title: 'Hizmet verenler teklif verir',
       body:
-        'Ilgili hizmet verenler, saticilar veya uzmanlar taleplerine teklif sunar. Kullanici bu teklifleri tek bir akista inceleyebilir.'
+        'Ilgili hizmet verenler, saticilar veya uzmanlar uygulama uzerinden taleplere teklif sunar. Kullanici tum teklifleri tek akista gorur.'
     },
     {
       step: '03',
-      title: 'Odeme ve anlasmayi platform disinda tamamla',
+      title: 'Kullanici sureci kolayca yonetir',
       body:
-        'Talepet odeme araciligi yapmaz. Taraflar hizmet kosullarini platform disinda kararlastirir; Talepet ise dijital gorunurluk ve premium haklar sunar.'
+        'Bildirimler, profil, talep detayi ve teklif karsilastirmasi uygulama tarafinda ilerler. Boylece is takibi daha hizli ve daha duzenli olur.'
     }
   ],
   categories: [
@@ -87,25 +87,25 @@ export const LANDING_CONTENT = {
     }
   ],
   publicDiscovery: {
-    eyebrow: 'Public kesif',
-    title: 'Giris yapmadan once hangi taleplerin nasil aktigini gor.',
+    eyebrow: 'Uygulama mantigi',
+    title: 'Talep akisinin uygulamada nasil isledigini hizlica gor.',
     body:
-      'Website yuzeyi Talepet mantigini sadece anlatmaz; kategori, konum ve talep formatini da public bir on izleme katmaniyla gosterir. Boylece kullanici giris yapmadan once urune daha yakin bir karar verir.',
+      'Bu landing page, Talepet uygulamasinin temel akislarini anlatir: talep olusturma, teklif alma, kategoriye gore filtreleme ve konuma dayali eslesme.',
     categoriesIntro:
-      'Kategori secimi; talebin dili, beklentisi ve teklif kalitesi icin ilk sinyaldir. Her segment ayni temel mantikla calisir ama kendi ihtiyacina gore detaylanir.',
+      'Kategori secimi, talebin kime gidecegini belirleyen ilk sinyaldir. Bu sayede kullanici daha hizli ve daha ilgili teklifler alir.',
     cityIntro:
-      'Sehir ve ilce baglami, ozellikle hizmet ve saha gerektiren taleplerde teklif kalitesini ciddi bicimde etkiler.',
-    detailCta: { label: 'Kesfe git', to: WEBSITE_DISCOVERY_PATH },
-    createCta: { label: 'Talep olusturmak icin Kayit Ol', to: '/register' },
+      'Sehir ve ilce baglami, ozellikle saha gerektiren taleplerde teklif kalitesini dogrudan etkiler.',
+    detailCta: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
+    createCta: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
     appCta: { label: 'Uygulamayi Ac', to: APP_HOME_PATH },
     featuredCities: [
       {
         city: 'Istanbul',
-        detail: 'Tasima, teknik servis, mobilya kurulum ve hizli yerel hizmet ihtiyaclari icin yogun talep akisi.'
+        detail: 'Tasima, teknik servis, kurulum ve hizli yerel hizmet ihtiyaclari icin yogun talep akisi.'
       },
       {
         city: 'Ankara',
-        detail: 'Kurumsal hizmetler, ofis destekleri ve planli randevu gerektiren islerde daha net teklif baglami.'
+        detail: 'Kurumsal hizmetler ve planli randevu gerektiren islerde daha net teklif baglami.'
       },
       {
         city: 'Izmir',
@@ -116,23 +116,23 @@ export const LANDING_CONTENT = {
       {
         title: 'Klima montaji icin usta araniyor',
         meta: 'Hizmet / Usta • Istanbul / Kadikoy',
-        summary: 'Aynı gun icinde montaj yapabilecek ekip araniyor. Kesif ve fiyat teklifinin net olmasi bekleniyor.',
-        cta: 'Benzer talepleri kesfet',
-        to: WEBSITE_DISCOVERY_PATH
+        summary: 'Ayni gun icinde montaj yapabilecek ekip araniyor. Kesif ve fiyat teklifinin net olmasi bekleniyor.',
+        cta: 'Uygulamada gor',
+        to: APP_HOME_PATH
       },
       {
         title: '2. el bebek arabasi talebi',
         meta: 'Esya / Urun • Ankara / Cankaya',
         summary: 'Temiz durumda, katlanabilir ve teslim secenegi olan ilanlar oncelikli olarak gorulmek isteniyor.',
-        cta: 'Kategorileri incele',
-        to: WEBSITE_CATEGORIES_PATH
+        cta: 'Uygulamada gor',
+        to: APP_HOME_PATH
       },
       {
-        title: 'Ekspertiz ve servis destegi aranıyor',
+        title: 'Ekspertiz ve servis destegi araniyor',
         meta: 'Otomobil • Izmir / Bornova',
         summary: 'Arac inceleme ve servis yonlendirmesi icin uzman teklifleri tek akista karsilastirilmak isteniyor.',
-        cta: 'Detaylar icin Giris Yap',
-        to: '/login'
+        cta: 'Uygulamada gor',
+        to: APP_HOME_PATH
       }
     ]
   },
@@ -153,32 +153,32 @@ export const LANDING_CONTENT = {
   },
   trustPillars: [
     {
-      title: 'Dogrulama katmani',
-      body: 'E-posta, telefon ve callback tabanli auth adimlariyla daha kontrollu giris ve hesap akisi.'
+      title: 'Mobil odakli hiz',
+      body: 'Talep akisi, teklif takibi ve bildirimler uygulama icinde tek deneyimde toplanir.'
     },
     {
-      title: 'Moderasyon ve operasyon',
-      body: 'Admin paneli ve risk sinyalleri ile dusuk kaliteli veya problemli akislarin daha net yonetilmesi.'
+      title: 'Kategori bazli netlik',
+      body: 'Her talep tipi ayni temel mantikla ilerler ama kendi ihtiyacina gore detaylanir.'
     },
     {
-      title: 'Premium gorunurluk',
-      body: 'One cikarma ve gorunurluk paketleriyle talebin daha dikkat cekici sergilenmesi.'
+      title: 'Konum bazli isabet',
+      body: 'Sehir ve ilce baglami sayesinde daha ilgili, daha gercekci ve daha hizli teklifler gorulur.'
     },
     {
-      title: 'Odeme ve ticari zemin',
-      body: 'iyzico, Visa ve Mastercard uyumlu odeme zemini ile daha profesyonel bir operasyon altyapisi.'
+      title: 'Duzenli teklif yonetimi',
+      body: 'Kullanici teklifleri uygulama icinde karsilastirir, sureci daha duzenli ve daha rahat takip eder.'
     }
   ],
   faq: [
     {
       question: 'Talepet website ile uygulama ayni sey mi?',
       answer:
-        'Hayir. Website yuzeyi platformun ne oldugunu, nasil calistigini ve neden deger urettigini anlatir. Talep olusturma, teklif toplama ve profil yonetimi uygulama yuzeyinde devam eder.'
+        'Hayir. Website yuzeyi platformu tanitir. Talep olusturma, teklif toplama, profil ve bildirim deneyimi uygulama yuzeyinde devam eder.'
     },
     {
-      question: 'Giris yapmadan websitei kullanabilir miyim?',
+      question: 'Islemler website uzerinden yapilir mi?',
       answer:
-        'Evet. Website acik bilgi yuzeyi olarak calisir. Ancak talep yayinlama, teklif yonetimi ve bildirim akisina gecmek icin auth gerekir.'
+        'Hayir. Website acik bilgi yuzeyi olarak calisir. Talep olusturma, teklif yonetimi ve hesap akisina gecmek icin uygulama kullanilir.'
     },
     {
       question: 'Neden sehir ve ilce bazli yapi bu kadar vurgulaniyor?',
@@ -186,18 +186,18 @@ export const LANDING_CONTENT = {
         'Cunku bir talebin degeri yalnizca kategoriyle degil, lokasyonla da belirlenir. Talepet lokasyonu daha isabetli teklif akisi icin ana sinyal olarak kullanir.'
     },
     {
-      question: 'Premium ne ise yariyor?',
+      question: 'Talepet kullaniciya nasil kolaylik saglar?',
       answer:
-        'Premium araclar talebin daha guclu gorunmesine, daha hizli dikkat cekmesine ve belirli akislarin daha one cikmasina yardimci olur.'
+        'Kullanici ihtiyacini tek form mantigiyla toplar, ilgili teklifleri ayni yerde gorur ve sureci uygulama icinde daha kolay takip eder.'
     }
   ],
   footerCta: {
-    eyebrow: 'Hazir oldugunda bir sonraki adima gec',
-    title: 'Website karar zemini sunar, uygulama urun akisina tasir.',
+    eyebrow: 'Hazir oldugunda uygulamaya gec',
+    title: 'Talebini olusturmak ve teklifleri yonetmek icin uygulamayi kullan.',
     body:
-      'Talepet website yuzeyi seni bilgi, guven ve auth katmaninda karsilar. Hesabin hazirsa uygulama yuzeyine gecerek taleplerini, tekliflerini ve profilini yonetebilirsin.',
-    primary: { label: 'Kayit Ol', to: '/register' },
-    secondary: { label: 'Giris Yap', to: '/login' },
+      'Talepet website yuzeyi urunu tanitir. Gercek kullanici deneyimi, talep olusturma ve teklif akisi ise uygulama tarafinda ilerler.',
+    primary: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
+    secondary: { label: 'Uygulamaya Gec', to: APP_HOME_PATH },
     tertiary: { label: 'Uygulamayi Ac', to: APP_HOME_PATH }
   }
 };
