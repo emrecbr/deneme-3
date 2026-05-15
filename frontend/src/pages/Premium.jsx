@@ -51,6 +51,54 @@ const getCheckoutLabel = (plan, mode) => {
   return mode === 'yearly' ? 'Yillik Premium Paketini Aktiflestir' : 'Aylik Premium Paketini Aktiflestir';
 };
 
+const getPreferredMode = (plan) => {
+  const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
+  if (plan.key === 'listing_extra') {
+    return 'one_time';
+  }
+  if (modes.includes('monthly')) {
+    return 'monthly';
+  }
+  if (modes.includes('yearly')) {
+    return 'yearly';
+  }
+  return modes[0] || 'monthly';
+};
+
+const getModeLabel = (mode) => {
+  if (mode === 'yearly') {
+    return 'Yillik';
+  }
+  if (mode === 'one_time') {
+    return 'Tek Seferlik';
+  }
+  return 'Aylik';
+};
+
+const getModePrice = (plan, mode) => {
+  if (mode === 'yearly') {
+    return formatPrice(plan.yearlyPrice, plan.currency);
+  }
+  return formatPrice(plan.monthlyPrice || plan.yearlyPrice, plan.currency);
+};
+
+const getModeDuration = (plan, mode) => {
+  const labels = plan.entitlements?.durationLabels || {};
+  if (mode === 'yearly') {
+    return labels.yearly || '365 gun';
+  }
+  if (mode === 'one_time') {
+    return labels.monthly || labels.yearly || 'Tek seferlik hak';
+  }
+  return labels.monthly || '30 gun';
+};
+
+const getFeaturedSummary = (plan, mode) => {
+  const durations = plan.entitlements?.featuredDurationDays || {};
+  const value = mode === 'yearly' ? durations.yearly : durations.monthly;
+  return value ? `${value} gun one cikarma` : 'One cikarma dahil degil';
+};
+
 const PREMIUM_BENEFITS = [
   'Dijital hizmet paketi olarak premium gorunurluk',
   'Profilde premium rozet ve guven sinyali',
@@ -68,6 +116,7 @@ function Premium({ surfaceVariant = 'app' }) {
   const [processing, setProcessing] = useState('');
   const [subscriptionSummary, setSubscriptionSummary] = useState(null);
   const [quotaSummary, setQuotaSummary] = useState(null);
+  const [selectedModes, setSelectedModes] = useState({});
 
   const loadPageData = async () => {
     try {
@@ -77,9 +126,20 @@ function Premium({ surfaceVariant = 'app' }) {
         api.get('/me/subscription', buildProtectedRequestConfig()),
         api.get('/me/listing-quota', buildProtectedRequestConfig())
       ]);
-      setPlans(plansRes.data?.data?.items || []);
+      const nextPlans = plansRes.data?.data?.items || [];
+      setPlans(nextPlans);
       setSubscriptionSummary(subscriptionRes.data?.data || null);
       setQuotaSummary(quotaRes.data?.data || null);
+      setSelectedModes((prev) => {
+        const next = { ...prev };
+        nextPlans.forEach((plan) => {
+          const key = plan.id || plan.key;
+          if (!next[key]) {
+            next[key] = getPreferredMode(plan);
+          }
+        });
+        return next;
+      });
       setError('');
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Paket bilgileri alinamadi.');
@@ -149,6 +209,22 @@ function Premium({ surfaceVariant = 'app' }) {
     [plans]
   );
 
+  const planCountLabel = quotaSummary ? `${quotaSummary.remaining}/${quotaSummary.limit}` : '-';
+  const featuredCredits = subscriptionSummary?.featuredCredits ?? user?.featuredCredits ?? 0;
+  const paidListingCredits = subscriptionSummary?.paidListingCredits ?? quotaSummary?.paidCredits ?? 0;
+  const activePlanCode = subscriptionSummary?.subscription?.planCode || 'Aktif uyelik yok';
+  const premiumUntilLabel = subscriptionSummary?.premiumUntil
+    ? new Date(subscriptionSummary.premiumUntil).toLocaleDateString('tr-TR')
+    : 'Aktif sure yok';
+
+  const updateSelectedMode = (plan, mode) => {
+    const key = plan.id || plan.key;
+    setSelectedModes((prev) => ({
+      ...prev,
+      [key]: mode
+    }));
+  };
+
   return (
     <div className={`page premium-page ${isWebSurface ? 'premium-page--web website-profile-module' : ''}`}>
       {isWebSurface ? (
@@ -170,58 +246,72 @@ function Premium({ surfaceVariant = 'app' }) {
         </div>
       )}
 
-      <section className="card premium-status-card premium-status-card--notice">
-        <h2>Dijital hizmet modeli</h2>
-        <p>
-          Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi
-          yapmaz ve komisyon almaz.
-        </p>
+      {error ? <div className="card ux-error-state">{error}</div> : null}
+
+      <section className="card premium-membership-hero">
+        <div className="premium-membership-hero__header">
+          <div>
+            <p className="premium-membership-hero__eyebrow">Dijital uyelik ve gorunurluk hizmeti</p>
+            <h2>Premium uyelik ozeti</h2>
+            <p>
+              Talepet kullanicilar arasinda odeme araciligi yapmaz. Talepet yalnizca premium
+              gorunurluk, uyelik ve ilan hizmetleri sunar.
+            </p>
+          </div>
+          <div className={`premium-membership-hero__status ${premiumActive ? 'is-active' : ''}`}>
+            <span className="premium-membership-hero__status-label">Uyelik durumu</span>
+            <strong>{premiumActive ? 'Premium aktif' : 'Standart hesap'}</strong>
+          </div>
+        </div>
+
+        <div className="premium-membership-hero__stats">
+          <article className="premium-membership-hero__stat">
+            <span>Kalan ilan hakki</span>
+            <strong>{planCountLabel}</strong>
+          </article>
+          <article className="premium-membership-hero__stat">
+            <span>Ek ilan kredisi</span>
+            <strong>{paidListingCredits}</strong>
+          </article>
+          <article className="premium-membership-hero__stat">
+            <span>One cikarma kredisi</span>
+            <strong>{featuredCredits}</strong>
+          </article>
+          <article className="premium-membership-hero__stat">
+            <span>Premium badge</span>
+            <strong>{premiumActive ? 'Aktif' : 'Kapali'}</strong>
+          </article>
+        </div>
+
+        <div className="premium-membership-hero__meta">
+          <div className="premium-membership-hero__meta-item">
+            <span>Aktif paket</span>
+            <strong>{activePlanCode}</strong>
+          </div>
+          <div className="premium-membership-hero__meta-item">
+            <span>Uyelik bitisi</span>
+            <strong>{premiumUntilLabel}</strong>
+          </div>
+          <div className="premium-membership-hero__meta-item">
+            <span>Dijital hizmet etiketi</span>
+            <strong>Premium uyelik ve gorunurluk hizmeti</strong>
+          </div>
+        </div>
+
         <div className="premium-disclaimer-inline">
-          {PREMIUM_BENEFITS.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
+          <span>Talepet kullanicilar arasinda odeme araciligi yapmaz.</span>
+          <span>Bu odeme dijital platform hizmeti icindir.</span>
+          <span>Talepet yalnizca premium gorunurluk, uyelik ve ilan hizmetleri sunar.</span>
         </div>
       </section>
 
-      {error ? <div className="card ux-error-state">{error}</div> : null}
-
-      <section className={isWebSurface ? 'premium-web-summary' : 'premium-web-summary premium-web-summary--stacked'}>
-        <article className="card premium-web-summary__card">
-          <span>Premium durumu</span>
-          <strong>{premiumActive ? 'Aktif' : 'Pasif'}</strong>
-        </article>
-        <article className="card premium-web-summary__card">
-          <span>Kalan ilan hakki</span>
-          <strong>
-            {quotaSummary ? `${quotaSummary.remaining}/${quotaSummary.limit}` : '-'}
-          </strong>
-        </article>
-        <article className="card premium-web-summary__card">
-          <span>Ek ilan kredisi</span>
-          <strong>{subscriptionSummary?.paidListingCredits ?? quotaSummary?.paidCredits ?? 0}</strong>
-        </article>
-        <article className="card premium-web-summary__card">
-          <span>One cikarma kredisi</span>
-          <strong>{subscriptionSummary?.featuredCredits ?? user?.featuredCredits ?? 0}</strong>
-        </article>
-      </section>
-
       <section className="card premium-status-card">
-        <h2>{premiumActive ? 'Aktif Dijital Paket' : 'Aktif Premium Paket Yok'}</h2>
+        <h2>{premiumActive ? 'Uyelik yonetimi' : 'Uyelik durumu'}</h2>
         <div className="premium-subscription-box">
-          <div>Plan: {subscriptionSummary?.subscription?.planCode || 'Aktif plan yok'}</div>
-          <div>
-            Premium bitisi:{' '}
-            {subscriptionSummary?.premiumUntil
-              ? new Date(subscriptionSummary.premiumUntil).toLocaleDateString('tr-TR')
-              : '-'}
-          </div>
-          <div>
-            Kalan ek ilan kredisi: {subscriptionSummary?.paidListingCredits ?? quotaSummary?.paidCredits ?? 0}
-          </div>
-          <div>
-            Kalan one cikarma kredisi: {subscriptionSummary?.featuredCredits ?? user?.featuredCredits ?? 0}
-          </div>
+          <div>Aktif plan: {activePlanCode}</div>
+          <div>Premium bitisi: {premiumUntilLabel}</div>
+          <div>Kalan ek ilan kredisi: {paidListingCredits}</div>
+          <div>Kalan one cikarma kredisi: {featuredCredits}</div>
           <div>Dijital hizmet etiketi: Premium uyelik ve gorunurluk hizmeti</div>
           {subscriptionSummary?.subscription ? (
             subscriptionSummary.subscription.cancelAtPeriodEnd ? (
@@ -236,10 +326,10 @@ function Premium({ surfaceVariant = 'app' }) {
       </section>
 
       <section className="card premium-plans">
-        <h2>Paket karsilastirma alani</h2>
+        <h2>Paketler ve fiyatlandirma</h2>
         <p className="premium-plans__lead">
-          Asagidaki tum secenekler dijital platform hizmetidir. Kullanicilar arasi odeme, wallet,
-          transfer veya escrow mantigi bulunmaz.
+          Asagidaki tum secenekler dijital platform hizmetidir. Tek bir checkout akisi kullanilir;
+          ikinci bir paket ekrani acilmaz.
         </p>
         {loading ? <div>Yukleniyor...</div> : null}
         {!loading && !visiblePlans.length ? (
@@ -249,12 +339,50 @@ function Premium({ surfaceVariant = 'app' }) {
           <div className="premium-plan-grid">
             {visiblePlans.map((plan) => {
               const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
+              const planStateKey = plan.id || plan.key;
+              const selectedMode = selectedModes[planStateKey] || getPreferredMode(plan);
+              const selectedPlanCode =
+                selectedMode === 'yearly'
+                  ? plan.planCodes?.yearly || 'premium_yearly'
+                  : plan.key === 'listing_extra'
+                    ? 'listing_extra'
+                    : plan.planCodes?.monthly || 'premium_monthly';
               return (
                 <article key={plan.id || plan.key} className="premium-plan-card premium-plan-card--detailed">
-                  <div className="premium-plan-title">{plan.title}</div>
-                  <div className="premium-plan-desc">{plan.shortDescription}</div>
-                  <div className="premium-plan-price">{getPlanPriceSummary(plan)}</div>
-                  <div className="premium-plan-duration">{getDurationSummary(plan)}</div>
+                  <div className="premium-plan-head">
+                    <div className="premium-plan-head__copy">
+                      <span className="premium-plan-badge">
+                        {plan.entitlements?.digitalServiceLabel || 'Dijital hizmet paketi'}
+                      </span>
+                      <div className="premium-plan-title-row">
+                        <div className="premium-plan-title">{plan.title}</div>
+                        {plan.badgeLabel ? <span className="premium-plan-accent">{plan.badgeLabel}</span> : null}
+                      </div>
+                      <div className="premium-plan-desc">{plan.shortDescription}</div>
+                    </div>
+                    {modes.length > 1 ? (
+                      <div className="premium-plan-mode-switch" aria-label={`${plan.title} paket tipi`}>
+                        {modes.map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`premium-plan-mode ${selectedMode === mode ? 'is-active' : ''}`}
+                            onClick={() => updateSelectedMode(plan, mode)}
+                          >
+                            {getModeLabel(mode)}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="premium-plan-price-block">
+                    <div className="premium-plan-price">{getModePrice(plan, selectedMode)}</div>
+                    <div className="premium-plan-duration">
+                      {getModeLabel(selectedMode)} · {getModeDuration(plan, selectedMode)}
+                    </div>
+                  </div>
+
                   <div className="premium-plan-facts">
                     <div className="premium-plan-fact">
                       <span>Ilan hakki</span>
@@ -265,12 +393,8 @@ function Premium({ surfaceVariant = 'app' }) {
                       <strong>{plan.entitlements?.premiumBadgeIncluded ? 'Var' : 'Yok'}</strong>
                     </div>
                     <div className="premium-plan-fact">
-                      <span>One cikarma</span>
-                      <strong>
-                        {plan.entitlements?.featuredDurationDays?.monthly || plan.entitlements?.featuredDurationDays?.yearly
-                          ? `${plan.entitlements?.featuredDurationDays?.monthly || 0} / ${plan.entitlements?.featuredDurationDays?.yearly || 0} gun`
-                          : 'Yok'}
-                      </strong>
+                      <span>Featured hakki</span>
+                      <strong>{getFeaturedSummary(plan, selectedMode)}</strong>
                     </div>
                     <div className="premium-plan-fact">
                       <span>Gorunurluk</span>
@@ -290,40 +414,16 @@ function Premium({ surfaceVariant = 'app' }) {
                     araciligi yapmaz.
                   </div>
                   <div className="premium-cta-actions">
-                    {modes.includes('monthly') ? (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={() => handleCheckout(plan.planCodes?.monthly || 'premium_monthly')}
-                        disabled={processing === (plan.planCodes?.monthly || 'premium_monthly')}
-                      >
-                        {processing === (plan.planCodes?.monthly || 'premium_monthly')
-                          ? 'Yonlendiriliyor...'
-                          : getCheckoutLabel(plan, 'monthly')}
-                      </button>
-                    ) : null}
-                    {modes.includes('yearly') ? (
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={() => handleCheckout(plan.planCodes?.yearly || 'premium_yearly')}
-                        disabled={processing === (plan.planCodes?.yearly || 'premium_yearly')}
-                      >
-                        {processing === (plan.planCodes?.yearly || 'premium_yearly')
-                          ? 'Yonlendiriliyor...'
-                          : getCheckoutLabel(plan, 'yearly')}
-                      </button>
-                    ) : null}
-                    {plan.key === 'listing_extra' ? (
-                      <button
-                        type="button"
-                        className="primary-btn"
-                        onClick={() => handleCheckout('listing_extra')}
-                        disabled={processing === 'listing_extra'}
-                      >
-                        {processing === 'listing_extra' ? 'Yonlendiriliyor...' : getCheckoutLabel(plan, 'one_time')}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="primary-btn premium-plan-action"
+                      onClick={() => handleCheckout(selectedPlanCode)}
+                      disabled={processing === selectedPlanCode}
+                    >
+                      {processing === selectedPlanCode
+                        ? 'Yonlendiriliyor...'
+                        : getCheckoutLabel(plan, selectedMode)}
+                    </button>
                   </div>
                 </article>
               );
