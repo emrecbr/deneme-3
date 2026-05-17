@@ -13,6 +13,7 @@ function Register() {
   const [showPassword2, setShowPassword2] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [providerLoading, setProviderLoading] = useState('');
   const [helper, setHelper] = useState('');
 
   const handleSubmit = async (event) => {
@@ -64,6 +65,10 @@ function Register() {
   };
 
   const handleProviderLogin = (provider) => {
+    if (providerLoading) {
+      return;
+    }
+    setProviderLoading(provider);
     window.location.href = buildAuthUrl(provider);
   };
 
@@ -79,10 +84,20 @@ function Register() {
 
         <div className="auth-social">
           <div className="muted small">Hızlı devam et</div>
-          <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-            Google ile devam et
+          <button
+            type="button"
+            className="social-btn google"
+            onClick={() => handleProviderLogin('google')}
+            disabled={Boolean(providerLoading)}
+          >
+            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
           </button>
-          <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+          <button
+            type="button"
+            className="social-btn apple"
+            onClick={() => handleProviderLogin('apple')}
+            disabled={Boolean(providerLoading)}
+          >
             <span className="social-icon" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
@@ -95,7 +110,9 @@ function Register() {
                 <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z"/>
               </svg>
             </span>
-            <span className="social-text">Apple ile devam et</span>
+            <span className="social-text">
+              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+            </span>
           </button>
         </div>
 

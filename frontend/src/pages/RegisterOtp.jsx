@@ -19,6 +19,7 @@ function RegisterOtp({ embedded = false }) {
   const [password, setPassword] = useState('');
   const [loadingSend, setLoadingSend] = useState(false);
   const [loadingVerify, setLoadingVerify] = useState(false);
+  const [providerLoading, setProviderLoading] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [resendSeconds, setResendSeconds] = useState(0);
@@ -57,6 +58,14 @@ function RegisterOtp({ embedded = false }) {
     setSuccess('');
   };
 
+  const goBackToEmailEntry = () => {
+    setStep(1);
+    setCode('');
+    setName('');
+    setPassword('');
+    resetMessages();
+  };
+
   const validateTarget = () => {
     if (!email.trim()) {
       return 'E-posta zorunlu.';
@@ -82,15 +91,7 @@ function RegisterOtp({ embedded = false }) {
       setResendSeconds(60);
       setSuccess('Kod gonderildi.');
     } catch (err) {
-      if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
-        setError('SMS gonderilemedi. Trial hesap sadece dogrulanmis numaralara SMS gonderir.');
-      } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
-        setError('Bu ulkeye SMS gonderimi kapali.');
-      } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
-        setError('Numara formati hatali (5XXXXXXXXX).');
-      } else {
-        setError(err?.response?.data?.message || err?.message || 'Kod gonderilemedi.');
-      }
+      setError(err?.response?.data?.message || err?.message || 'Kod gonderilemedi.');
     } finally {
       setLoadingSend(false);
     }
@@ -144,6 +145,10 @@ function RegisterOtp({ embedded = false }) {
   };
 
   const handleProviderLogin = (provider) => {
+    if (providerLoading) {
+      return;
+    }
+    setProviderLoading(provider);
     rememberSocialLoginReturnTarget();
     window.location.href = buildProviderAuthUrl(provider);
   };
@@ -154,7 +159,8 @@ function RegisterOtp({ embedded = false }) {
         <div className="website-auth-inline-head website-auth-inline-head--compact">
           <h2>Kayit Ol</h2>
           <p>
-            Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye hazir ol.
+            Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye
+            hazir ol.
           </p>
         </div>
         <button type="button" className="link-btn" onClick={() => navigate('/login')}>
@@ -163,7 +169,8 @@ function RegisterOtp({ embedded = false }) {
       </div>
 
       <p className="muted">
-        E-posta ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada da calisir.
+        E-posta ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada
+        da calisir.
       </p>
 
       {webSurface ? (
@@ -185,10 +192,20 @@ function RegisterOtp({ embedded = false }) {
 
       <div className="auth-social">
         <div className="muted small">Hizli devam et</div>
-        <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
-          Google ile devam et
+        <button
+          type="button"
+          className="social-btn google"
+          onClick={() => handleProviderLogin('google')}
+          disabled={Boolean(providerLoading)}
+        >
+          {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
         </button>
-        <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+        <button
+          type="button"
+          className="social-btn apple"
+          onClick={() => handleProviderLogin('apple')}
+          disabled={Boolean(providerLoading)}
+        >
           <span className="social-icon" aria-hidden="true">
             <svg
               viewBox="0 0 24 24"
@@ -201,7 +218,9 @@ function RegisterOtp({ embedded = false }) {
               <path d="M14.9 3.2c.7-.8 1.2-1.9 1.1-3.2-1 .1-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 3 1.1.1 2.1-.6 2.7-1.3z" />
             </svg>
           </span>
-          <span className="social-text">Apple ile devam et</span>
+          <span className="social-text">
+            {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+          </span>
         </button>
       </div>
 
@@ -279,6 +298,10 @@ function RegisterOtp({ embedded = false }) {
           >
             {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
           </button>
+
+          <button type="button" className="link-btn" onClick={goBackToEmailEntry}>
+            E-postayi duzenle
+          </button>
         </>
       )}
 
@@ -298,11 +321,7 @@ function RegisterOtp({ embedded = false }) {
     return registerCard;
   }
 
-  return (
-    <div className={`otp-page ${webSurface ? 'otp-page--website' : ''}`}>
-      {registerCard}
-    </div>
-  );
+  return <div className={`otp-page ${webSurface ? 'otp-page--website' : ''}`}>{registerCard}</div>;
 }
 
 export default RegisterOtp;

@@ -284,6 +284,9 @@ function Login({ embedded = false }) {
   };
 
   const handleProviderLogin = async (provider) => {
+    if (providerLoading) {
+      return;
+    }
     setError('');
     setNotice('');
     setProviderLoading(provider);
@@ -304,6 +307,8 @@ function Login({ embedded = false }) {
     await Promise.resolve(logout({ redirect: false }));
     navigate('/login', { replace: true });
   };
+
+  const providerBusy = Boolean(providerLoading);
 
   const renderAuthForm = () => (
     <>
@@ -436,10 +441,20 @@ function Login({ embedded = false }) {
 
         <div className="auth-social">
           <div className="muted small">Hizli devam et</div>
-          <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+          <button
+            type="button"
+            className="social-btn google"
+            onClick={() => handleProviderLogin('google')}
+            disabled={providerBusy}
+          >
             {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
           </button>
-          <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+          <button
+            type="button"
+            className="social-btn apple"
+            onClick={() => handleProviderLogin('apple')}
+            disabled={providerBusy}
+          >
             <span className="social-icon" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
@@ -508,10 +523,20 @@ function Login({ embedded = false }) {
 
             <div className="auth-social">
               <div className="muted small">Hizli devam et</div>
-              <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+              <button
+                type="button"
+                className="social-btn google"
+                onClick={() => handleProviderLogin('google')}
+                disabled={providerBusy}
+              >
                 {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
               </button>
-              <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+              <button
+                type="button"
+                className="social-btn apple"
+                onClick={() => handleProviderLogin('apple')}
+                disabled={providerBusy}
+              >
                 <span className="social-icon" aria-hidden="true">
                   <svg
                     viewBox="0 0 24 24"
@@ -584,10 +609,20 @@ function Login({ embedded = false }) {
 
         <div className="auth-social">
           <div className="muted small">Hizli devam et</div>
-          <button type="button" className="social-btn google" onClick={() => handleProviderLogin('google')}>
+          <button
+            type="button"
+            className="social-btn google"
+            onClick={() => handleProviderLogin('google')}
+            disabled={providerBusy}
+          >
             {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
           </button>
-          <button type="button" className="social-btn apple" onClick={() => handleProviderLogin('apple')}>
+          <button
+            type="button"
+            className="social-btn apple"
+            onClick={() => handleProviderLogin('apple')}
+            disabled={providerBusy}
+          >
             <span className="social-icon" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
