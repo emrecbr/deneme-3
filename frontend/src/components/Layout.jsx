@@ -5,6 +5,7 @@ import ReusableBottomSheet from './ReusableBottomSheet';
 import { FavoriteIcon, NotificationIcon } from './ui/AppIcons';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { APP_HOME_PATH } from '../config/surfaces';
 
 function Layout({ children, showBottomNav = true }) {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ function Layout({ children, showBottomNav = true }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifToast, setNotifToast] = useState(null);
-  const isHome = location.pathname === '/';
+  const isHome = location.pathname === '/' || location.pathname === APP_HOME_PATH;
   const HIDE_PREFIXES = [
     '/login',
     '/register',

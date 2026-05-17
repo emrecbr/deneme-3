@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { APP_HOME_PATH } from '../config/surfaces';
 
 function IconHome() {
   return (
@@ -22,26 +22,11 @@ function IconProfile() {
 
 function BottomNav() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const [pathname, setPathname] = useState(() => window.location.pathname);
-  const currentPath = pathname;
-  const showCreateFab = Boolean(user && pathname === '/');
-
-  useEffect(() => {
-    let lastPath = window.location.pathname;
-    const watchPath = () => {
-      const nextPath = window.location.pathname;
-      if (nextPath !== lastPath) {
-        lastPath = nextPath;
-        setPathname(nextPath);
-      }
-    };
-
-    const intervalId = window.setInterval(watchPath, 200);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
+  const currentPath = location.pathname;
+  const homePaths = ['/', APP_HOME_PATH];
+  const showCreateFab = Boolean(user && homePaths.includes(currentPath));
 
   const isActive = (paths) => paths.some((path) => currentPath === path || currentPath.startsWith(`${path}/`));
 
@@ -50,10 +35,10 @@ function BottomNav() {
       <div className="nav-items left">
         <button
           type="button"
-          className={isActive(['/']) ? 'nav-item active' : 'nav-item'}
+          className={isActive(homePaths) ? 'nav-item active' : 'nav-item'}
           onClick={() => {
-            if (pathname !== '/') {
-              navigate('/');
+            if (!homePaths.includes(currentPath)) {
+              navigate(APP_HOME_PATH);
             }
           }}
         >

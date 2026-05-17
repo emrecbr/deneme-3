@@ -376,15 +376,8 @@ function Profile() {
                 <span className="chevron">›</span>
               </div>
               <div className="profile-card-items">
-                <button type="button" className="profile-sub-item" onClick={(event) => {
-                  event.stopPropagation();
-                  navigate('/');
-                }}>
-                  <span>Gelismis Ayarlar</span>
-                  <span className="sub-item-right">
-                    <span className="chevron">›</span>
-                  </span>
-                </button>
+
+
                 <button type="button" className="profile-sub-item" onClick={(event) => {
                   event.stopPropagation();
                   navigate('/paketler');
@@ -559,3 +552,4 @@ function Profile() {
 }
 
 export default Profile;
+

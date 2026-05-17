@@ -9,6 +9,14 @@ function Notifications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/profile');
+  };
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);
@@ -29,7 +37,7 @@ function Notifications() {
   return (
     <div>
       <div className="detail-head">
-        <button type="button" className="secondary-btn" onClick={() => navigate(-1)}>
+        <button type="button" className="secondary-btn" onClick={handleBack}>
           Geri
         </button>
         <button
