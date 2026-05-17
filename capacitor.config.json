@@ -1,0 +1,5 @@
+{
+  "appId": "com.talepet.app",
+  "appName": "Talepet",
+  "webDir": "frontend/dist"
+}

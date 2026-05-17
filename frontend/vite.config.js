@@ -21,9 +21,9 @@ export default defineConfig(async () => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico'],
         manifest: {
-          name: 'Telepet',
-          short_name: 'Telepet',
-          description: 'Telepet mobil B2B RFQ uygulamasi',
+          name: 'Talepet',
+          short_name: 'Talepet',
+          description: 'Talepet mobil B2B RFQ uygulamasi',
           theme_color: '#1e40af',
           background_color: '#0f172a',
           display: 'standalone'

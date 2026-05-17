@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "cap:sync": "npx cap sync",
+    "cap:add:android": "npx cap add android",
+    "cap:add:ios": "npx cap add ios",
     "seed:cities": "node scripts/seedCities.js",
     "seed:categories": "node scripts/seedCategories.js",
     "seed:turkey": "node scripts/seedTurkeyLocations.js",
@@ -36,6 +39,10 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "nodemon": "^3.1.11"
   }
 }
