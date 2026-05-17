@@ -3,10 +3,15 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api, { API_BASE_URL, buildProtectedRequestConfig } from '../api/axios';
 import { getSocket } from '../lib/socket';
 import { getProductSchema } from '../lib/rfqProductSchemas';
+import {
+  PREMIUM_PURCHASE_DISABLED_MESSAGE,
+  PREMIUM_PURCHASES_ENABLED
+} from '../config/featureFlags';
 import { triggerHaptic } from '../utils/haptic';
 import RFQCreate from './RFQCreate';
 import OfferSheet from '../components/OfferSheet';
 import ReportIssueSheet from '../components/ReportIssueSheet';
+import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 
 function RFQDetail({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
@@ -744,7 +749,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
         const tag = requestError.response?.data?.tag;
         const msg = requestError.response?.data?.message || 'Sohbet baslatilamadi.';
         if (process.env.NODE_ENV !== 'production') {
-          console.warn('CHAT_START_FAIL', { status: statusCode, tag });
+          debugWarn('CHAT_START_FAIL', { status: statusCode, tag });
         }
         setChatToast(tag ? `(${tag}) ${msg}` : msg);
       })
@@ -791,9 +796,9 @@ function RFQDetail({ surfaceVariant = 'app' }) {
 
     try {
       if (offerSheetMode === 'create') {
-        console.log('OFFER_CREATE_START');
+        debugInfo('OFFER_CREATE_START');
       } else {
-        console.log('OFFER_UPDATE_START');
+        debugInfo('OFFER_UPDATE_START');
       }
       if (offerSheetMode === 'edit' && supplierOffer && OFFER_UPDATABLE.includes(supplierOffer.status)) {
         await api.patch(`/offers/${supplierOffer._id}`, {
@@ -802,7 +807,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
           note: payload.message,
           quantity: payload.quantity
         });
-        console.log('OFFER_UPDATE_OK', { id: supplierOffer._id });
+        debugInfo('OFFER_UPDATE_OK', { id: supplierOffer._id });
       } else if (!supplierOffer) {
         await api.post(`/offers/${id}`, {
           price: payload.price,
@@ -810,7 +815,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
           message: payload.message,
           quantity: payload.quantity
         });
-        console.log('OFFER_CREATE_OK', { rfqId: id });
+        debugInfo('OFFER_CREATE_OK', { rfqId: id });
       } else {
         setFormError('Teklif bu durumda guncellenemez.');
         return;
@@ -828,7 +833,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
         return;
       }
       const logTag = offerSheetMode === 'edit' ? 'OFFER_UPDATE_FAIL' : 'OFFER_CREATE_FAIL';
-      console.error(logTag, {
+      debugError(logTag, {
         status: statusCode,
         code: responseData.code,
         message: responseData.message
@@ -876,14 +881,14 @@ function RFQDetail({ surfaceVariant = 'app' }) {
     }
     setProcessingOfferId(offerId);
     try {
-      console.log('OFFER_WITHDRAW_START', { id: offerId });
+      debugInfo('OFFER_WITHDRAW_START', { id: offerId });
       await api.post(`/offers/${offerId}/withdraw`);
-      console.log('OFFER_WITHDRAW_OK', { id: offerId });
+      debugInfo('OFFER_WITHDRAW_OK', { id: offerId });
       triggerHaptic(10);
       await fetchRFQ();
       await fetchMyOffer();
     } catch (requestError) {
-      console.error('OFFER_WITHDRAW_FAIL', {
+      debugError('OFFER_WITHDRAW_FAIL', {
         status: requestError.response?.status,
         code: requestError.response?.data?.code,
         message: requestError.response?.data?.message
@@ -1124,19 +1129,24 @@ function RFQDetail({ surfaceVariant = 'app' }) {
 
   const handlePurchaseFeatured = async () => {
     try {
+      if (!PREMIUM_PURCHASES_ENABLED) {
+        setChatToast(PREMIUM_PURCHASE_DISABLED_MESSAGE);
+        window.setTimeout(() => setChatToast(''), 3000);
+        return;
+      }
       if (!featuredPlanCode) {
         setChatToast('Öne çıkarma paketi bulunamadı.');
         window.setTimeout(() => setChatToast(''), 3000);
         return;
       }
       const hasStoredToken = Boolean(localStorage.getItem('token'));
-      console.info('PREMIUM_CHECKOUT_START', {
+      debugInfo('PREMIUM_CHECKOUT_START', {
         source: 'rfq_detail_featured',
         planCode: featuredPlanCode,
         hasUser: Boolean(currentUser),
         hasStoredToken
       });
-      console.info('PREMIUM_CHECKOUT_REQUEST', {
+      debugInfo('PREMIUM_CHECKOUT_REQUEST', {
         source: 'rfq_detail_featured',
         endpoint: '/billing/checkout',
         planCode: featuredPlanCode
@@ -1147,7 +1157,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
         buildProtectedRequestConfig()
       );
       const url = response.data?.checkoutUrl;
-      console.info('PREMIUM_CHECKOUT_RESPONSE', {
+      debugInfo('PREMIUM_CHECKOUT_RESPONSE', {
         source: 'rfq_detail_featured',
         planCode: featuredPlanCode,
         status: response.status,
@@ -1160,7 +1170,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
       const status = requestError?.response?.status;
       const hasStoredToken = Boolean(localStorage.getItem('token'));
       if (status === 401 || status === 403) {
-        console.warn('PREMIUM_AUTH_MISSING', {
+        debugWarn('PREMIUM_AUTH_MISSING', {
           source: 'rfq_detail_featured',
           planCode: featuredPlanCode,
           status,
@@ -1168,7 +1178,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
           hasStoredToken
         });
       }
-      console.warn('PREMIUM_CHECKOUT_FAILURE', {
+      debugWarn('PREMIUM_CHECKOUT_FAILURE', {
         source: 'rfq_detail_featured',
         planCode: featuredPlanCode,
         status: status || null,
@@ -1266,7 +1276,9 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 </button>
                 {featuredCredits <= 0 && !featuredActive ? (
                   <button type="button" className="primary-btn" onClick={handlePurchaseFeatured}>
-                    One Cikarma Paketini Aktiflestir
+                    {PREMIUM_PURCHASES_ENABLED
+                      ? 'One Cikarma Paketini Aktiflestir'
+                      : 'One Cikarma Yakinda'}
                   </button>
                 ) : null}
               </div>

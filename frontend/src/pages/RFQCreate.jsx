@@ -1,7 +1,12 @@
 ﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig } from '../api/axios';
+import {
+  PREMIUM_PURCHASE_DISABLED_MESSAGE,
+  PREMIUM_PURCHASES_ENABLED
+} from '../config/featureFlags';
 import { useAuth } from '../context/AuthContext';
+import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
 import {
   formatListingQuotaResetDate,
@@ -870,7 +875,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       showToast(quotaMessage);
       return;
     }
-    console.log('RFQ_CREATE_START');
+    debugInfo('RFQ_CREATE_START');
     setLoading(true);
 
     try {
@@ -974,7 +979,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
         const created = response.data?.data || response.data;
         const createdId = created?._id || created?.id;
-        console.log('RFQ_CREATE_OK', { id: createdId });
+        debugInfo('RFQ_CREATE_OK', { id: createdId });
         logFlowEvent({ step: 4, event: 'step_complete' });
 
         setForm({
@@ -1030,7 +1035,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       const status = submitError?.response?.status;
       const code = submitError?.response?.data?.code;
       const message = submitError?.response?.data?.message;
-      console.error('RFQ_CREATE_FAIL', { status, code, message });
+      debugError('RFQ_CREATE_FAIL', { status, code, message });
       if (!submitError?.response) {
         setError('Sunucuya bağlanılamadı');
         showToast('Sunucuya bağlanılamadı');
@@ -1139,9 +1144,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   };
 
   const handleCheckout = async (planCode) => {
+    if (!PREMIUM_PURCHASES_ENABLED) {
+      showToast(PREMIUM_PURCHASE_DISABLED_MESSAGE);
+      return;
+    }
     const hasStoredToken = Boolean(localStorage.getItem('token'));
     try {
-      console.info('PREMIUM_CHECKOUT_START', {
+      debugInfo('PREMIUM_CHECKOUT_START', {
         source: 'rfq_create_paywall',
         planCode,
         hasUser: Boolean(user),
@@ -1153,14 +1162,14 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         planCode
       });
       setCheckoutLoading(planCode);
-      console.info('PREMIUM_CHECKOUT_REQUEST', {
+      debugInfo('PREMIUM_CHECKOUT_REQUEST', {
         source: 'rfq_create_paywall',
         endpoint: '/billing/checkout',
         planCode
       });
       const response = await api.post('/billing/checkout', { planCode }, buildProtectedRequestConfig());
       const url = response.data?.checkoutUrl;
-      console.info('PREMIUM_CHECKOUT_RESPONSE', {
+      debugInfo('PREMIUM_CHECKOUT_RESPONSE', {
         source: 'rfq_create_paywall',
         planCode,
         status: response.status,
@@ -1176,7 +1185,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
           : requestError.response?.data?.message || 'Ödeme başlatılamadı.';
       if (status === 401 || status === 403) {
-        console.warn('PREMIUM_AUTH_MISSING', {
+        debugWarn('PREMIUM_AUTH_MISSING', {
           source: 'rfq_create_paywall',
           planCode,
           status,
@@ -1184,7 +1193,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           hasStoredToken
         });
       }
-      console.warn('PREMIUM_CHECKOUT_FAILURE', {
+      debugWarn('PREMIUM_CHECKOUT_FAILURE', {
         source: 'rfq_create_paywall',
         planCode,
         status: status || null,

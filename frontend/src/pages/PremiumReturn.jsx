@@ -4,6 +4,7 @@ import api, { buildProtectedRequestConfig } from '../api/axios';
 import { WEBSITE_PACKAGES_PATH } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
+import { debugInfo, debugWarn } from '../utils/debugLog';
 
 function PremiumReturn() {
   const [params] = useSearchParams();
@@ -34,7 +35,7 @@ function PremiumReturn() {
         return;
       }
       try {
-        console.info('PREMIUM_CHECKOUT_RESPONSE', {
+        debugInfo('PREMIUM_CHECKOUT_RESPONSE', {
           source: 'premium_return_poll',
           endpoint: `/billing/payment/${paymentId}`
         });
@@ -45,7 +46,7 @@ function PremiumReturn() {
         setPlanCode(responsePlanCode);
         setSaveCardConsent(responseConsent);
         if (paymentStatus === 'paid') {
-          console.info('PREMIUM_BILLING_ME_REFRESH_START', {
+          debugInfo('PREMIUM_BILLING_ME_REFRESH_START', {
             source: 'premium_return_poll',
             paymentId
           });
@@ -58,7 +59,7 @@ function PremiumReturn() {
               setSavePromptOpen(true);
             } else {
               timer = window.setTimeout(() => {
-                console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
+                debugInfo('PREMIUM_POST_CHECKOUT_NAVIGATION', {
                   source: 'premium_return_poll',
                   paymentId,
                   target: WEBSITE_PACKAGES_PATH
@@ -82,7 +83,7 @@ function PremiumReturn() {
         }
       } catch (requestError) {
         if (requestError?.response?.status === 401 || requestError?.response?.status === 403) {
-          console.warn('PREMIUM_BILLING_ME_REFRESH_FAILURE', {
+          debugWarn('PREMIUM_BILLING_ME_REFRESH_FAILURE', {
             source: 'premium_return_poll',
             paymentId,
             status: requestError?.response?.status,
@@ -122,7 +123,7 @@ function PremiumReturn() {
       );
       setSaveCardConsent(shouldSave);
       setSavePromptOpen(false);
-      console.info('PREMIUM_POST_CHECKOUT_NAVIGATION', {
+      debugInfo('PREMIUM_POST_CHECKOUT_NAVIGATION', {
         source: 'premium_return_consent',
         paymentId,
         target: WEBSITE_PACKAGES_PATH

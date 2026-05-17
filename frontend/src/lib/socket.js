@@ -32,7 +32,7 @@ const resolveSocketBase = () => {
 
   if (!resolvedSocketBase && !missingSocketBaseWarned) {
     missingSocketBaseWarned = true;
-    console.warn('Socket base URL could not be resolved; socket connection disabled.');
+    debugWarn('Socket base URL could not be resolved; socket connection disabled.');
   }
 
   return resolvedSocketBase;
@@ -96,3 +96,4 @@ export const disconnectSocket = ({ resetInstance = false } = {}) => {
 };
 
 export const normalizeSocketCity = normalizeCity;
+import { debugWarn } from '../utils/debugLog';

@@ -6,6 +6,10 @@ import CategorySelector from '../components/CategorySelector';
 import ProfileLegalSection from '../components/ProfileLegalSection';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import { WEBSITE_PACKAGES_PATH, WEBSITE_PROFILE_ALERTS_PATH } from '../config/surfaces';
+import {
+  PAYMENT_SETUP_DISABLED_MESSAGE,
+  PREMIUM_PURCHASES_ENABLED
+} from '../config/featureFlags';
 import { useAuth } from '../context/AuthContext';
 import { formatListingQuotaResetDate, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
@@ -403,6 +407,12 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
   };
 
   const handleAddPaymentMethod = async () => {
+    if (!PREMIUM_PURCHASES_ENABLED) {
+      setPaymentError(PAYMENT_SETUP_DISABLED_MESSAGE);
+      showToast(PAYMENT_SETUP_DISABLED_MESSAGE);
+      return;
+    }
+
     setPaymentError('');
     setPaymentFormError('');
     const rawNumber = paymentForm.number.replace(/\s/g, '');
@@ -479,6 +489,16 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       return item.keyword ? `"${item.keyword}" geçen ilanlar` : 'Anahtar kelime';
     }
     return parts.length ? parts.join(' / ') : 'Kategori takibi';
+  };
+
+  const handleOpenPaymentSheet = () => {
+    if (!PREMIUM_PURCHASES_ENABLED) {
+      setPaymentError(PAYMENT_SETUP_DISABLED_MESSAGE);
+      showToast(PAYMENT_SETUP_DISABLED_MESSAGE);
+      return;
+    }
+
+    setPaymentSheetOpen((prev) => !prev);
   };
 
   const buildMatchReason = (match) => {
@@ -1139,8 +1159,8 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         {paymentError ? <div className="error">{paymentError}</div> : null}
 
         <div className="payment-actions">
-          <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen((prev) => !prev)}>
-            Kart Ekle
+          <button type="button" className="secondary-btn" onClick={handleOpenPaymentSheet}>
+            {PREMIUM_PURCHASES_ENABLED ? 'Kart Ekle' : 'Kart Ekleme Yakinda'}
           </button>
           {isWebSurface ? (
             <Link to="/paketler" className="primary-btn">
@@ -1415,10 +1435,24 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           <div className="account-muted">
             Kart bilgilerin uygulamada saklanmaz. GÃ¼venli Ã¶deme saÄŸlayÄ±cÄ±sÄ±nÄ±n ekranÄ±nda tekrar doÄŸrulanacaktÄ±r.
           </div>
+          {!PREMIUM_PURCHASES_ENABLED ? (
+            <div className="account-muted">
+              Guvenli odeme ve kart ekleme ozellikleri inceleme surecinde gecici olarak pasiftir.
+            </div>
+          ) : null}
           {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
           {paymentError ? <div className="error">{paymentError}</div> : null}
-          <button type="button" className="primary-btn" onClick={handleAddPaymentMethod} disabled={paymentLoading}>
-            {paymentLoading ? 'YÃ¶nlendiriliyorâ€¦' : 'Ã–demeye GeÃ§'}
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleAddPaymentMethod}
+            disabled={paymentLoading}
+          >
+            {PREMIUM_PURCHASES_ENABLED
+              ? paymentLoading
+                ? 'YÃ¶nlendiriliyorâ€¦'
+                : 'Ã–demeye GeÃ§'
+              : 'Yakinda Aktif'}
           </button>
         </div>
       </ReusableBottomSheet>

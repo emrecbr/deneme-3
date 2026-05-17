@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { debugInfo } from '../utils/debugLog';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -12,7 +13,7 @@ function PrivateRoute({ children }) {
 
   if (!user) {
     if (path.startsWith('/premium')) {
-      console.info('PREMIUM_REDIRECT_TO_LOGIN', {
+      debugInfo('PREMIUM_REDIRECT_TO_LOGIN', {
         source: 'private_route',
         path,
         hasUser: false,

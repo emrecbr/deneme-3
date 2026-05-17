@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { clearSocialLoginReturnTarget, readSocialLoginReturnTarget } from '../api/axios';
 import { buildSurfaceHref, isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
+import { debugInfo, debugWarn } from '../utils/debugLog';
 
 function AuthCallback() {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ function AuthCallback() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token') || window.location.hash.replace('#', '').replace('token=', '');
-    console.info('AUTH_CALLBACK_START', {
+    debugInfo('AUTH_CALLBACK_START', {
       host: window.location.hostname,
       path: window.location.pathname,
       hasToken: Boolean(token)
@@ -55,7 +56,7 @@ function AuthCallback() {
     }
     login(token)
       .then((nextUser) => {
-        console.info('AUTH_CALLBACK_LOGIN_OK', {
+        debugInfo('AUTH_CALLBACK_LOGIN_OK', {
           host: window.location.hostname,
           userId: nextUser?.id || nextUser?._id || '',
           role: nextUser?.role || 'user'
@@ -63,7 +64,7 @@ function AuthCallback() {
         completeAuthRedirect(nextUser?.role || 'user');
       })
       .catch((callbackError) => {
-        console.warn('AUTH_CALLBACK_LOGIN_FAIL', {
+        debugWarn('AUTH_CALLBACK_LOGIN_FAIL', {
           host: window.location.hostname,
           code: callbackError?.code || '',
           message: callbackError?.message || 'unknown_error'
