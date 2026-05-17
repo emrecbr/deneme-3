@@ -65,7 +65,7 @@ function BottomNav() {
           type="button"
           className={isActive(['/profile']) ? 'nav-item active' : 'nav-item'}
           onClick={() => {
-            if (pathname !== '/profile') {
+            if (currentPath !== '/profile') {
               navigate('/profile');
             }
           }}
