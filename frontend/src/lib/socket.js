@@ -5,8 +5,11 @@ let socketInstance = null;
 let resolvedSocketBase = null;
 let hasResolvedSocketBase = false;
 let missingSocketBaseWarned = false;
+let activeSocketQuerySignature = '';
 
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
+
+const buildQuerySignature = (query) => JSON.stringify(query || {});
 
 const resolveSocketBase = () => {
   if (hasResolvedSocketBase) {
@@ -60,13 +63,36 @@ export const getSocket = ({ userId, city } = {}) => {
     query.city = normalizedCity;
   }
 
+  const nextQuerySignature = buildQuerySignature(query);
+  const queryChanged = activeSocketQuerySignature !== nextQuerySignature;
+
+  if (queryChanged && socketInstance.connected) {
+    socketInstance.disconnect();
+  }
+
   socketInstance.io.opts.query = query;
+  activeSocketQuerySignature = nextQuerySignature;
 
   if (!socketInstance.connected) {
     socketInstance.connect();
   }
 
   return socketInstance;
+};
+
+export const disconnectSocket = ({ resetInstance = false } = {}) => {
+  if (!socketInstance) {
+    activeSocketQuerySignature = '';
+    return;
+  }
+
+  socketInstance.disconnect();
+  activeSocketQuerySignature = '';
+
+  if (resetInstance) {
+    socketInstance.removeAllListeners();
+    socketInstance = null;
+  }
 };
 
 export const normalizeSocketCity = normalizeCity;

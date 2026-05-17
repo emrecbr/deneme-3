@@ -6,6 +6,7 @@ import { FavoriteIcon, NotificationIcon } from './ui/AppIcons';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { APP_HOME_PATH } from '../config/surfaces';
+import { disconnectSocket, getSocket } from '../lib/socket';
 
 function Layout({ children, showBottomNav = true }) {
   const navigate = useNavigate();
@@ -59,10 +60,35 @@ function Layout({ children, showBottomNav = true }) {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
+      disconnectSocket();
       return;
     }
     fetchNotifications();
   }, [user?.id, user?._id]);
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    };
+
+    const handleOnlineRefresh = () => {
+      fetchNotifications();
+    };
+
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('online', handleOnlineRefresh);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('online', handleOnlineRefresh);
+    };
+  }, [fetchNotifications, user]);
 
   useEffect(() => {
     if (isNotifOpen) {
@@ -79,21 +105,22 @@ function Layout({ children, showBottomNav = true }) {
     }
     let active = true;
     let socket = null;
+    let onNotification = null;
+    let onNotificationRead = null;
 
-    const setup = async () => {
-      const module = await import('../lib/socket');
+    const setup = () => {
       if (!active) {
         return;
       }
-      socket = module.getSocket({ userId: user.id || user._id, city: user.city });
+      socket = getSocket({ userId: user.id || user._id, city: user.city });
       if (!socket) {
         return;
       }
-      const onNotification = () => {
+      onNotification = () => {
         setUnreadCount((prev) => prev + 1);
         fetchNotifications();
       };
-      const onNotificationRead = (payload) => {
+      onNotificationRead = (payload) => {
         if (typeof payload?.unreadCount === 'number') {
           setUnreadCount(payload.unreadCount);
         } else {
@@ -118,8 +145,8 @@ function Layout({ children, showBottomNav = true }) {
     return () => {
       active = false;
       if (socket) {
-        socket.off('notification:new');
-        socket.off('notification:read');
+        socket.off('notification:new', onNotification);
+        socket.off('notification:read', onNotificationRead);
       }
     };
   }, [user]);

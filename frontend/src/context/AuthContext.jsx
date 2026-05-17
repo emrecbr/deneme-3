@@ -7,6 +7,7 @@ import api, {
   setUnauthorizedHandler
 } from '../api/axios';
 import { buildCurrentSurfaceHref } from '../config/surfaces';
+import { disconnectSocket } from '../lib/socket';
 import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
 const AuthContext = createContext(null);
@@ -45,6 +46,7 @@ export function AuthProvider({ children }) {
   });
 
   const clearSession = useCallback(() => {
+    disconnectSocket();
     localStorage.removeItem('token');
     localStorage.removeItem('userName');
     delete api.defaults.headers.common.Authorization;
