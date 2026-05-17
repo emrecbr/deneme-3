@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
@@ -11,31 +11,39 @@ function Favorites({ surfaceVariant = 'app' }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchFavorites = async () => {
+  const fetchFavorites = useCallback(async (options = {}) => {
+    const { isActive = () => true } = options;
     try {
+      if (!isActive()) {
+        return;
+      }
       setLoading(true);
       const response = await api.get('/users/favorites');
+      if (!isActive()) {
+        return;
+      }
       setItems(response.data?.data || response.data?.items || []);
       setError('');
     } catch (requestError) {
+      if (!isActive()) {
+        return;
+      }
       setItems([]);
       setError(requestError.response?.data?.message || 'Favoriler alinamadi.');
     } finally {
-      setLoading(false);
+      if (isActive()) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const run = async () => {
-      try {
-        await fetchFavorites();
-      } catch (_error) {
-        // handled in fetchFavorites
-      }
+    let active = true;
+    fetchFavorites({ isActive: () => active });
+    return () => {
+      active = false;
     };
-
-    run();
-  }, []);
+  }, [fetchFavorites]);
 
   const getImage = (rfq) => {
     if (Array.isArray(rfq.images) && rfq.images.length > 0) {
@@ -110,7 +118,10 @@ function Favorites({ surfaceVariant = 'app' }) {
           ) : (
             <div className="empty-state premium-empty">
               <div className="empty-illustration">⭐</div>
-              Favori listen bos
+              <p>Favori listen bos</p>
+              <button type="button" className="secondary-btn" onClick={() => navigate('/app')}>
+                Talepleri incele
+              </button>
             </div>
           )}
         </div>

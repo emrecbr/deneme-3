@@ -372,7 +372,14 @@ function PricingPage() {
         ) : null}
 
         {loading ? <div className="website-profile-state-card">Paketler yukleniyor...</div> : null}
-        {!loading && error ? <div className="website-profile-state-card">{error}</div> : null}
+        {!loading && error ? (
+          <div className="website-profile-state-card">
+            <p>{error}</p>
+            <button type="button" className="secondary-btn" onClick={() => window.location.reload()}>
+              Tekrar Dene
+            </button>
+          </div>
+        ) : null}
 
         <div className="pricing-page-card-grid">
           {visiblePlans.map((plan) => (

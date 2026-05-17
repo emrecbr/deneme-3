@@ -168,13 +168,21 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
   }, [paymentSheetOpen]);
 
   useEffect(() => {
+    let active = true;
+
     const fetchMe = async () => {
       try {
+        if (!active) {
+          return;
+        }
         setLoading(true);
         const [response, billingRes] = await Promise.all([
           api.get('/users/me'),
           api.get('/billing/me', buildProtectedRequestConfig())
         ]);
+        if (!active) {
+          return;
+        }
         const payload = response.data?.data || {};
         const billingPayload = billingRes.data?.data || {};
         const phoneValue = String(payload.phone || '');
@@ -191,15 +199,26 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         setBillingSummary(billingPayload);
         setError('');
         const methodsRes = await api.get('/users/me/payment-methods');
+        if (!active) {
+          return;
+        }
         setPaymentMethods(methodsRes.data?.items || []);
       } catch (requestError) {
+        if (!active) {
+          return;
+        }
         setError(requestError.response?.data?.message || 'Bilgiler alinamadi.');
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchMe();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

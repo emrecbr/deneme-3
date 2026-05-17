@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
@@ -18,27 +18,42 @@ function Messages({ surfaceVariant = 'app' }) {
     });
   }, [chats]);
 
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async (options = {}) => {
+    const { isActive = () => true } = options;
     try {
+      if (!isActive()) {
+        return;
+      }
       setLoading(true);
       const response = await api.get('/chats');
+      if (!isActive()) {
+        return;
+      }
       setChats(response.data?.data || response.data?.items || []);
       setError('');
     } catch (requestError) {
-      const statusCode = requestError?.response?.status;
-      if (statusCode === 500) {
-        setError('Mesajlar alinamadi');
-      } else {
-        setError('');
+      if (!isActive()) {
+        return;
       }
+      const statusCode = requestError?.response?.status;
+      const message =
+        requestError?.response?.data?.message ||
+        (statusCode === 500 ? 'Mesajlar alinamadi.' : 'Mesajlara su an ulasilamiyor.');
+      setError(message);
     } finally {
-      setLoading(false);
+      if (isActive()) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchChats();
-  }, []);
+    let active = true;
+    fetchChats({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [fetchChats]);
 
   // Realtime (socket) temporarily disabled for auth stabilization.
 
@@ -111,7 +126,10 @@ function Messages({ surfaceVariant = 'app' }) {
           ) : (
             <div className="empty-state premium-empty">
               <div className="empty-illustration">💬</div>
-              Henüz mesaj yok
+              <p>Henüz mesaj yok</p>
+              <button type="button" className="secondary-btn" onClick={() => navigate('/app')}>
+                Ana sayfaya don
+              </button>
             </div>
           )}
         </div>

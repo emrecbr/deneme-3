@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProtectedRequestConfig, buildPublicRequestConfig } from '../api/axios';
 import ProfileLegalSection from '../components/ProfileLegalSection';
@@ -123,14 +123,21 @@ function Premium({ surfaceVariant = 'app' }) {
   const [quotaSummary, setQuotaSummary] = useState(null);
   const [selectedModes, setSelectedModes] = useState({});
 
-  const loadPageData = async () => {
+  const loadPageData = useCallback(async (options = {}) => {
+    const { isActive = () => true } = options;
     try {
+      if (!isActive()) {
+        return;
+      }
       setLoading(true);
       const [plansRes, subscriptionRes, quotaRes] = await Promise.all([
         api.get('/public/plans', buildPublicRequestConfig()),
         api.get('/me/subscription', buildProtectedRequestConfig()),
         api.get('/me/listing-quota', buildProtectedRequestConfig())
       ]);
+      if (!isActive()) {
+        return;
+      }
       const nextPlans = plansRes.data?.data?.items || [];
       setPlans(nextPlans);
       setSubscriptionSummary(subscriptionRes.data?.data || null);
@@ -147,15 +154,24 @@ function Premium({ surfaceVariant = 'app' }) {
       });
       setError('');
     } catch (requestError) {
+      if (!isActive()) {
+        return;
+      }
       setError(requestError.response?.data?.message || 'Paket bilgileri alinamadi.');
     } finally {
-      setLoading(false);
+      if (isActive()) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadPageData();
-  }, []);
+    let active = true;
+    loadPageData({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [loadPageData]);
 
   const handleCheckout = async (planCode) => {
     if (!PREMIUM_PURCHASES_ENABLED) {
@@ -256,7 +272,14 @@ function Premium({ surfaceVariant = 'app' }) {
         </div>
       )}
 
-      {error ? <div className="card ux-error-state">{error}</div> : null}
+      {error ? (
+        <div className="card ux-error-state">
+          <p>{error}</p>
+          <button type="button" className="secondary-btn" onClick={() => loadPageData()}>
+            Tekrar Dene
+          </button>
+        </div>
+      ) : null}
       {!error && purchaseNotice ? (
         <div className="website-profile-state-card">
           <strong>Yakinda aktif</strong>
@@ -356,9 +379,14 @@ function Premium({ surfaceVariant = 'app' }) {
             </p>
           </div>
         ) : null}
-        {loading ? <div>Yukleniyor...</div> : null}
+        {loading ? <div className="website-profile-state-card">Paketler yukleniyor...</div> : null}
         {!loading && !visiblePlans.length ? (
-          <div className="account-muted">Gosterilecek dijital paket bulunamadi.</div>
+          <div className="website-profile-state-card">
+            <p>Gosterilecek dijital paket bulunamadi.</p>
+            <button type="button" className="secondary-btn" onClick={() => loadPageData()}>
+              Yeniden dene
+            </button>
+          </div>
         ) : null}
         {!loading && visiblePlans.length ? (
           <div className="premium-plan-grid">

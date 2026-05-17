@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { NotificationIcon } from '../components/ui/AppIcons';
@@ -17,22 +17,38 @@ function Notifications() {
     navigate('/profile');
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async (options = {}) => {
+    const { isActive = () => true } = options;
     try {
+      if (!isActive()) {
+        return;
+      }
       setLoading(true);
       const response = await api.get('/notifications');
+      if (!isActive()) {
+        return;
+      }
       setItems(response.data?.data || []);
       setError('');
     } catch (requestError) {
+      if (!isActive()) {
+        return;
+      }
       setError(requestError.response?.data?.message || 'Bildirimler alinamadi.');
     } finally {
-      setLoading(false);
+      if (isActive()) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    let active = true;
+    fetchNotifications({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [fetchNotifications]);
 
   return (
     <div>
@@ -59,7 +75,14 @@ function Notifications() {
       <section className="card">
         <h2>Bildirimler</h2>
         {loading ? <div className="refresh-text">Yükleniyor...</div> : null}
-        {error ? <div className="error">{error}</div> : null}
+        {error ? (
+          <div className="card ux-error-state">
+            <p>{error}</p>
+            <button type="button" className="secondary-btn" onClick={() => fetchNotifications()}>
+              Tekrar Dene
+            </button>
+          </div>
+        ) : null}
         {!loading && !error ? (
           items.length ? (
             <div className="notif-panel-list">
@@ -94,7 +117,10 @@ function Notifications() {
               <div className="empty-icon">
                 <NotificationIcon size={22} />
               </div>
-              Bildirim yok.
+              <p>Bildirim yok.</p>
+              <button type="button" className="secondary-btn" onClick={() => navigate('/app')}>
+                Ana sayfaya don
+              </button>
             </div>
           )
         ) : null}
