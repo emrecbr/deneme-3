@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
 import { buildSurfaceHref, WEBSITE_HOW_IT_WORKS_PATH, WEBSITE_PACKAGES_PATH } from '../config/surfaces';
+import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 function Register() {
   const navigate = useNavigate();
+  const nativeRuntime = isNativeCapacitorRuntime();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,6 +70,14 @@ function Register() {
     if (providerLoading) {
       return;
     }
+
+    if (nativeRuntime) {
+      setError('');
+      setHelper(getNativeSocialAuthMessage());
+      return;
+    }
+
+    setHelper('');
     setProviderLoading(provider);
     window.location.href = buildAuthUrl(provider);
   };

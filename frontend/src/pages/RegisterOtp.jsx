@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl, rememberSocialLoginReturnTarget } from '../api/axios';
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -11,6 +12,7 @@ function RegisterOtp({ embedded = false }) {
   const location = useLocation();
   const { login } = useAuth();
   const webSurface = isWebSurfaceHost();
+  const nativeRuntime = isNativeCapacitorRuntime();
 
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
@@ -146,6 +148,11 @@ function RegisterOtp({ embedded = false }) {
 
   const handleProviderLogin = (provider) => {
     if (providerLoading) {
+      return;
+    }
+    if (nativeRuntime) {
+      resetMessages();
+      setSuccess(getNativeSocialAuthMessage());
       return;
     }
     setProviderLoading(provider);

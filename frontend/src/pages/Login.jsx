@@ -17,9 +17,11 @@ import {
   WEBSITE_PACKAGES_PATH
 } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
+import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const PRECHECK_TIMEOUT_MS = 8000;
 const PRECHECK_RETRY_DELAY_MS = 300;
+const SOCIAL_AUTH_TIMEOUT_MS = 12000;
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const isRetryableRequestError = (error) =>
   !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
@@ -29,6 +31,7 @@ function Login({ embedded = false }) {
   const location = useLocation();
   const { login, isAuthenticated, logout, user } = useAuth();
   const webSurface = isWebSurfaceHost();
+  const nativeRuntime = isNativeCapacitorRuntime();
   const isWebsiteLoginRoute = webSurface && location.pathname === '/login';
   const showExistingSessionCard = isWebsiteLoginRoute && isAuthenticated;
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -205,10 +208,6 @@ function Login({ embedded = false }) {
         setError('Gecerli bir e-posta gir');
         return;
       }
-      if (!password.trim()) {
-        setError('Sifre zorunlu');
-        return;
-      }
 
       let nextExists = exists;
       if (nextExists === null) {
@@ -226,6 +225,11 @@ function Login({ embedded = false }) {
           return;
         }
         setShowSignupPrompt(true);
+        return;
+      }
+
+      if (nextExists === true && !password.trim()) {
+        setError('Sifre zorunlu');
         return;
       }
 
@@ -290,17 +294,41 @@ function Login({ embedded = false }) {
     setError('');
     setNotice('');
     setProviderLoading(provider);
-    rememberSocialLoginReturnTarget();
+    let redirected = false;
 
-    const wakeResult = await warmApiForInteractiveAuth({ provider });
+    try {
+      if (nativeRuntime) {
+        setNotice(getNativeSocialAuthMessage());
+        return;
+      }
 
-    if (!wakeResult.ok) {
-      setProviderLoading('');
-      setError('Sunucu mesgul, tekrar deneyin.');
-      return;
+      rememberSocialLoginReturnTarget();
+
+      const wakeResult = await Promise.race([
+        warmApiForInteractiveAuth({ provider }),
+        new Promise((resolve) => {
+          window.setTimeout(() => resolve({ ok: false, timedOut: true }), SOCIAL_AUTH_TIMEOUT_MS);
+        })
+      ]);
+
+      if (!wakeResult.ok) {
+        setError(
+          wakeResult.timedOut
+            ? 'Sosyal giris su anda yanit vermiyor. Lutfen tekrar dene.'
+            : 'Sunucu mesgul, tekrar deneyin.'
+        );
+        return;
+      }
+
+      redirected = true;
+      window.location.href = buildProviderAuthUrl(provider);
+    } catch (providerError) {
+      setError(providerError?.message || 'Sosyal giris baslatilamadi.');
+    } finally {
+      if (!redirected) {
+        setProviderLoading('');
+      }
     }
-
-    window.location.href = buildProviderAuthUrl(provider);
   };
 
   const handleLogoutForRelogin = async () => {
