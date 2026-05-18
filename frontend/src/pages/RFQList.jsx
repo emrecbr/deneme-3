@@ -5,6 +5,7 @@ import CategorySelector from '../components/CategorySelector';
 import EmptyStateCard from '../components/EmptyStateCard';
 import ErrorStateCard from '../components/ErrorStateCard';
 import FilterBar from '../components/FilterBar';
+import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -17,7 +18,6 @@ import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../
 import { getDistanceKm } from '../utils/distance';
 import { extractRfqCityName, extractRfqDistrictName, formatRfqLocation } from '../utils/rfqFormatters';
 import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
-import { FavoriteIcon } from '../components/ui/AppIcons';
 
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
@@ -2578,23 +2578,51 @@ function RFQList({ surfaceVariant = 'app' }) {
   const renderRFQCard = useCallback(
     (rfq, index, baseDelay = 0, variant = 'normal') => {
       const jobseekerMeta = rfq?.segment === 'jobseeker' ? rfq?.segmentMetadata || {} : null;
-      const jobseekerWorkTypes = Array.isArray(jobseekerMeta?.workTypes)
-        ? jobseekerMeta.workTypes.filter(Boolean)
-        : [];
-      const jobseekerSkills = Array.isArray(jobseekerMeta?.skills)
-        ? jobseekerMeta.skills.filter(Boolean).slice(0, 3)
-        : [];
       const buyerId = getBuyerId(rfq);
       const isOwner = Boolean(currentUserId && buyerId === currentUserId);
       const isOpened = swipedCard.id === rfq._id;
-      const statusClass = rfq.status === 'awarded' ? 'done' : 'open';
-      const statusLabel = rfq.status === 'awarded' ? 'Tamamlandı' : 'Açık';
-      const images = getCardImages(rfq);
-      const currentImageIndex = imageIndexes[rfq._id] || 0;
       const isFavorite = favorites.includes(String(rfq._id));
       const animating = Boolean(favoriteAnimating[rfq._id]);
       const isFeatured = isFeaturedRFQ(rfq) || (import.meta.env.DEV && index === 0);
       const isPremium = Boolean(rfq?.isPremium) || (import.meta.env.DEV && index === 1);
+      const sellerName =
+        rfq?.buyer?.name ||
+        rfq?.buyer?.fullName ||
+        rfq?.user?.name ||
+        rfq?.owner?.name ||
+        'Talep sahibi';
+      const sellerVerified = Boolean(
+        rfq?.buyer?.isVerified ||
+        rfq?.buyer?.emailVerified ||
+        rfq?.buyer?.phoneVerified ||
+        rfq?.user?.isVerified
+      );
+      const sellerAvatarPath =
+        rfq?.buyer?.avatar ||
+        rfq?.buyer?.profileImage ||
+        rfq?.user?.avatar ||
+        rfq?.user?.profileImage ||
+        '';
+      const sellerAvatar = sellerAvatarPath
+        ? `${BACKEND_ORIGIN}${sellerAvatarPath}`.replace(/([^:]\/)\/+/g, '$1')
+        : '';
+      const categoryLabel = (() => {
+        const fullLabel = getCategoryDisplayName(rfq.category) || 'Talep';
+        const parts = fullLabel.split('>').map((item) => item.trim()).filter(Boolean);
+        return parts[parts.length - 1] || fullLabel;
+      })();
+      const publishedLabel = formatDate(rfq.createdAt || rfq.updatedAt || rfq.date);
+      const distanceLabel =
+        rfq?.distance ? `${(rfq.distance / 1000).toFixed(1)} km` : typeof rfq.distanceKm === 'number' ? `${rfq.distanceKm.toFixed(1)} km` : '';
+      const fallbackDescriptionParts = [
+        rfq?.productDetails?.brand,
+        rfq?.productDetails?.model,
+        rfq?.car?.brandName,
+        rfq?.car?.modelName,
+        jobseekerMeta?.expectedPay,
+        rfq?.quantity ? `Miktar: ${rfq.quantity}` : ''
+      ].filter(Boolean);
+      const descriptionText = String(rfq?.description || '').trim() || fallbackDescriptionParts.join(' • ');
 
       const toggleFavorite = async (event) => {
         event.stopPropagation();
@@ -2675,115 +2703,43 @@ function RFQList({ surfaceVariant = 'app' }) {
 
               navigate(`/rfq/${rfq._id}`);
             }}
-            >
-            {isFeatured ? <span className="card-state-badge featured">Öne Çıkarıldı</span> : null}
-            {!isFeatured && isPremium ? <span className="card-state-badge premium">PREMIUM</span> : null}
-            <div className="favorite-btn" onClick={toggleFavorite}>
-              <div className="favorite-wrapper">
-                <FavoriteIcon size={20} active={isFavorite} className={animating ? 'favorite-animating' : ''} />
-              </div>
-            </div>
-            <div
-              className="rfq-media"
-              onTouchStart={(event) => onImageTouchStart(rfq._id, event)}
-              onTouchMove={onImageTouchMove}
-              onTouchEnd={(event) => onImageTouchEnd(rfq._id, images.length, event)}
-            >
-              <div className="image-slider" style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}>
-                {images.map((img, imageIndex) => (
-                  <img
-                    key={`${rfq._id}-${imageIndex}`}
-                    src={img}
-                    className="rfq-image"
-                    alt="rfq"
-                    loading="lazy"
-                  />
-                ))}
-              </div>
-              <div className="overlay" />
-              <h3 className="rfq-image-title">{rfq.title}</h3>
-              {images.length > 1 ? (
-                <div className="dots">
-                  {images.map((_, dotIndex) => (
-                    <span
-                      key={`${rfq._id}-dot-${dotIndex}`}
-                      className={dotIndex === currentImageIndex ? 'dot active' : 'dot'}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="rfq-sub">Kategori: {getCategoryDisplayName(rfq.category) || '-'}</div>
-            {rfq.productDetails?.brand || rfq.productDetails?.model ? (
-              <div className="rfq-sub">
-                {rfq.productDetails?.brand || ''} {rfq.productDetails?.model || ''}
-              </div>
-            ) : null}
-            {rfq.car?.brandName || rfq.car?.modelName ? (
-              <div className="rfq-sub">
-                {rfq.car?.brandName || ''} {rfq.car?.modelName || ''}
-              </div>
-            ) : null}
-            <div className="rfq-sub">Konum: {formatRfqLocation(rfq)}</div>
-            {jobseekerMeta ? (
-              <>
-                {jobseekerWorkTypes.length ? (
-                  <div className="rfq-sub">Çalışma: {jobseekerWorkTypes.join(' / ')}</div>
-                ) : null}
-                {jobseekerMeta.availabilityDate ? (
-                  <div className="rfq-sub">Başlangıç: {formatDate(jobseekerMeta.availabilityDate)}</div>
-                ) : null}
-                {jobseekerMeta.expectedPay ? (
-                  <div className="rfq-sub">Beklenti: {jobseekerMeta.expectedPay}</div>
-                ) : null}
-                {jobseekerSkills.length ? (
-                  <div className="rfq-sub">Yetkinlik: {jobseekerSkills.join(', ')}</div>
-                ) : null}
-              </>
-            ) : (
-              <div className="rfq-sub">Miktar: {rfq.quantity}</div>
-            )}
-
-            <div className="rfq-badges">
-              <span className="deadline-badge">
-                {jobseekerMeta ? 'Müsaitlik' : 'Termin'}: {formatDate(jobseekerMeta?.availabilityDate || rfq.deadline)}
-              </span>
-              <span className={`badge ${statusClass}`}>{statusLabel}</span>
-              {rfq.isAuction ? <span className="premium-badge">Canlı Açık Artırma</span> : null}
-            </div>
-            {rfq.isAuction ? (
-              <div className="rfq-sub">En İyi Teklif: {rfq.currentBestOffer ? `${rfq.currentBestOffer} TL` : 'Henüz yok'}</div>
-            ) : null}
-
-            {rfq?.distance ? (
-              <div className="distance-text">📍 {(rfq.distance / 1000).toFixed(1)} km uzakta</div>
-            ) : typeof rfq.distanceKm === 'number' ? (
-              <div className="distance-text">📍 {rfq.distanceKm.toFixed(1)} km uzakta</div>
-            ) : null}
+          >
+            <RFQDiscoveryCard
+              title={rfq.title}
+              categoryLabel={categoryLabel}
+              locationLabel={formatRfqLocation(rfq)}
+              publishedLabel={publishedLabel}
+              description={descriptionText}
+              sellerName={sellerName}
+              sellerVerified={sellerVerified}
+              sellerAvatar={sellerAvatar}
+              distanceLabel={distanceLabel}
+              isPremium={isPremium}
+              isFeatured={isFeatured}
+              isFavorite={isFavorite}
+              favoriteAnimating={animating}
+              onFavoriteToggle={toggleFavorite}
+            />
           </article>
         </div>
       );
     },
     [
+      BACKEND_ORIGIN,
       closeSwipeActions,
       currentUserId,
       favorites,
       favoriteAnimating,
       formatDate,
       getBuyerId,
-      getCardImages,
       getCategoryDisplayName,
-      getCityName,
-      getDistrictName,
       handleCloseRFQ,
-      imageIndexes,
+      isFeaturedRFQ,
+      isPremiumRFQ,
       navigate,
       onCardTouchEnd,
       onCardTouchMove,
       onCardTouchStart,
-      onImageTouchEnd,
-      onImageTouchMove,
-      onImageTouchStart,
       swipedCard
     ]
   );
@@ -2795,7 +2751,6 @@ function RFQList({ surfaceVariant = 'app' }) {
       onTouchMove={onPullMove}
       onTouchEnd={onPullEnd}
     >
-      <div className="ui-rev-watermark">UI REV 1</div>
       <div className="pull-indicator" style={{ height: `${pullDistance}px` }}>
         {pullDistance > 0 ? <span className="spinner" /> : null}
       </div>

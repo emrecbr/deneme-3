@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
+import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 
 function Favorites({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
@@ -46,10 +47,16 @@ function Favorites({ surfaceVariant = 'app' }) {
   }, [fetchFavorites]);
 
   const getImage = (rfq) => {
-    if (Array.isArray(rfq.images) && rfq.images.length > 0) {
-      return `${BACKEND_ORIGIN}${rfq.images[0]}`;
+    const avatarPath =
+      rfq?.buyer?.avatar ||
+      rfq?.buyer?.profileImage ||
+      rfq?.user?.avatar ||
+      rfq?.user?.profileImage ||
+      '';
+    if (!avatarPath) {
+      return '';
     }
-    return '/placeholders/default.svg';
+    return `${BACKEND_ORIGIN}${avatarPath}`.replace(/([^:]\/)\/+/g, '$1');
   };
 
   const getCategoryName = (categoryValue) => {
@@ -107,12 +114,20 @@ function Favorites({ surfaceVariant = 'app' }) {
           {items.length ? (
             items.map((rfq) => (
               <article key={rfq._id} className="card rfq-card rfq-clickable" onClick={() => navigate(`/rfq/${rfq._id}`)}>
-                <div className="rfq-media">
-                  <img src={getImage(rfq)} className="rfq-image" alt="rfq" loading="lazy" />
-                </div>
-                <h3>{rfq.title}</h3>
-                <div className="rfq-sub">Kategori: {getCategoryName(rfq.category)}</div>
-                <div className="rfq-sub">Miktar: {rfq.quantity}</div>
+                <RFQDiscoveryCard
+                  title={rfq.title}
+                  categoryLabel={getCategoryName(rfq.category)}
+                  locationLabel={rfq.city || rfq.locationLabel || 'Konum bilgisi'}
+                  publishedLabel={rfq.createdAt ? new Date(rfq.createdAt).toLocaleDateString('tr-TR') : ''}
+                  description={rfq.description || (rfq.quantity ? `Miktar: ${rfq.quantity}` : '')}
+                  sellerName={rfq?.buyer?.name || rfq?.user?.name || 'Talep sahibi'}
+                  sellerVerified={Boolean(rfq?.buyer?.isVerified || rfq?.buyer?.emailVerified || rfq?.buyer?.phoneVerified)}
+                  sellerAvatar={getImage(rfq)}
+                  isPremium={Boolean(rfq?.isPremium)}
+                  isFeatured={Boolean(rfq?.featuredActive || rfq?.isFeatured)}
+                  footerHint="Detaya git"
+                  variant="compact"
+                />
               </article>
             ))
           ) : (

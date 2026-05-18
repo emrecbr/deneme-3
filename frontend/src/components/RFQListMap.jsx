@@ -5,6 +5,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import { applyLeafletIconFix } from '../lib/leafletIconFix';
+import { buildRfqMarkerIconSvg } from '../utils/rfqCategoryIcons';
 
 const BOUNDS_EPSILON = 0.00001;
 
@@ -150,12 +151,12 @@ export default function RFQListMap({
   }, []);
 
   const createMarkerIcon = useCallback(
-    (title, subTitle, isPremium, isNew, isActive, isFeatured) =>
+    (title, subTitle, isPremium, isNew, isActive, isFeatured, categoryLabel) =>
       L.divIcon({
         className: 'custom-marker',
-        html: `<div class="marker-badge ${isPremium ? 'premium-marker' : ''} ${isNew ? 'new-rfq-marker' : ''} ${isDarkMode ? 'dark-marker' : ''} ${!isActive ? 'inactive-marker' : ''}"><div class="marker-title">${escapeHtml(isFeatured ? `⭐ Öne ${title}` : title)}</div><div class="marker-sub">${escapeHtml(subTitle)}</div></div>`,
-        iconSize: [150, 44],
-        iconAnchor: [75, 44]
+        html: `<div class="marker-badge ${isPremium ? 'premium-marker' : ''} ${isNew ? 'new-rfq-marker' : ''} ${isDarkMode ? 'dark-marker' : ''} ${!isActive ? 'inactive-marker' : ''}"><span class="marker-glyph" aria-hidden="true">${buildRfqMarkerIconSvg(categoryLabel)}</span><span class="marker-copy"><span class="marker-title">${escapeHtml(isFeatured ? `One Cikan ${title}` : title)}</span><span class="marker-sub">${escapeHtml(subTitle)}</span></span></div>`,
+        iconSize: [176, 52],
+        iconAnchor: [88, 52]
       }),
     [escapeHtml, isDarkMode]
   );
@@ -351,7 +352,8 @@ export default function RFQListMap({
                   premium,
                   Boolean(newRFQMarkers[getRFQIdentity(rfq)]),
                   isActive,
-                  featured
+                  featured,
+                  markerSub
                 )}
                 isPremium={premium}
                 zIndexOffset={featured ? 1200 : premium ? 800 : 0}
@@ -384,7 +386,8 @@ export default function RFQListMap({
                 premium,
                 Boolean(newRFQMarkers[getRFQIdentity(rfq)]),
                 isActive,
-                featured
+                featured,
+                markerSub
               )}
               isPremium={premium}
               zIndexOffset={featured ? 1200 : premium ? 800 : 0}
