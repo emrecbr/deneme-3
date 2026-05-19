@@ -4,6 +4,7 @@ import api, { API_BASE_URL } from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
+import { formatRfqLocation } from '../utils/rfqFormatters';
 
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
@@ -115,7 +116,7 @@ function Favorites({ surfaceVariant = 'app' }) {
                   <RFQDiscoveryCard
                     title={rfq.title}
                     categoryLabel={getCategoryName(rfq.category)}
-                    locationLabel={rfq.city || rfq.locationLabel || 'Konum bilgisi'}
+                    locationLabel={formatRfqLocation(rfq)}
                     publishedLabel={rfq.createdAt ? new Date(rfq.createdAt).toLocaleDateString('tr-TR') : ''}
                     description={rfq.description || (rfq.quantity ? `Miktar: ${rfq.quantity}` : '')}
                     sellerName={rfq?.buyer?.name || rfq?.user?.name || 'Talep sahibi'}
