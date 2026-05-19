@@ -13,7 +13,6 @@ import { isListingQuotaExhausted, normalizeListingQuotaSnapshot } from '../utils
 import { trackAnalyticsEvent } from '../utils/analytics';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
-const MapPicker = lazy(() => import('../components/MapPicker'));
 const ReusableBottomSheet = lazy(() => import('../components/ReusableBottomSheet'));
 
 const SEGMENT_OPTIONS = [
@@ -304,10 +303,19 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     if (typeof item === 'string') {
       return { id: item, name: item, type: undefined };
     }
+    const coords =
+      item?.center?.coordinates ||
+      item?.location?.coordinates ||
+      item?.coordinates ||
+      null;
+    const lat = Array.isArray(coords) ? Number(coords[1]) : Number(item?.lat);
+    const lng = Array.isArray(coords) ? Number(coords[0]) : Number(item?.lng);
     return {
       id: String(item?._id || item?.id || item?.name || ''),
       name: String(item?.name || item?.value || ''),
-      type: item?.type
+      type: item?.type,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined
     };
   };
 
@@ -484,7 +492,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         reason: 'geolocation_unsupported'
       });
       if (!silent) {
-        setLocationError('Konum alinmadi, cihaz desteklemiyor.');
+        setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
       }
       return;
     }
@@ -689,7 +697,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               reason: 'city_missing',
               fallback: 'manual_city'
             });
-            setLocationError('Konum alındı. Şehir bilgisi çözümlenemedi, lütfen şehir seçin.');
+            setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
           }
         } catch (_error) {
           const nearestCity = await resolveNearestCity();
@@ -717,13 +725,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             });
             setLocationHint('Konum bulundu. En yakin sehir secildi, ilceyi manuel tamamlayabilirsin.');
             if (!silent) {
-              setLocationError('Konum alındı. İlçe bulunamadı, istersen manuel seçim yapabilirsin.');
+              setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
             }
           } else if (!silent) {
             trackRFQCreateEvent('rfq_location_detect_failed', {
               reason: 'reverse_geocode_failed'
             });
-            setLocationError('Konum alındı ancak şehir bilgisi bulunamadı, lütfen manuel seçin.');
+            setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
           }
         } finally {
           setLocating(false);
@@ -738,11 +746,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           trackRFQCreateEvent('rfq_location_permission_reject', { step: 3 });
         }
         if (!silent) {
-          if (error?.code === 1) {
-            setLocationError('Konum izni verilmedi');
-          } else {
-        setLocationError('Konum alınamadı, tekrar dene');
-          }
+          setLocationError(
+            error?.code === 1
+              ? 'Konum izni verilmedi. Sehir ve ilceyi manuel secebilirsiniz.'
+              : 'Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.'
+          );
         }
         setLocating(false);
       },
@@ -834,6 +842,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       districtId: '',
       neighborhoodId: ''
     });
+    if (!selectedLocation && Number.isFinite(selectedCity?.lat) && Number.isFinite(selectedCity?.lng)) {
+      setSelectedLocation({ lat: selectedCity.lat, lng: selectedCity.lng });
+      setLocationHint('Sehir konumu bulundu. Ilceyi secerek devam edebilirsin.');
+    }
     setDistrictQuery('');
     setNeighborhoodQuery('');
     setStreetQuery('');
@@ -1728,7 +1740,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 />
               </div> : null}
 
-              <div className="wizard-actions wizard-actions-split">
+              <div className={`wizard-actions wizard-actions-split ${isJobseekerSegment ? 'sticky-footer' : ''}`}>
                 <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
                   Geri
                 </button>
@@ -1894,21 +1906,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                     onClick={() => requestCurrentLocation(false)}
                     disabled={locating}
                   >
-                    {locating ? 'Konum aliniyor...' : 'Mevcut konumumu kullan'}
+                    {locating ? 'Konum aliniyor...' : 'Mevcut konumumu bul'}
                   </button>
                 </div>
-                <Suspense fallback={<div className="map-picker-loading">Harita yükleniyor...</div>}>
-                  <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={220} />
-                </Suspense>
                 <small className="input-helper">
-                  Şehri ve ilçeyi manuel seçip pin&apos;i haritadan yerleştir
+                  Konum bulunursa sehir ve ilce otomatik dolar. Sorun olursa manuel secim yapabilirsin.
                 </small>
                 {locationHint ? <div className="rfq-sub">{locationHint}</div> : null}
                 {locationError ? <div className="error">{locationError}</div> : null}
                 {selectedLocation && Number.isFinite(latitude) && Number.isFinite(longitude) ? (
-                  <div className="rfq-sub">
-                    Konum seçildi: {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
-                  </div>
+                  <div className="rfq-sub">Konum alindi.</div>
                 ) : null}
               </div>
 
