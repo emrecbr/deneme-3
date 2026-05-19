@@ -4,9 +4,12 @@ const QUEUE_LIMIT = 100;
 const FLUSH_SIZE = 20;
 const FLUSH_DELAY_MS = 1800;
 const SESSION_KEY = 'talepet_analytics_session_id';
+export const ANALYTICS_DEBUG_OVERLAY_ENABLED =
+  import.meta.env.DEV && import.meta.env.VITE_RFQ_ANALYTICS_OVERLAY !== 'false';
 let queue = [];
 let flushTimer = null;
 let isFlushing = false;
+const debugListeners = new Set();
 
 const safeStorage = () => {
   try {
@@ -79,6 +82,31 @@ const normalizePayload = (payload = {}) => {
   );
 };
 
+const emitAnalyticsDebugEvent = (event) => {
+  if (!ANALYTICS_DEBUG_OVERLAY_ENABLED || !debugListeners.size) {
+    return;
+  }
+
+  debugListeners.forEach((listener) => {
+    try {
+      listener(event);
+    } catch (_error) {
+      // Debug listeners must never affect analytics delivery.
+    }
+  });
+};
+
+export const subscribeAnalyticsDebugEvents = (listener) => {
+  if (!ANALYTICS_DEBUG_OVERLAY_ENABLED || typeof listener !== 'function') {
+    return () => {};
+  }
+
+  debugListeners.add(listener);
+  return () => {
+    debugListeners.delete(listener);
+  };
+};
+
 export const flushAnalyticsEvents = async () => {
   if (isFlushing || !queue.length) {
     return;
@@ -114,14 +142,17 @@ export const trackAnalyticsEvent = (name, payload = {}) => {
     return;
   }
 
-  queue.push({
+  const event = {
     name: eventName,
     payload: normalizePayload(payload),
     anonymousId: getAnonymousId(),
     source: getSource(),
     deviceType: getDeviceType(),
     timestamp: new Date().toISOString()
-  });
+  };
+
+  emitAnalyticsDebugEvent(event);
+  queue.push(event);
 
   if (queue.length > QUEUE_LIMIT) {
     queue = queue.slice(-QUEUE_LIMIT);

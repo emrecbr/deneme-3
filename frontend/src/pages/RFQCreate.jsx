@@ -507,6 +507,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setSelectedLocation({ lat: normalizedLocation.lat, lng: normalizedLocation.lng });
         trackRFQCreateEvent('rfq_location_detect_success', {
           hasCoordinates: true,
+          lat: Number(normalizedLocation.lat.toFixed(5)),
+          lng: Number(normalizedLocation.lng.toFixed(5)),
           accuracy: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : undefined
         });
 
@@ -659,7 +661,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               }
               trackRFQCreateEvent('rfq_location_reverse_geocode_success', {
                 hasCity: true,
-                hasDistrict: true
+                hasDistrict: true,
+                city: cityName,
+                district: districtName
               });
               setLocationHint('Konum bilgisi otomatik dolduruldu. Haritadaki pini istersen yeniden konumlandirabilirsin.');
             } else {
@@ -675,6 +679,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               trackRFQCreateEvent('rfq_location_manual_fallback', {
                 reason: districtName ? 'district_not_matched' : 'district_missing',
                 fallback: 'manual_district',
+                city: cityName,
                 hasCity: true
               });
               setLocationHint('Sehir bulundu. Ilceyi manuel secerek devam edebilirsin.');
@@ -707,7 +712,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             setStreetOptions([]);
             trackRFQCreateEvent('rfq_location_manual_fallback', {
               reason: 'reverse_geocode_failed',
-              fallback: 'nearest_city'
+              fallback: 'nearest_city',
+              city: nearestCity.name
             });
             setLocationHint('Konum bulundu. En yakin sehir secildi, ilceyi manuel tamamlayabilirsin.');
             if (!silent) {

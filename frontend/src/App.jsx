@@ -123,6 +123,9 @@ const ContactPage = lazy(() => import('./pages/ContactPage'));
 const PricingPage = lazy(() => import('./pages/PricingPage'));
 const OnboardingModal = lazy(() => import('./components/OnboardingModal'));
 const WebsiteProfileHome = lazy(() => import('./pages/WebsiteProfileHome'));
+const LiveAnalyticsOverlay = import.meta.env.DEV
+  ? lazy(() => import('./components/LiveAnalyticsOverlay'))
+  : null;
 
 function WebsiteProfilePlaceholder({ title, description }) {
   if (String(title || '').toLowerCase().includes('takiplerim')) {
@@ -1142,6 +1145,11 @@ function App() {
             }
           }}
         />
+      </Suspense>
+    ) : null}
+    {LiveAnalyticsOverlay ? (
+      <Suspense fallback={null}>
+        <LiveAnalyticsOverlay />
       </Suspense>
     ) : null}
     </>
