@@ -1684,44 +1684,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       }
                     />
                   </div>
-
-                  <div className="form-group">
-                    <label htmlFor="expectedPay">Beklenen Ücret (Opsiyonel)</label>
-                    <input
-                      id="expectedPay"
-                      type="text"
-                      value={jobseekerMeta.expectedPay}
-                      onChange={(event) =>
-                        setJobseekerMeta((prev) => ({ ...prev, expectedPay: event.target.value }))
-                      }
-                      placeholder="Örn: 25000 TL / ay"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="skills">Yetkinlikler (Opsiyonel)</label>
-                    <input
-                      id="skills"
-                      type="text"
-                      value={jobseekerMeta.skills}
-                      onChange={(event) =>
-                        setJobseekerMeta((prev) => ({ ...prev, skills: event.target.value }))
-                      }
-                      placeholder="Örn: Excel, satış, kaynak"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="shortNote">Kısa Not (Opsiyonel)</label>
-                    <textarea
-                      id="shortNote"
-                      value={jobseekerMeta.shortNote}
-                      onChange={(event) =>
-                        setJobseekerMeta((prev) => ({ ...prev, shortNote: event.target.value }))
-                      }
-                      placeholder="Kendini kısaca anlat"
-                    />
-                  </div>
                 </>
               ) : null}
 
