@@ -1684,6 +1684,19 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       }
                     />
                   </div>
+
+                  <div className="form-group">
+                    <label htmlFor="expectedPay">Beklenen Ücret (Opsiyonel)</label>
+                    <input
+                      id="expectedPay"
+                      type="text"
+                      value={jobseekerMeta.expectedPay}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, expectedPay: event.target.value }))
+                      }
+                      placeholder="Örn: 25000 TL / ay"
+                    />
+                  </div>
                 </>
               ) : null}
 
