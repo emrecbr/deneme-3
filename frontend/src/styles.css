@@ -135,7 +135,7 @@ body.native-capacitor .rfq-list-page {
 
 body.native-capacitor .rfq-grid {
   grid-template-columns: minmax(0, 1fr) !important;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -5894,12 +5894,13 @@ body.dark-mode .custom-cluster .cluster-bubble.premium-cluster {
 .profile-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 12px;
 }
 
 @media (min-width: 768px) {
   .rfq-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
   }
 }
 
@@ -10120,15 +10121,15 @@ body.dark-mode .category-selector-modal {
   left: 50%;
   bottom: 0;
   width: min(100%, 480px);
-  height: 92vh;
-  max-height: 92vh;
+  height: min(88vh, 760px);
+  max-height: 88vh;
   transform: translate3d(-50%, 100%, 0);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
   background: #0f172a;
   overflow: hidden;
-  padding: 10px 12px 24px;
+  padding: 8px 10px calc(18px + env(safe-area-inset-bottom));
   will-change: transform;
   overscroll-behavior: contain;
   z-index: 1000;
@@ -10174,6 +10175,71 @@ body.dark-mode .category-selector-modal {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+}
+
+.create-sheet-content .card {
+  margin-bottom: 0;
+  padding: 12px;
+  border-radius: 20px;
+  box-shadow: none;
+}
+
+.create-sheet-content h1 {
+  margin: 2px 34px 4px 0;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.create-sheet-content .wizard-progress {
+  margin: 4px 0 10px;
+}
+
+.create-sheet-content .form-group {
+  margin-bottom: 8px;
+}
+
+.create-sheet-content label {
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.create-sheet-content input,
+.create-sheet-content select {
+  min-height: 42px;
+  padding: 9px 10px;
+}
+
+.create-sheet-content textarea {
+  min-height: 78px;
+  padding: 9px 10px;
+}
+
+.create-sheet-content .cats-inline-wrap {
+  margin-bottom: 0;
+}
+
+.create-sheet-content .wizard-actions {
+  margin-top: 8px;
+}
+
+.create-sheet-content .wizard-actions.sticky-footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+.create-sheet-content .jobseeker-card-grid {
+  gap: 8px;
+}
+
+.create-sheet-content .jobseeker-option-card {
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.create-sheet-content .location-header {
+  align-items: center;
+  gap: 8px;
 }
 
 body.sheet-dragging {
@@ -11156,6 +11222,64 @@ body.dark-mode .website-profile-state-card--error {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 16px;
+}
+
+.publish-option-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.publish-option-card {
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.publish-option-card.is-selected {
+  border-color: rgba(37, 99, 235, 0.3);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 0.96));
+}
+
+.publish-option-card strong {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.publish-option-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.publish-option-kicker {
+  width: max-content;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+body.dark-mode .publish-option-card {
+  background: rgba(15, 23, 42, 0.68);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+body.dark-mode .publish-option-card.is-selected {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.88));
+  border-color: rgba(96, 165, 250, 0.34);
+}
+
+body.dark-mode .publish-option-kicker {
+  background: rgba(148, 163, 184, 0.14);
+  color: #dbeafe;
 }
 
 .website-profile-form-grid {

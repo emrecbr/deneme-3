@@ -177,6 +177,8 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       quantity,
       targetPrice,
       deadline,
+      workStartDate,
+      workEndDate,
       isAuction,
       longitude,
       latitude,
@@ -223,6 +225,30 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
         success: false,
         message: 'Gecerli butce bilgisi gonderilmelidir.'
       });
+    }
+
+    const requestedSegment = ensureSegmentValue(segment);
+    const parsedWorkStartDate = workStartDate ? new Date(workStartDate) : null;
+    const parsedWorkEndDate = workEndDate ? new Date(workEndDate) : null;
+    if (requestedSegment === 'jobseeker') {
+      if (!parsedWorkStartDate || !Number.isFinite(parsedWorkStartDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Gecerli ise baslama tarihi zorunludur.'
+        });
+      }
+      if (parsedWorkEndDate && !Number.isFinite(parsedWorkEndDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Gecerli is bitis tarihi gonderilmelidir.'
+        });
+      }
+      if (parsedWorkEndDate && parsedWorkEndDate.getTime() < parsedWorkStartDate.getTime()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Is bitis tarihi baslangictan once olamaz.'
+        });
+      }
     }
 
     const categoryResolution = await resolveCategoryAndSegment({ categoryId, segment });
@@ -423,6 +449,8 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       quantity: parsedQuantity,
       targetPrice: targetPrice ? Number(targetPrice) : undefined,
       deadline: parsedDeadline,
+      workStartDate: requestedSegment === 'jobseeker' ? parsedWorkStartDate : undefined,
+      workEndDate: requestedSegment === 'jobseeker' && parsedWorkEndDate ? parsedWorkEndDate : undefined,
       expiresAt: computedExpiresAt,
       isAuction: toBoolean(isAuction),
       currentBestOffer: toBoolean(isAuction) && targetPrice ? Number(targetPrice) : undefined,
@@ -1060,6 +1088,8 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       quantity,
       targetPrice,
       deadline,
+      workStartDate,
+      workEndDate,
       isAuction,
       productDetails,
       segmentMetadata
@@ -1079,6 +1109,28 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
     }
     if (deadline) {
       rfq.deadline = new Date(deadline);
+    }
+    if (typeof workStartDate !== 'undefined') {
+      const parsedWorkStartDate = workStartDate ? new Date(workStartDate) : null;
+      if (parsedWorkStartDate && Number.isFinite(parsedWorkStartDate.getTime())) {
+        rfq.workStartDate = parsedWorkStartDate;
+      } else {
+        rfq.workStartDate = undefined;
+      }
+    }
+    if (typeof workEndDate !== 'undefined') {
+      const parsedWorkEndDate = workEndDate ? new Date(workEndDate) : null;
+      if (parsedWorkEndDate && Number.isFinite(parsedWorkEndDate.getTime())) {
+        rfq.workEndDate = parsedWorkEndDate;
+      } else {
+        rfq.workEndDate = undefined;
+      }
+    }
+    if (rfq.workStartDate && rfq.workEndDate && rfq.workEndDate.getTime() < rfq.workStartDate.getTime()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Is bitis tarihi baslangictan once olamaz.'
+      });
     }
     if (typeof isAuction !== 'undefined') {
       rfq.isAuction = toBoolean(isAuction);

@@ -33,6 +33,12 @@ const rfqSchema = new mongoose.Schema(
       type: Date,
       required: true
     },
+    workStartDate: {
+      type: Date
+    },
+    workEndDate: {
+      type: Date
+    },
     expiresAt: {
       type: Date
     },

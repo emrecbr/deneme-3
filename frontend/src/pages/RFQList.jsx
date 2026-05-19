@@ -1220,10 +1220,10 @@ function RFQList({ surfaceVariant = 'app' }) {
   const getCreateSheetSnapPoints = useCallback(() => {
     const vh = window.innerHeight || 0;
     const sheetHeight =
-      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.92);
-    const expandedVisible = Math.min(sheetHeight, vh * 0.88);
-    const midVisible = Math.min(sheetHeight, vh * 0.58);
-    const collapsedVisible = Math.min(sheetHeight, vh * 0.28);
+      createSheetRef.current?.getBoundingClientRect().height || Math.round(vh * 0.88);
+    const expandedVisible = Math.min(sheetHeight, vh * 0.86);
+    const midVisible = Math.min(sheetHeight, vh * 0.68);
+    const collapsedVisible = Math.min(sheetHeight, vh * 0.32);
     const closedVisible = Math.min(sheetHeight, vh * 0.09);
     const expanded = Math.max(sheetHeight - expandedVisible, 0);
     const mid = Math.max(sheetHeight - midVisible, expanded);
@@ -1360,9 +1360,9 @@ function RFQList({ surfaceVariant = 'app' }) {
     setIsCreateSheetMounted(true);
     window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     window.requestAnimationFrame(() => {
-      setCreateSheetState('expanded');
+      setCreateSheetState('mid');
       const snap = getCreateSheetSnapPoints();
-      setCreateSheetTranslate(snap.expanded, { syncState: true });
+      setCreateSheetTranslate(snap.mid, { syncState: true });
     });
   }, [closeCompetingSheets, getCreateSheetSnapPoints, setCreateSheetTranslate]);
 

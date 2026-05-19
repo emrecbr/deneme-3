@@ -17,6 +17,68 @@ const Shirt = () => <IconBase><path d="m8 5 4-2 4 2 3 4-3 2v10H8V11L5 9l3-4Z" />
 const Briefcase = () => <IconBase><rect x="3" y="7" width="18" height="13" rx="2.5" /><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" /><path d="M3 12h18" /></IconBase>;
 const Wrench = () => <IconBase><path d="M14 6a4 4 0 0 0 4 4l-8.5 8.5a2 2 0 1 1-2.8-2.8L15.2 7.2A4 4 0 0 0 14 6Z" /></IconBase>;
 
+const SYNTHETIC_CATEGORY_PREFIX = 'synthetic-category';
+const OTHER_CATEGORY_NAME = 'Diğer';
+const JOBSEEKER_REQUIRED_CHILDREN = [
+  { name: 'Cafe', slug: 'cafe' },
+  { name: 'Sanayi', slug: 'sanayi' },
+  { name: 'Lokanta', slug: 'lokanta' },
+  { name: OTHER_CATEGORY_NAME, slug: 'diger' }
+];
+
+const normalizeCategoryName = (value) => String(value || '').trim().toLocaleLowerCase('tr-TR');
+
+const createSyntheticCategory = ({ name, slug, segment, parentSlug, order }) => ({
+  _id: `${SYNTHETIC_CATEGORY_PREFIX}:${segment}:${parentSlug || 'root'}:${slug}`,
+  name,
+  slug: `${parentSlug ? `${parentSlug}-` : ''}${slug}`,
+  segment,
+  parent: null,
+  level: 1,
+  order,
+  isSynthetic: true,
+  children: []
+});
+
+function withRequiredFallbackChildren(node, activeSegment) {
+  const children = Array.isArray(node.children)
+    ? node.children.map((child) => withRequiredFallbackChildren(child, child.segment || activeSegment))
+    : [];
+  const childNames = new Set(children.map((child) => normalizeCategoryName(child.name)));
+  const parentSlug = node.slug || String(node._id || node.name || '').replace(/\s+/g, '-').toLowerCase();
+  const additions = [];
+
+  if (activeSegment === 'jobseeker' && (!node.parent || Number(node.level || 0) === 0 || children.length)) {
+    JOBSEEKER_REQUIRED_CHILDREN.forEach((item) => {
+      if (!childNames.has(normalizeCategoryName(item.name))) {
+        additions.push(createSyntheticCategory({
+          ...item,
+          segment: activeSegment,
+          parentSlug,
+          order: children.length + additions.length
+        }));
+      }
+    });
+  } else if (
+    normalizeCategoryName(node.name) !== normalizeCategoryName(OTHER_CATEGORY_NAME) &&
+    !childNames.has(normalizeCategoryName(OTHER_CATEGORY_NAME))
+  ) {
+    additions.push(createSyntheticCategory({
+      name: OTHER_CATEGORY_NAME,
+      slug: 'diger',
+      segment: activeSegment,
+      parentSlug,
+      order: children.length
+    }));
+  }
+
+  return {
+    ...node,
+    segment: node.segment || activeSegment || '',
+    children: [...children, ...additions]
+  };
+}
+
 const SEGMENT_OPTIONS = [
   { value: 'goods', label: 'Eşya' },
   { value: 'service', label: 'Hizmet / Usta' },
@@ -112,7 +174,8 @@ function CategorySelector({
         const response = await api.get('/categories', { params: { segment: activeSegment } });
         const flat = response.data?.data || response.data?.items || [];
         const tree = response.data?.tree || [];
-        const rootItems = normalizeTree(tree.length ? tree : buildTreeFromFlat(flat), activeSegment);
+        const rootItems = normalizeTree(tree.length ? tree : buildTreeFromFlat(flat), activeSegment)
+          .map((item) => withRequiredFallbackChildren(item, item.segment || activeSegment));
 
         setRoots(rootItems);
         setPath([]);

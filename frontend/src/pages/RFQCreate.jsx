@@ -8,11 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
-import {
-  formatListingQuotaResetDate,
-  isListingQuotaExhausted,
-  normalizeListingQuotaSnapshot
-} from '../utils/listingQuota';
+import { isListingQuotaExhausted, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
 const MapPicker = lazy(() => import('../components/MapPicker'));
@@ -35,6 +31,8 @@ const JOBSEEKER_WORK_TYPES = [
 const EMPTY_JOBSEEKER_META = {
   workTypes: [],
   availabilityDate: '',
+  workStartDate: '',
+  workEndDate: '',
   skills: '',
   shortNote: '',
   expectedPay: ''
@@ -42,7 +40,7 @@ const EMPTY_JOBSEEKER_META = {
 
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, surfaceVariant = 'app' }) {
   const navigate = useNavigate();
-  const { user, listingQuota } = useAuth();
+  const { user } = useAuth();
   const isWebSurface = surfaceVariant === 'web';
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
@@ -103,8 +101,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [carModelSheetOpen, setCarModelSheetOpen] = useState(false);
   const [carVariantSheetOpen, setCarVariantSheetOpen] = useState(false);
   const [quotaInfo, setQuotaInfo] = useState(null);
-  const [quotaLoading, setQuotaLoading] = useState(false);
-  const [quotaError, setQuotaError] = useState('');
   const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
   const stepLabels = ['Temel bilgi', 'Detaylar', 'Konum', 'Yayin'];
   const isEdit = mode === 'edit';
@@ -209,7 +205,21 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       workTypes: Array.isArray(initialData?.segmentMetadata?.workTypes)
         ? initialData.segmentMetadata.workTypes.filter(Boolean)
         : [],
-      availabilityDate: String(initialData?.segmentMetadata?.availabilityDate || ''),
+      availabilityDate: String(
+        initialData?.segmentMetadata?.availabilityDate ||
+        initialData?.segmentMetadata?.workStartDate ||
+        initialData?.workStartDate ||
+        ''
+      ),
+      workStartDate: String(
+        initialData?.segmentMetadata?.workStartDate ||
+        initialData?.segmentMetadata?.availabilityDate ||
+        initialData?.workStartDate ||
+        ''
+      ),
+      workEndDate: initialData?.workEndDate
+        ? new Date(initialData.workEndDate).toISOString().slice(0, 10)
+        : String(initialData?.segmentMetadata?.workEndDate || ''),
       skills: Array.isArray(initialData?.segmentMetadata?.skills)
         ? initialData.segmentMetadata.skills.join(', ')
         : String(initialData?.segmentMetadata?.skills || ''),
@@ -229,38 +239,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     };
     loadPlans();
   }, []);
-
-  useEffect(() => {
-    if (isEdit) {
-      return;
-    }
-    let active = true;
-    const loadQuota = async () => {
-      try {
-        setQuotaLoading(true);
-        const res = await api.get('/users/me/listing-quota');
-        if (!active) return;
-        setQuotaInfo(normalizeListingQuotaSnapshot(res.data?.data));
-        setQuotaError('');
-      } catch (err) {
-        if (!active) return;
-        setQuotaError(err?.response?.data?.message || 'Kota bilgisi alınamadı.');
-      } finally {
-        if (active) setQuotaLoading(false);
-      }
-    };
-    loadQuota();
-    return () => {
-      active = false;
-    };
-  }, [isEdit]);
-
-  useEffect(() => {
-    if (isEdit || quotaInfo || !listingQuota) {
-      return;
-    }
-    setQuotaInfo(listingQuota);
-  }, [isEdit, listingQuota, quotaInfo]);
 
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
@@ -467,6 +445,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           if (typeof value === 'string') return value;
           return value.name || value.label || value.title || '';
         };
+        const resolveId = (value) => {
+          if (!value || typeof value === 'string') return '';
+          return String(value._id || value.id || value.cityId || '');
+        };
 
         const resolveNearestCity = async () => {
           try {
@@ -535,6 +517,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
           let cityName = cityCandidates[0] || '';
           let districtName = districtCandidates[0] || '';
+          let cityIdFromReverse = resolveId(payload.city);
+          let districtIdFromReverse = resolveId(payload.district);
 
           if (!cityName) {
             const nearestCity = await resolveNearestCity();
@@ -551,17 +535,20 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               city: cityName
             }));
             setCityQuery(cityName);
-            const cityRes = await api.get('/location/search', { params: { q: cityName } });
-            const cityItems = Array.isArray(cityRes.data?.data)
-              ? cityRes.data.data
-              : Array.isArray(cityRes.data?.items)
-                ? cityRes.data.items
-                : Array.isArray(cityRes.data)
-                  ? cityRes.data
-                  : [];
+            let cityItems = [];
+            if (!cityIdFromReverse) {
+              const cityRes = await api.get('/location/search', { params: { q: cityName } });
+              cityItems = Array.isArray(cityRes.data?.data)
+                ? cityRes.data.data
+                : Array.isArray(cityRes.data?.items)
+                  ? cityRes.data.items
+                  : Array.isArray(cityRes.data)
+                    ? cityRes.data
+                    : [];
+            }
             const match = cityItems.find((item) => item?.name?.toLowerCase() === cityName.toLowerCase());
             const fallbackCity = match || cityItems[0];
-            const cityId = fallbackCity?._id || fallbackCity?.id || '';
+            const cityId = cityIdFromReverse || fallbackCity?._id || fallbackCity?.id || '';
             setLocationIds((prev) => ({
               ...prev,
               cityId,
@@ -586,7 +573,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               const matchDistrict = districtItems.find(
                 (item) => item.name?.toLowerCase() === districtName.toLowerCase()
               );
-              const districtId = matchDistrict?.id || districtItems[0]?.id || '';
+              const districtId = districtIdFromReverse || matchDistrict?.id || districtItems[0]?.id || '';
               setLocationIds((prev) => ({
                 ...prev,
                 cityId,
@@ -774,10 +761,14 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
+    const startDate = jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate || '';
+    const endDate = jobseekerMeta.workEndDate || '';
 
     return {
       workTypes: jobseekerMeta.workTypes,
-      availabilityDate: jobseekerMeta.availabilityDate || undefined,
+      availabilityDate: startDate || undefined,
+      workStartDate: startDate || undefined,
+      workEndDate: endDate || undefined,
       skills: normalizedSkills,
       shortNote: String(jobseekerMeta.shortNote || '').trim() || undefined,
       expectedPay: String(jobseekerMeta.expectedPay || '').trim() || undefined
@@ -808,8 +799,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       if (isJobseekerSegment && jobseekerMeta.workTypes.length === 0) {
         return { message: 'Çalışma tipi seç', field: 'workTypes' };
       }
-      if (isJobseekerSegment && !jobseekerMeta.availabilityDate) {
-        return { message: 'Müsaitlik tarihi seç', field: 'availabilityDate' };
+      const workStartDate = jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate;
+      if (isJobseekerSegment && !workStartDate) {
+        return { message: 'İşe başlama tarihi seç', field: 'workStartDate' };
       }
       const quantityValue = Number(form.quantity);
       if (!isJobseekerSegment && (!Number.isFinite(quantityValue) || quantityValue < 1)) {
@@ -823,13 +815,22 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         return { message: 'Teslim süresi seç', field: 'deadline' };
       }
       const deadlineValue = new Date(
-        isJobseekerSegment ? jobseekerMeta.availabilityDate : form.deadline
+        isJobseekerSegment ? workStartDate : form.deadline
       ).getTime();
       if (!Number.isFinite(deadlineValue) || deadlineValue <= Date.now()) {
         return {
-          message: isJobseekerSegment ? 'Müsaitlik tarihi gelecekte olmalı' : 'Teslim süresi gelecekte olmalı',
-          field: isJobseekerSegment ? 'availabilityDate' : 'deadline'
+          message: isJobseekerSegment ? 'İşe başlama tarihi gelecekte olmalı' : 'Teslim süresi gelecekte olmalı',
+          field: isJobseekerSegment ? 'workStartDate' : 'deadline'
         };
+      }
+      if (isJobseekerSegment && jobseekerMeta.workEndDate) {
+        const endDateValue = new Date(jobseekerMeta.workEndDate).getTime();
+        if (!Number.isFinite(endDateValue)) {
+          return { message: 'İş bitiş tarihi geçerli olmalı', field: 'workEndDate' };
+        }
+        if (endDateValue < deadlineValue) {
+          return { message: 'İş bitiş tarihi başlangıçtan önce olamaz', field: 'workEndDate' };
+        }
       }
       return { message: '', field: '' };
     }
@@ -897,6 +898,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           street: form.street,
           quantity: Number(form.quantity),
           deadline: form.deadline,
+          workStartDate: isJobseekerSegment
+            ? (jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate || undefined)
+            : undefined,
+          workEndDate: isJobseekerSegment ? (jobseekerMeta.workEndDate || undefined) : undefined,
           targetPrice: Number.isFinite(priceValue) ? priceValue : undefined,
           location: geoPoint,
           isAuction: Boolean(form.isAuction)
@@ -934,7 +939,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         formData.append('neighborhood', form.neighborhood);
         formData.append('street', form.street);
         formData.append('quantity', String(isJobseekerSegment ? 1 : Number(form.quantity)));
-        formData.append('deadline', isJobseekerSegment ? jobseekerMeta.availabilityDate : form.deadline);
+        formData.append(
+          'deadline',
+          isJobseekerSegment ? (jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate) : form.deadline
+        );
         formData.append('isAuction', String(Boolean(form.isAuction)));
         if (!form.deadline) {
           const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
@@ -949,6 +957,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
 
     if (isJobseekerSegment) {
+      formData.append('workStartDate', jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate);
+      if (jobseekerMeta.workEndDate) {
+        formData.append('workEndDate', jobseekerMeta.workEndDate);
+      }
       formData.append('segmentMetadata', JSON.stringify(buildJobseekerMetadata()));
     }
 
@@ -1262,50 +1274,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             ))}
           </div>
         ) : null}
-        {!isEdit ? (
-          <div className="quota-card">
-            {quotaLoading ? (
-              <div className="quota-muted">Kota bilgisi yükleniyor...</div>
-            ) : quotaError ? (
-              <div className="quota-error">{quotaError}</div>
-            ) : quotaInfo ? (
-              <>
-                <div className="quota-row">
-                  <strong>Kalan ücretsiz ilan hakkı:</strong>
-                  <span>
-                    {quotaInfo.remaining}/{quotaInfo.limit}
-                  </span>
-                </div>
-                <div className="quota-row">
-                  <span>Kullanılan hak:</span>
-                  <span>{quotaInfo.used ?? '—'}</span>
-                </div>
-                <div className="quota-row">
-                  <span>Pencere:</span>
-                  <span>Son {quotaInfo.windowDays} gün</span>
-                </div>
-                <div className="quota-row">
-                  <span>Bu dönem bitiş:</span>
-                  <span>{formatListingQuotaResetDate(quotaInfo.resetAt)}</span>
-                </div>
-                {quotaBlocked ? (
-                  <div className="quota-alert">
-                    <div>Son 30 günde ücretsiz ilan hakkın doldu.</div>
-                    <div className="quota-pay">
-                      <span>Yeni ilan vermek için paket gerekecek.</span>
-                      <button type="button" className="secondary-btn" onClick={() => navigate('/paketler')}>
-                        Paketleri İncele
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                {Number(quotaInfo.paidCredits || 0) > 0 ? (
-                  <div className="quota-muted">Hazır ek ilan kredin: {quotaInfo.paidCredits}</div>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        ) : null}
         <form onSubmit={handleSubmit} className={isWebSurface ? 'rfq-create-form--web' : ''}>
           {isWebSurface && stepError ? <div className="rfq-create-inline-alert">{stepError}</div> : null}
           {isWebSurface && error ? <div className="rfq-create-inline-alert rfq-create-inline-alert--error">{error}</div> : null}
@@ -1497,15 +1465,36 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               {isJobseekerSegment ? (
                 <>
                   <div className="form-group">
-                    <label htmlFor="availabilityDate">Müsaitlik / Başlangıç Tarihi</label>
+                    <label htmlFor="workStartDate">İşe Başlama Tarihi</label>
                     <input
-                      id="availabilityDate"
+                      id="workStartDate"
                       type="date"
-                      value={jobseekerMeta.availabilityDate}
+                      value={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate}
                       onChange={(event) =>
-                        setJobseekerMeta((prev) => ({ ...prev, availabilityDate: event.target.value }))
+                        setJobseekerMeta((prev) => ({
+                          ...prev,
+                          availabilityDate: event.target.value,
+                          workStartDate: event.target.value,
+                          workEndDate:
+                            prev.workEndDate && new Date(prev.workEndDate) < new Date(event.target.value)
+                              ? ''
+                              : prev.workEndDate
+                        }))
                       }
                       required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="workEndDate">İş Bitiş Tarihi (Opsiyonel)</label>
+                    <input
+                      id="workEndDate"
+                      type="date"
+                      min={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate || undefined}
+                      value={jobseekerMeta.workEndDate}
+                      onChange={(event) =>
+                        setJobseekerMeta((prev) => ({ ...prev, workEndDate: event.target.value }))
+                      }
                     />
                   </div>
 
@@ -1730,7 +1719,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   </button>
                 </div>
                 <Suspense fallback={<div className="map-picker-loading">Harita yükleniyor...</div>}>
-                  <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={240} />
+                  <MapPicker value={selectedLocation} onChange={setSelectedLocation} height={220} />
                 </Suspense>
                 <small className="input-helper">
                   Şehri ve ilçeyi manuel seçip pin&apos;i haritadan yerleştir
@@ -1773,22 +1762,20 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
           {step === 4 ? (
             <>
-              <div className="premium-cta-card">
-                <div className="premium-cta-header">
-                  <strong>Yayin öncesi kota özeti</strong>
-                  <span>
-                    {quotaInfo
-                      ? `Kalan hak ${quotaInfo.remaining}/${quotaInfo.limit} • Son ${quotaInfo.windowDays} gün`
-                      : 'Kota bilgisi yayın öncesinde kontrol edilir'}
-                  </span>
+              <div className="publish-option-grid">
+                <div className="publish-option-card is-selected">
+                  <span className="publish-option-kicker">Standart</span>
+                  <strong>Standart talep yayını</strong>
+                  <p>Talebini normal akışta yayınla ve uygun teklifleri uygulama içinde takip et.</p>
                 </div>
-                <small className="input-helper">
-                  {quotaBlocked
-                    ? 'Bu fazda odeme baslatilmiyor. Yeni ilan vermek icin once paket bilgisini incelemen gerekiyor.'
-                    : premiumActive
-                      ? 'Mevcut durumunla talebini normal akista yayinlayabilirsin.'
-                      : 'Bu fazda odeme yerine yalnizca hak bilgisi ve olasi kilitlenme uyarisi gosterilir.'}
-                </small>
+                <div className="publish-option-card">
+                  <span className="publish-option-kicker">Premium</span>
+                  <strong>Premium talep görünürlüğü</strong>
+                  <p>Talebini öne çıkarmak için premium görünürlük seçeneklerini paketler alanından yönetebilirsin.</p>
+                  <button type="button" className="secondary-btn" onClick={() => navigate('/paketler')}>
+                    Premium seçenekleri
+                  </button>
+                </div>
               </div>
 
               <div className="wizard-actions wizard-actions-split sticky-footer">
@@ -1803,7 +1790,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   {loading
                     ? 'Gönderiliyor...'
                     : quotaBlocked
-                      ? 'Ücretsiz hak doldu'
+                      ? 'Yayınlanamıyor'
                       : isEdit
                         ? 'Kaydet'
                         : 'Standart Talep Yayınla'}
