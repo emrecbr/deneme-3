@@ -23,10 +23,11 @@ const SEGMENT_OPTIONS = [
 ];
 
 const JOBSEEKER_WORK_TYPES = [
-  { value: 'part-time', label: 'Part-time' },
-  { value: 'full-time', label: 'Full-time' },
-  { value: 'hourly', label: 'Saatlik' },
-  { value: 'daily', label: 'Günlük' }
+  { value: 'full-time', label: 'Tam Zamanlı' },
+  { value: 'part-time', label: 'Yarı Zamanlı' },
+  { value: 'daily', label: 'Günlük' },
+  { value: 'freelance', label: 'Freelance' },
+  { value: 'other', label: 'Diğer' }
 ];
 
 const EMPTY_JOBSEEKER_META = {
@@ -78,6 +79,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [cityQuery, setCityQuery] = useState('');
   const [districtQuery, setDistrictQuery] = useState('');
   const [neighborhoodQuery, setNeighborhoodQuery] = useState('');
+  const [workTypeSheetOpen, setWorkTypeSheetOpen] = useState(false);
   const [streetQuery, setStreetQuery] = useState('');
   const [cityOptions, setCityOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
@@ -148,6 +150,20 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const isCarCategory = useMemo(() => form.segment === 'auto', [form.segment]);
   const isJobseekerSegment = useMemo(() => form.segment === 'jobseeker', [form.segment]);
+  const selectedJobseekerWorkTypeLabel = useMemo(() => {
+    if (!Array.isArray(jobseekerMeta.workTypes) || jobseekerMeta.workTypes.length === 0) return '';
+    const selected = jobseekerMeta.workTypes[0];
+    return JOBSEEKER_WORK_TYPES.find((option) => option.value === selected)?.label || '';
+  }, [jobseekerMeta.workTypes]);
+
+  const selectJobseekerWorkType = useCallback((value) => {
+    setJobseekerMeta((prev) => ({
+      ...prev,
+      // Keep backend shape stable (array) but simplify UX to single-choice.
+      workTypes: value ? [value] : []
+    }));
+    setWorkTypeSheetOpen(false);
+  }, []);
   const buildGeoPoint = useCallback((value) => normalizeGeoPointInput(value).point, []);
   const getLocationValidationMessage = useCallback((value) => getGeoPointErrorMessage(value), []);
   const buildAnalyticsPayload = useCallback((extra = {}) => ({
@@ -1561,23 +1577,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
               {isJobseekerSegment ? (
                 <div className="form-group">
-                  <label>Çalışma Tipi</label>
-                  <div className="jobseeker-card-grid">
-                    {JOBSEEKER_WORK_TYPES.map((option) => {
-                      const isActive = jobseekerMeta.workTypes.includes(option.value);
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`jobseeker-option-card ${isActive ? 'active' : ''}`}
-                          onClick={() => toggleJobseekerWorkType(option.value)}
-                        >
-                          <strong>{option.label}</strong>
-                          <span>Bu çalışma modelini profiline ekle</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <label htmlFor="workTypeButton">Çalışma Tipi</label>
+                  <button
+                    id="workTypeButton"
+                    type="button"
+                    className="secondary-btn category-select-btn"
+                    onClick={() => setWorkTypeSheetOpen(true)}
+                  >
+                    {selectedJobseekerWorkTypeLabel || 'Çalışma tipi seç'}
+                  </button>
                 </div>
               ) : null}
 
@@ -2120,6 +2128,34 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   {item.year ? <span className="notif-time">{item.year}</span> : null}
                 </button>
               ))}
+            </div>
+          </ReusableBottomSheet>
+        </Suspense>
+      ) : null}
+      {workTypeSheetOpen ? (
+        <Suspense fallback={null}>
+          <ReusableBottomSheet
+            open={workTypeSheetOpen}
+            onClose={() => setWorkTypeSheetOpen(false)}
+            title="Çalışma Tipi"
+            contentClassName="notif-sheet"
+            initialSnap="mid"
+          >
+            <div className="notif-list">
+              {JOBSEEKER_WORK_TYPES.map((option) => {
+                const isActive = jobseekerMeta.workTypes?.[0] === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="notif-item"
+                    onClick={() => selectJobseekerWorkType(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    {isActive ? <span className="notif-time">Seçili</span> : null}
+                  </button>
+                );
+              })}
             </div>
           </ReusableBottomSheet>
         </Suspense>
