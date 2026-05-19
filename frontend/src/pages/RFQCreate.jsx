@@ -1408,9 +1408,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const quotaBlocked = !isEdit && isListingQuotaExhausted(quotaInfo);
 
+  const isJobseekerStep2 = !isWebSurface && step === 2 && isJobseekerSegment;
+
   return (
-    <div className={`page ${isWebSurface ? 'rfq-create-page--web' : ''}`}>
-      <div className={`card ${isWebSurface ? 'rfq-create-card--web' : ''}`}>
+    <div className={`page ${isWebSurface ? 'rfq-create-page--web' : ''} ${isJobseekerStep2 ? 'rfq-create-page--jobseeker-step2' : ''}`}>
+      <div className={`card ${isWebSurface ? 'rfq-create-card--web' : ''} ${isJobseekerStep2 ? 'rfq-create-card--jobseeker-step2' : ''}`}>
         <button type="button" className="icon-btn back-icon" onClick={handleBack} aria-label="Geri">
           ←
         </button>
@@ -1564,30 +1566,31 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
           {step === 2 ? (
             <>
-              <div className="form-group">
-                <label htmlFor="images">Fotoğraf Yükleme (Opsiyonel)</label>
-                <input
-                  id="images"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(event) => setImages(Array.from(event.target.files || []))}
-                />
-              </div>
-
-              {isJobseekerSegment ? (
+              <div className={isJobseekerSegment ? 'rfq-create-step-body rfq-create-step-body--footer-fixed' : ''}>
                 <div className="form-group">
-                  <label htmlFor="workTypeButton">Çalışma Tipi</label>
-                  <button
-                    id="workTypeButton"
-                    type="button"
-                    className="secondary-btn category-select-btn"
-                    onClick={() => setWorkTypeSheetOpen(true)}
-                  >
-                    {selectedJobseekerWorkTypeLabel || 'Çalışma tipi seç'}
-                  </button>
+                  <label htmlFor="images">Fotoğraf Yükleme (Opsiyonel)</label>
+                  <input
+                    id="images"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(event) => setImages(Array.from(event.target.files || []))}
+                  />
                 </div>
-              ) : null}
+
+                {isJobseekerSegment ? (
+                  <div className="form-group">
+                    <label htmlFor="workTypeButton">Çalışma Tipi</label>
+                    <button
+                      id="workTypeButton"
+                      type="button"
+                      className="secondary-btn category-select-btn"
+                      onClick={() => setWorkTypeSheetOpen(true)}
+                    >
+                      {selectedJobseekerWorkTypeLabel || 'Çalışma tipi seç'}
+                    </button>
+                  </div>
+                ) : null}
 
               {!isJobseekerSegment ? <div className="form-group">
                 <label htmlFor="quantity">Adet</label>
@@ -1747,8 +1750,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   required
                 />
               </div> : null}
+              </div>
 
-              <div className={`wizard-actions wizard-actions-split ${isJobseekerSegment ? 'sticky-footer' : ''}`}>
+              <div
+                className={`wizard-actions wizard-actions-split ${isJobseekerSegment ? 'sticky-footer rfq-create-fixed-footer' : ''}`}
+              >
                 <button type="button" className="secondary-btn" onClick={() => setStep(1)}>
                   Geri
                 </button>

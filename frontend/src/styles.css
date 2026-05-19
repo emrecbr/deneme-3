@@ -10237,6 +10237,44 @@ body.dark-mode .category-selector-modal {
   padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
+/* RFQ Create (create sheet): jobseeker step 2 can have long content; keep actions always reachable. */
+.create-sheet-content .rfq-create-page--jobseeker-step2 {
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-actions.sticky-footer.rfq-create-fixed-footer {
+  position: sticky;
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding-top: 10px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
 .create-sheet-content .jobseeker-card-grid {
   gap: 8px;
 }
