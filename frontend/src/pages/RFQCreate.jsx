@@ -1148,7 +1148,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const canContinueStep1 = step1Error === '';
   const canContinueStep2 = step2Error === '';
   const canContinueStep3 = step3Error === '';
-  const showStep1Errors = Boolean(stepError) || Boolean(form.title || form.description || form.categoryId || form.segment);
+  const showStep1Errors = Boolean(stepError) || Boolean(form.title || form.description);
   const step1FieldErrors = {
     title: form.title.trim().length >= 3 ? '' : 'Başlık en az 3 karakter olmalı',
     categoryId: form.categoryId ? '' : 'Kategori seç',

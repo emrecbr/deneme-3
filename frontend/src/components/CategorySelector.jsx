@@ -48,7 +48,7 @@ function withRequiredFallbackChildren(node, activeSegment) {
   const parentSlug = node.slug || String(node._id || node.name || '').replace(/\s+/g, '-').toLowerCase();
   const additions = [];
 
-  if (activeSegment === 'jobseeker' && (!node.parent || Number(node.level || 0) === 0 || children.length)) {
+  if (activeSegment === 'jobseeker' && (!node.parent || Number(node.level || 0) === 0)) {
     JOBSEEKER_REQUIRED_CHILDREN.forEach((item) => {
       if (!childNames.has(normalizeCategoryName(item.name))) {
         additions.push(createSyntheticCategory({
@@ -60,6 +60,7 @@ function withRequiredFallbackChildren(node, activeSegment) {
       }
     });
   } else if (
+    children.length &&
     normalizeCategoryName(node.name) !== normalizeCategoryName(OTHER_CATEGORY_NAME) &&
     !childNames.has(normalizeCategoryName(OTHER_CATEGORY_NAME))
   ) {
