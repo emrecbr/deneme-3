@@ -14,6 +14,7 @@ import RFQCreate from './RFQCreate';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, normalizeSocketCity } from '../lib/socket';
 import { triggerHaptic } from '../utils/haptic';
+import { trackAnalyticsEvent } from '../utils/analytics';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
 import { extractRfqCityName, extractRfqDistrictName, formatRfqLocation } from '../utils/rfqFormatters';
@@ -156,6 +157,11 @@ function RFQList({ surfaceVariant = 'app' }) {
   const searchInputRef = useRef(null);
   const mapFilterRef = useRef(null);
   const overlayTimerRef = useRef(null);
+  const feedViewKeyRef = useRef('');
+  const feedScrollMarksRef = useRef(new Set());
+  const feedScrollRafRef = useRef(null);
+  const cardImpressionObserverRef = useRef(null);
+  const cardImpressionSeenRef = useRef(new Set());
 
   const [rfqs, setRfqs] = useState([]);
   const [nearbyRFQs, setNearbyRFQs] = useState([]);
@@ -2116,6 +2122,119 @@ function RFQList({ surfaceVariant = 'app' }) {
   const effectiveIsMapCityWide = cityFallbackEnabled && mapRadiusKm >= maxRadiusKm && Boolean(appliedFilters.city);
   const effectiveHasMapCoords = mapSearchBaseItems.length > 0;
   const effectiveListIsEmpty = effectiveListItems.length === 0;
+  const analyticsListContext = useMemo(() => ({
+    userId: currentUserId || undefined,
+    source: isWebSurface ? 'web_rfq_list' : 'app_rfq_list',
+    category: categoryLabel || filters.category || undefined,
+    segment: filters.segment || undefined,
+    city: appliedFilters.city || selectedCity?.name || undefined,
+    district: appliedFilters.district || selectedDistrict?.name || undefined,
+    resultCount: effectiveListItems.length
+  }), [
+    appliedFilters.city,
+    appliedFilters.district,
+    categoryLabel,
+    currentUserId,
+    effectiveListItems.length,
+    filters.category,
+    filters.segment,
+    isWebSurface,
+    selectedCity?.name,
+    selectedDistrict?.name
+  ]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    const viewKey = JSON.stringify(analyticsListContext);
+    if (feedViewKeyRef.current === viewKey) {
+      return;
+    }
+    feedViewKeyRef.current = viewKey;
+    feedScrollMarksRef.current = new Set();
+    cardImpressionSeenRef.current = new Set();
+    trackAnalyticsEvent('rfq_feed_view', analyticsListContext);
+  }, [analyticsListContext, loading]);
+
+  useEffect(() => {
+    if (loading) {
+      return undefined;
+    }
+
+    const thresholds = [25, 50, 75, 100];
+    const onScroll = () => {
+      if (feedScrollRafRef.current) {
+        return;
+      }
+      feedScrollRafRef.current = window.requestAnimationFrame(() => {
+        feedScrollRafRef.current = null;
+        const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+        const scrollHeight = document.documentElement.scrollHeight || 1;
+        const depth = Math.min(100, Math.round(((scrollTop + viewportHeight) / scrollHeight) * 100));
+        thresholds.forEach((threshold) => {
+          if (depth >= threshold && !feedScrollMarksRef.current.has(threshold)) {
+            feedScrollMarksRef.current.add(threshold);
+            trackAnalyticsEvent('rfq_feed_scroll_depth', {
+              ...analyticsListContext,
+              scrollDepth: threshold,
+              visibleCardCount: cardImpressionSeenRef.current.size
+            });
+          }
+        });
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (feedScrollRafRef.current) {
+        window.cancelAnimationFrame(feedScrollRafRef.current);
+        feedScrollRafRef.current = null;
+      }
+    };
+  }, [analyticsListContext, loading]);
+
+  useEffect(() => {
+    if (loading || typeof IntersectionObserver === 'undefined') {
+      return undefined;
+    }
+
+    if (cardImpressionObserverRef.current) {
+      cardImpressionObserverRef.current.disconnect();
+    }
+
+    cardImpressionObserverRef.current = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.45) {
+          return;
+        }
+        const element = entry.target;
+        const rfqId = element.getAttribute('data-rfq-id');
+        if (!rfqId || cardImpressionSeenRef.current.has(rfqId)) {
+          return;
+        }
+        cardImpressionSeenRef.current.add(rfqId);
+        trackAnalyticsEvent('rfq_card_impression', {
+          ...analyticsListContext,
+          rfqId,
+          category: element.getAttribute('data-rfq-category') || analyticsListContext.category,
+          cardIndex: Number(element.getAttribute('data-rfq-index') || 0),
+          isPremium: element.getAttribute('data-rfq-premium') === 'true',
+          isFeatured: element.getAttribute('data-rfq-featured') === 'true'
+        });
+      });
+    }, { threshold: [0.45] });
+
+    const nodes = document.querySelectorAll('[data-rfq-card="true"]');
+    nodes.forEach((node) => cardImpressionObserverRef.current?.observe(node));
+
+    return () => {
+      cardImpressionObserverRef.current?.disconnect();
+    };
+  }, [analyticsListContext, effectiveListItems, loading]);
   const isCurrentLocationContext = Boolean(radiusCenter && currentLocationMatchesFilters);
   const locationFocusKey = useMemo(() => {
     const radiusValue = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
@@ -2681,7 +2800,22 @@ function RFQList({ surfaceVariant = 'app' }) {
           className="rfq-swipe-wrap"
         >
           <div className="rfq-actions">
-            <button type="button" className="secondary-btn swipe-btn" onClick={() => navigate(`/rfq/${rfq._id}`)}>
+            <button
+              type="button"
+              className="secondary-btn swipe-btn"
+              onClick={() => {
+                trackAnalyticsEvent('rfq_card_click', {
+                  ...analyticsListContext,
+                  rfqId: rfq._id,
+                  category: categoryLabel,
+                  cardIndex: index,
+                  isPremium,
+                  isFeatured,
+                  sourceAction: 'swipe_detail'
+                });
+                navigate(`/rfq/${rfq._id}`);
+              }}
+            >
               Detay
             </button>
             {isOwner ? (
@@ -2694,6 +2828,12 @@ function RFQList({ surfaceVariant = 'app' }) {
           <article
             className={`card rfq-card rfq-clickable ${isFavorite ? 'favorite' : ''} ${isFeatured ? 'featured-card' : ''} ${isPremium && !isFeatured ? 'premium-card' : ''}`}
             style={{ transform: `translateX(${isOpened ? swipedCard.offset : 0}px)` }}
+            data-rfq-card="true"
+            data-rfq-id={rfq._id}
+            data-rfq-index={index}
+            data-rfq-category={categoryLabel}
+            data-rfq-premium={isPremium ? 'true' : 'false'}
+            data-rfq-featured={isFeatured ? 'true' : 'false'}
             onTouchStart={(event) => onCardTouchStart(rfq._id, event)}
             onTouchMove={(event) => onCardTouchMove(rfq._id, event)}
             onTouchEnd={() => onCardTouchEnd(rfq._id)}
@@ -2703,6 +2843,14 @@ function RFQList({ surfaceVariant = 'app' }) {
                 return;
               }
 
+              trackAnalyticsEvent('rfq_card_click', {
+                ...analyticsListContext,
+                rfqId: rfq._id,
+                category: categoryLabel,
+                cardIndex: index,
+                isPremium,
+                isFeatured
+              });
               navigate(`/rfq/${rfq._id}`);
             }}
           >
@@ -2738,6 +2886,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       handleCloseRFQ,
       isFeaturedRFQ,
       isPremiumRFQ,
+      analyticsListContext,
       navigate,
       onCardTouchEnd,
       onCardTouchMove,

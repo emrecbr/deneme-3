@@ -32,6 +32,7 @@ import mapRoutes from '../routes/mapRoutes.js';
 import reportRoutes from '../routes/reportRoutes.js';
 import monetizationRoutes from '../routes/monetizationRoutes.js';
 import alertRoutes from '../routes/alertRoutes.js';
+import analyticsRoutes from '../routes/analyticsRoutes.js';
 import City from '../models/City.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
@@ -141,7 +142,8 @@ const ROUTE_MOUNTS = [
   ['/api/map', mapRoutes],
   ['/api/reports', reportRoutes],
   ['/api', monetizationRoutes],
-  ['/api', alertRoutes]
+  ['/api', alertRoutes],
+  ['/api/analytics', analyticsRoutes]
 ];
 const onlineUsers = new Set();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();

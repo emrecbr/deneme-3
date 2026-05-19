@@ -1,5 +1,6 @@
 ﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useRef } from 'react';
 import api, { buildProtectedRequestConfig } from '../api/axios';
 import {
   PREMIUM_PURCHASE_DISABLED_MESSAGE,
@@ -9,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
 import { isListingQuotaExhausted, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
+import { trackAnalyticsEvent } from '../utils/analytics';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
 const MapPicker = lazy(() => import('../components/MapPicker'));
@@ -102,6 +104,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [carVariantSheetOpen, setCarVariantSheetOpen] = useState(false);
   const [quotaInfo, setQuotaInfo] = useState(null);
   const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
+  const stepRef = useRef(1);
+  const hasUnsavedChangesRef = useRef(false);
+  const completionTrackedRef = useRef(false);
+  const abandonTrackedRef = useRef(false);
+  const premiumCardViewedRef = useRef(false);
+  const manualLocationTrackedRef = useRef({ city: false, district: false });
+  const latestAnalyticsPayloadRef = useRef({});
   const stepLabels = ['Temel bilgi', 'Detaylar', 'Konum', 'Yayin'];
   const isEdit = mode === 'edit';
   const premiumActive = Boolean(
@@ -137,10 +146,61 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       priceText
     );
   }, [form, images.length, priceText]);
+
   const isCarCategory = useMemo(() => form.segment === 'auto', [form.segment]);
   const isJobseekerSegment = useMemo(() => form.segment === 'jobseeker', [form.segment]);
   const buildGeoPoint = useCallback((value) => normalizeGeoPointInput(value).point, []);
   const getLocationValidationMessage = useCallback((value) => getGeoPointErrorMessage(value), []);
+  const buildAnalyticsPayload = useCallback((extra = {}) => ({
+    userId: user?._id || user?.id || undefined,
+    step: stepRef.current,
+    mode,
+    segment: form.segment || undefined,
+    category: selectedCategoryLabel || form.categoryId || undefined,
+    subcategory: selectedCategoryLabel || undefined,
+    source: surfaceVariant === 'web' ? 'web_rfq_create' : 'app_rfq_create',
+    ...extra
+  }), [form.categoryId, form.segment, mode, selectedCategoryLabel, surfaceVariant, user?._id, user?.id]);
+
+  const trackRFQCreateEvent = useCallback((name, extra = {}) => {
+    trackAnalyticsEvent(name, buildAnalyticsPayload(extra));
+  }, [buildAnalyticsPayload]);
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges;
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    latestAnalyticsPayloadRef.current = buildAnalyticsPayload();
+  }, [buildAnalyticsPayload, step]);
+
+  useEffect(() => {
+    trackAnalyticsEvent('rfq_create_open', {
+      ...latestAnalyticsPayloadRef.current,
+      step: 1
+    });
+    return () => {
+      if (!completionTrackedRef.current && !abandonTrackedRef.current && hasUnsavedChangesRef.current) {
+        trackAnalyticsEvent('rfq_create_step_abandon', {
+          ...latestAnalyticsPayloadRef.current,
+          step: stepRef.current,
+          reason: 'flow_closed'
+        });
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== 4 || premiumCardViewedRef.current) {
+      return;
+    }
+    premiumCardViewedRef.current = true;
+    trackRFQCreateEvent('rfq_premium_card_view', { step: 4 });
+  }, [step, trackRFQCreateEvent]);
 
   useEffect(() => {
     if (!isEdit || !initialData) {
@@ -420,6 +480,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const requestCurrentLocation = (silent = false) => {
     if (!navigator.geolocation) {
+      trackRFQCreateEvent('rfq_location_detect_failed', {
+        reason: 'geolocation_unsupported'
+      });
       if (!silent) {
         setLocationError('Konum alinmadi, cihaz desteklemiyor.');
       }
@@ -434,11 +497,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         const lng = pos.coords.longitude;
         const normalizedLocation = normalizeGeoPointInput({ lat, lng });
         if (!normalizedLocation.point) {
+          trackRFQCreateEvent('rfq_location_detect_failed', {
+            reason: 'invalid_coordinates'
+          });
           setLocationError(getLocationValidationMessage({ lat, lng }));
           setLocating(false);
           return;
         }
         setSelectedLocation({ lat: normalizedLocation.lat, lng: normalizedLocation.lng });
+        trackRFQCreateEvent('rfq_location_detect_success', {
+          hasCoordinates: true,
+          accuracy: Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : undefined
+        });
 
         const resolveName = (value) => {
           if (!value) return '';
@@ -525,6 +595,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             if (nearestCity?.name) {
               cityName = nearestCity.name;
               districtName = '';
+              trackRFQCreateEvent('rfq_location_manual_fallback', {
+                reason: 'reverse_geocode_missing_city',
+                fallback: 'nearest_city'
+              });
               setLocationHint('Konumuna en yakin sehir secildi. Ilceyi istersen manuel netlestirebilirsin.');
             }
           }
@@ -583,6 +657,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               if (districtItems.length) {
                 setDistrictOptions(districtItems);
               }
+              trackRFQCreateEvent('rfq_location_reverse_geocode_success', {
+                hasCity: true,
+                hasDistrict: true
+              });
               setLocationHint('Konum bilgisi otomatik dolduruldu. Haritadaki pini istersen yeniden konumlandirabilirsin.');
             } else {
               setForm((prev) => ({
@@ -594,9 +672,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               setDistrictOptions([]);
               setNeighborhoodOptions([]);
               setStreetOptions([]);
+              trackRFQCreateEvent('rfq_location_manual_fallback', {
+                reason: districtName ? 'district_not_matched' : 'district_missing',
+                fallback: 'manual_district',
+                hasCity: true
+              });
               setLocationHint('Sehir bulundu. Ilceyi manuel secerek devam edebilirsin.');
             }
           } else if (!silent) {
+            trackRFQCreateEvent('rfq_location_manual_fallback', {
+              reason: 'city_missing',
+              fallback: 'manual_city'
+            });
             setLocationError('Konum alındı. Şehir bilgisi çözümlenemedi, lütfen şehir seçin.');
           }
         } catch (_error) {
@@ -618,11 +705,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             setDistrictOptions([]);
             setNeighborhoodOptions([]);
             setStreetOptions([]);
+            trackRFQCreateEvent('rfq_location_manual_fallback', {
+              reason: 'reverse_geocode_failed',
+              fallback: 'nearest_city'
+            });
             setLocationHint('Konum bulundu. En yakin sehir secildi, ilceyi manuel tamamlayabilirsin.');
             if (!silent) {
               setLocationError('Konum alındı. İlçe bulunamadı, istersen manuel seçim yapabilirsin.');
             }
           } else if (!silent) {
+            trackRFQCreateEvent('rfq_location_detect_failed', {
+              reason: 'reverse_geocode_failed'
+            });
             setLocationError('Konum alındı ancak şehir bilgisi bulunamadı, lütfen manuel seçin.');
           }
         } finally {
@@ -630,6 +724,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         }
       },
       (error) => {
+        trackRFQCreateEvent('rfq_location_detect_failed', {
+          reason: error?.code === 1 ? 'permission_denied' : 'position_unavailable',
+          code: error?.code || undefined
+        });
+        if (error?.code === 1) {
+          trackRFQCreateEvent('rfq_location_permission_reject', { step: 3 });
+        }
         if (!silent) {
           if (error?.code === 1) {
             setLocationError('Konum izni verilmedi');
@@ -704,6 +805,14 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const handleCityChange = (event) => {
     const city = event.target.value;
+    if (city && !manualLocationTrackedRef.current.city) {
+      manualLocationTrackedRef.current.city = true;
+      trackRFQCreateEvent('rfq_location_manual_fallback', {
+        reason: 'manual_city_input',
+        field: 'city',
+        hasCity: true
+      });
+    }
     setLocationError('');
     setLocationHint('');
     setForm((prev) => ({
@@ -745,7 +854,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   useEffect(() => {
     logFlowEvent({ step, event: 'step_view' });
-  }, [logFlowEvent, step]);
+    trackRFQCreateEvent('rfq_create_step_view', { step });
+  }, [logFlowEvent, step, trackRFQCreateEvent]);
 
   const toggleJobseekerWorkType = useCallback((value) => {
     setJobseekerMeta((prev) => ({
@@ -866,22 +976,40 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       setStepError(validationDetail.message);
       showToast(validationDetail.message);
       logFlowEvent({ step: 3, event: 'step_blocked', field: validationDetail.field, error: validationDetail.message });
+      trackRFQCreateEvent('rfq_create_validation_blocked', {
+        step: 3,
+        field: validationDetail.field,
+        error: validationDetail.message
+      });
       return;
     }
     setError('');
     setStepError('');
     if (!isEdit && isListingQuotaExhausted(quotaInfo)) {
       const quotaMessage = 'Son 30 günde ücretsiz ilan hakkın doldu. Yeni ilan vermek için paket gerekecek.';
+      trackRFQCreateEvent('rfq_create_submit_failed', {
+        step: 4,
+        reason: 'listing_quota_exhausted'
+      });
       setError(quotaMessage);
       showToast(quotaMessage);
       return;
     }
     debugInfo('RFQ_CREATE_START');
+    trackRFQCreateEvent('rfq_create_submit', {
+      step: 4,
+      isEdit
+    });
     setLoading(true);
 
     try {
       const geoPoint = buildGeoPoint(selectedLocation);
       if (!geoPoint) {
+        trackRFQCreateEvent('rfq_create_validation_blocked', {
+          step: 3,
+          field: 'location',
+          error: getLocationValidationMessage(selectedLocation)
+        });
         setError(getLocationValidationMessage(selectedLocation));
         setLoading(false);
         return;
@@ -925,6 +1053,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         if (onSuccess) {
           onSuccess(response.data?.data || null);
         }
+        completionTrackedRef.current = true;
+        trackRFQCreateEvent('rfq_create_success', {
+          step: 4,
+          isEdit: true,
+          rfqId: response.data?.data?._id || response.data?.data?.id || initialData._id
+        });
         if (onClose) {
           onClose();
         }
@@ -993,6 +1127,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         const createdId = created?._id || created?.id;
         debugInfo('RFQ_CREATE_OK', { id: createdId });
         logFlowEvent({ step: 4, event: 'step_complete' });
+        completionTrackedRef.current = true;
+        trackRFQCreateEvent('rfq_create_success', {
+          step: 4,
+          isEdit: false,
+          rfqId: createdId || undefined
+        });
 
         setForm({
           title: '',
@@ -1029,6 +1169,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setNeighborhoodOptions([]);
         setStreetOptions([]);
         setLocationIds({ cityId: '', districtId: '', neighborhoodId: '' });
+        manualLocationTrackedRef.current = { city: false, district: false };
         setSelectedCategoryLabel('');
         setError('');
         setStepError('');
@@ -1048,6 +1189,12 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       const code = submitError?.response?.data?.code;
       const message = submitError?.response?.data?.message;
       debugError('RFQ_CREATE_FAIL', { status, code, message });
+      trackRFQCreateEvent('rfq_create_submit_failed', {
+        step: 4,
+        status: status || undefined,
+        code: code || undefined,
+        reason: !submitError?.response ? 'network_error' : code || 'request_failed'
+      });
       if (!submitError?.response) {
         setError('Sunucuya bağlanılamadı');
         showToast('Sunucuya bağlanılamadı');
@@ -1086,6 +1233,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       if (!confirmed) {
         return;
       }
+      trackRFQCreateEvent('rfq_create_step_abandon', {
+        step,
+        reason: 'back_button'
+      });
+      abandonTrackedRef.current = true;
     }
     if (onClose) {
       onClose();
@@ -1357,10 +1509,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       setStepError(detail.message);
                       showToast(detail.message);
                       logFlowEvent({ step: 1, event: 'step_blocked', field: detail.field, error: detail.message });
+                      trackRFQCreateEvent('rfq_create_validation_blocked', {
+                        step: 1,
+                        field: detail.field,
+                        error: detail.message
+                      });
                       return;
                     }
                     setStepError('');
                     logFlowEvent({ step: 1, event: 'step_complete' });
+                    trackRFQCreateEvent('rfq_create_step_complete', { step: 1 });
                     setStep(2);
                   }}
                 >
@@ -1578,10 +1736,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       setStepError(detail.message);
                       showToast(detail.message);
                       logFlowEvent({ step: 2, event: 'step_blocked', field: detail.field, error: detail.message });
+                      trackRFQCreateEvent('rfq_create_validation_blocked', {
+                        step: 2,
+                        field: detail.field,
+                        error: detail.message
+                      });
                       return;
                     }
                     setStepError('');
                     logFlowEvent({ step: 2, event: 'step_complete' });
+                    trackRFQCreateEvent('rfq_create_step_complete', { step: 2 });
                     setStep(3);
                   }}
                 >
@@ -1622,6 +1786,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   value={form.district}
                   onChange={(event) => {
                     const value = event.target.value;
+                    if (value && !manualLocationTrackedRef.current.district) {
+                      manualLocationTrackedRef.current.district = true;
+                      trackRFQCreateEvent('rfq_location_manual_fallback', {
+                        reason: 'manual_district_input',
+                        field: 'district',
+                        hasCity: Boolean(form.city),
+                        hasDistrict: true
+                      });
+                    }
                     setDistrictQuery(value);
                     setForm((prev) => ({
                       ...prev,
@@ -1747,10 +1920,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       setStepError(detail.message);
                       showToast(detail.message);
                       logFlowEvent({ step: 3, event: 'step_blocked', field: detail.field, error: detail.message });
+                      trackRFQCreateEvent('rfq_create_validation_blocked', {
+                        step: 3,
+                        field: detail.field,
+                        error: detail.message
+                      });
                       return;
                     }
                     setStepError('');
                     logFlowEvent({ step: 3, event: 'step_complete' });
+                    trackRFQCreateEvent('rfq_create_step_complete', { step: 3 });
                     setStep(4);
                   }}
                 >
@@ -1772,7 +1951,17 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   <span className="publish-option-kicker">Premium</span>
                   <strong>Premium talep görünürlüğü</strong>
                   <p>Talebini öne çıkarmak için premium görünürlük seçeneklerini paketler alanından yönetebilirsin.</p>
-                  <button type="button" className="secondary-btn" onClick={() => navigate('/paketler')}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      trackRFQCreateEvent('rfq_premium_card_click', {
+                        step: 4,
+                        destination: '/paketler'
+                      });
+                      navigate('/paketler');
+                    }}
+                  >
                     Premium seçenekleri
                   </button>
                 </div>
