@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { APP_HOME_PATH } from '../config/surfaces';
 import { disconnectSocket, getSocket } from '../lib/socket';
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 function Layout({ children, showBottomNav = true }) {
   const navigate = useNavigate();
@@ -32,6 +33,23 @@ function Layout({ children, showBottomNav = true }) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [hideBottomNav, setHideBottomNav] = useState(false);
   const notifRef = useRef(null);
+
+  useEffect(() => {
+    if (!isNativeCapacitorRuntime()) {
+      return undefined;
+    }
+
+    const platform =
+      typeof window.Capacitor?.getPlatform === 'function'
+        ? window.Capacitor.getPlatform()
+        : 'native';
+    document.body.classList.add('native-capacitor', `native-${platform}`);
+
+    return () => {
+      document.body.classList.remove('native-capacitor', `native-${platform}`);
+    };
+  }, []);
+
   const fetchNotifications = async () => {
     try {
       const response = await api.get('/notifications');

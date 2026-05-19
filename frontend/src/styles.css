@@ -26,6 +26,7 @@
   --navHeight: 64px;
   --fabSize: 48px;
   --fabLift: 18px;
+  --nativeTopInset: 0px;
 }
 
 * {
@@ -49,6 +50,7 @@ body.dark-mode {
   margin: 0 auto;
   min-height: 100vh;
   background: var(--bg);
+  overflow-x: clip;
 }
 
 .network-banner {
@@ -82,6 +84,84 @@ body.dark-mode .app-layout {
   background: #fff;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
   z-index: 20;
+}
+
+body.native-capacitor {
+  --nativeTopInset: max(24px, env(safe-area-inset-top));
+  overflow-x: hidden;
+}
+
+body.native-capacitor .app-layout {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100dvh;
+}
+
+body.native-capacitor .app-header {
+  min-height: calc(56px + var(--nativeTopInset));
+  padding-top: var(--nativeTopInset);
+  padding-bottom: 8px;
+  align-items: center;
+}
+
+body.native-capacitor .app-content {
+  min-height: 100dvh;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: calc(var(--navHeight) + var(--navDockBottom) + 46px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+}
+
+body.native-capacitor .header-filter-pill {
+  min-width: 0;
+  max-width: min(48vw, 190px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.native-capacitor .header-filter-pill .city {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.native-capacitor .rfq-list-page {
+  width: 100%;
+  max-width: 100%;
+  min-height: calc(100dvh - 56px - var(--nativeTopInset));
+  padding: 10px 0 calc(var(--navHeight) + var(--navDockBottom) + 36px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+}
+
+body.native-capacitor .rfq-grid {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: calc(var(--navHeight) + var(--navDockBottom) + 52px + env(safe-area-inset-bottom));
+}
+
+body.native-capacitor .rfq-swipe-wrap,
+body.native-capacitor .rfq-card,
+body.native-capacitor .rfq-discovery-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+body.native-capacitor .rfq-swipe-wrap {
+  border-radius: 22px;
+}
+
+body.native-capacitor .rfq-discovery-card__footer,
+body.native-capacitor .rfq-discovery-card__seller,
+body.native-capacitor .rfq-discovery-card__hero-copy {
+  min-width: 0;
+}
+
+body.native-capacitor .rfq-discovery-card__hint {
+  flex: 0 0 auto;
 }
 
 body.dark-mode .app-header {

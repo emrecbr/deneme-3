@@ -5,6 +5,8 @@ import BackIconButton from '../components/BackIconButton';
 import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
 
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
 function Favorites({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
   const isWebSurface = surfaceVariant === 'web';
@@ -68,10 +70,11 @@ function Favorites({ surfaceVariant = 'app' }) {
     }
 
     if (typeof categoryValue === 'string') {
-      return categoryValue;
+      return OBJECT_ID_PATTERN.test(categoryValue) ? 'Talep' : categoryValue;
     }
 
-    return categoryValue.name || categoryValue.slug || '-';
+    const label = categoryValue.name || categoryValue.slug || '';
+    return label && !OBJECT_ID_PATTERN.test(label) ? label : 'Talep';
   };
 
   return (

@@ -22,6 +22,7 @@ import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
 const SEARCH_HISTORY_KEY = 'rfq_search_history_v1';
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 const DEFAULT_RADIUS_SETTINGS = {
   min: 5,
   max: 80,
@@ -2609,7 +2610,8 @@ function RFQList({ surfaceVariant = 'app' }) {
       const categoryLabel = (() => {
         const fullLabel = getCategoryDisplayName(rfq.category) || 'Talep';
         const parts = fullLabel.split('>').map((item) => item.trim()).filter(Boolean);
-        return parts[parts.length - 1] || fullLabel;
+        const readableLabel = parts[parts.length - 1] || fullLabel;
+        return OBJECT_ID_PATTERN.test(readableLabel) ? 'Talep' : readableLabel;
       })();
       const publishedLabel = formatDate(rfq.createdAt || rfq.updatedAt || rfq.date);
       const distanceLabel =

@@ -75,13 +75,18 @@ function MapZoomSync({ onZoomChange, onBoundsChange, onUserMove, suppressUpdates
 }
 
 function buildMarkerCategory(rfq, getCategoryName) {
-  return (
+  const categoryLabel =
     rfq?.category?.name ||
     rfq?.category?.title ||
     rfq?.categoryName ||
     getCategoryName(rfq.category) ||
-    'Kategori'
-  );
+    '';
+
+  if (!categoryLabel || isObjectIdLike(categoryLabel)) {
+    return 'Kategori';
+  }
+
+  return categoryLabel;
 }
 
 function getRFQIdentity(rfq) {
