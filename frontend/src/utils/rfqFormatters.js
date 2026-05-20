@@ -58,6 +58,25 @@ const readStructuredName = (value) => {
   );
 };
 
+const readCategoryText = (value) => {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'string') {
+    return firstReadableText(value);
+  }
+
+  return firstReadableText(
+    value.name,
+    value.title,
+    value.label,
+    value.slug,
+    value.categoryName,
+    value.categoryLabel
+  );
+};
+
 export const extractRfqCityName = (rfq) =>
   firstReadableText(
     rfq?.locationData?.cityName,
@@ -120,20 +139,40 @@ export const formatCategoryLabel = (value, fallback = 'Kategori belirtilmedi') =
 
 export const extractRfqCategoryLabels = (rfq) => {
   const category = rfq?.category;
-  const parentCandidate =
+  const categoryData = rfq?.categoryData;
+  const parentCandidate = firstReadableText(
     category && typeof category === 'object'
       ? category.parentName || category.parent?.name || category.parent?.title || category.parent?.label
-      : '';
-  const subcategoryCandidate =
-    rfq?.subcategory ||
-    rfq?.subCategory ||
-    rfq?.subcategoryName ||
-    rfq?.subCategoryName ||
-    (parentCandidate ? category : null);
+      : '',
+    categoryData && typeof categoryData === 'object'
+      ? categoryData.parentName || categoryData.parent?.name || categoryData.parent?.title || categoryData.parent?.label
+      : ''
+  );
+  const categoryCandidate = firstReadableText(
+    parentCandidate,
+    rfq?.categoryName,
+    rfq?.categoryLabel,
+    rfq?.categoryTitle,
+    rfq?.categorySlug,
+    readCategoryText(categoryData),
+    readCategoryText(category),
+    rfq?.categoryId
+  );
+  const subcategoryCandidate = firstReadableText(
+    rfq?.subcategoryName,
+    rfq?.subCategoryName,
+    rfq?.subcategoryLabel,
+    rfq?.subCategoryLabel,
+    rfq?.subcategorySlug,
+    rfq?.subCategorySlug,
+    readCategoryText(rfq?.subcategory),
+    readCategoryText(rfq?.subCategory),
+    readCategoryText(rfq?.subcategoryData),
+    readCategoryText(rfq?.subCategoryData),
+    parentCandidate ? readCategoryText(category) : ''
+  );
 
-  const categoryLabel = parentCandidate
-    ? formatCategoryLabel(parentCandidate)
-    : formatCategoryLabel(category);
+  const categoryLabel = formatCategoryLabel(categoryCandidate);
   const subcategoryLabel = subcategoryCandidate
     ? formatCategoryLabel(subcategoryCandidate, 'Alt kategori belirtilmedi')
     : '';
