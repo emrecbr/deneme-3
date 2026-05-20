@@ -141,6 +141,100 @@ const applySegmentToRfqPayload = (rfq) => {
   return rfq;
 };
 
+const normalizeCategoryDisplayPayload = async (categoryValue) => {
+  if (!categoryValue) {
+    return null;
+  }
+
+  let categoryDoc = null;
+  if (typeof categoryValue === 'object') {
+    const categoryObject = categoryValue.toObject?.() || categoryValue;
+    const categoryId = categoryObject._id || categoryObject.id;
+    if (categoryId && mongoose.isValidObjectId(categoryId)) {
+      categoryDoc = await Category.findById(categoryId)
+        .select('_id name slug parent icon order segment')
+        .lean();
+    } else if (categoryObject.name || categoryObject.slug || categoryObject.label || categoryObject.title) {
+      categoryDoc = {
+        _id: categoryId || null,
+        name: categoryObject.name || categoryObject.label || categoryObject.title || '',
+        slug: categoryObject.slug || '',
+        parent: categoryObject.parent || null,
+        icon: categoryObject.icon || '',
+        order: categoryObject.order,
+        segment: categoryObject.segment
+      };
+    }
+  } else {
+    const categoryText = cleanText(categoryValue);
+    if (mongoose.isValidObjectId(categoryText)) {
+      categoryDoc = await Category.findById(categoryText)
+        .select('_id name slug parent icon order segment')
+        .lean();
+    } else if (categoryText) {
+      categoryDoc = await Category.findOne({
+        $or: [
+          { slug: categoryText.toLowerCase() },
+          { name: new RegExp(`^${escapeRegex(categoryText)}$`, 'i') }
+        ]
+      })
+        .select('_id name slug parent icon order segment')
+        .lean();
+      if (!categoryDoc) {
+        categoryDoc = { name: categoryText, slug: categoryText };
+      }
+    }
+  }
+
+  if (!categoryDoc) {
+    return null;
+  }
+
+  let parentName = '';
+  let parentSlug = '';
+  const parentId = categoryDoc.parent?._id || categoryDoc.parent;
+  if (parentId && mongoose.isValidObjectId(parentId)) {
+    const parentDoc = await Category.findById(parentId).select('_id name slug').lean();
+    parentName = parentDoc?.name || '';
+    parentSlug = parentDoc?.slug || '';
+  } else if (categoryDoc.parent && typeof categoryDoc.parent === 'object') {
+    parentName = categoryDoc.parent.name || categoryDoc.parent.label || categoryDoc.parent.title || '';
+    parentSlug = categoryDoc.parent.slug || '';
+  }
+
+  return {
+    _id: categoryDoc._id || null,
+    name: categoryDoc.name || categoryDoc.label || categoryDoc.title || '',
+    slug: categoryDoc.slug || '',
+    parent: parentId || null,
+    parentName,
+    parentSlug,
+    icon: categoryDoc.icon || '',
+    order: categoryDoc.order,
+    segment: categoryDoc.segment
+  };
+};
+
+const attachCategoryDisplayPayload = async (rfqPayload) => {
+  if (!rfqPayload) {
+    return rfqPayload;
+  }
+
+  const categoryData = await normalizeCategoryDisplayPayload(rfqPayload.category);
+  if (categoryData) {
+    rfqPayload.categoryData = categoryData;
+    if (categoryData.parentName && !rfqPayload.subcategoryData) {
+      rfqPayload.subcategoryData = {
+        _id: categoryData._id,
+        name: categoryData.name,
+        slug: categoryData.slug
+      };
+    }
+  }
+
+  return rfqPayload;
+};
+
 const resolveCategoryQueryFilter = async (value) => {
   const normalizedValue = cleanText(value);
   if (!normalizedValue) {
@@ -957,6 +1051,7 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
 
     const rfqData = rfq.toObject();
     applySegmentToRfqPayload(rfqData);
+    await attachCategoryDisplayPayload(rfqData);
     const featuredUntil = rfqData.featuredUntil ? new Date(rfqData.featuredUntil) : null;
     rfqData.featuredActive = Boolean(rfqData.isFeatured && featuredUntil && featuredUntil > new Date());
     if (isOwner) {
