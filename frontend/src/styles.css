@@ -10239,6 +10239,7 @@ body.dark-mode .category-selector-modal {
 
 /* RFQ Create (create sheet): jobseeker step 2 can have long content; keep actions always reachable. */
 .create-sheet-content .rfq-create-page--jobseeker-step2 {
+  height: 100%;
   overflow-y: hidden;
   display: flex;
   flex-direction: column;
@@ -10247,7 +10248,20 @@ body.dark-mode .category-selector-modal {
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 10px;
+  padding-bottom: 8px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 h1 {
+  margin-bottom: 2px;
+  font-size: 19px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-progress {
+  margin: 2px 0 6px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 form {
@@ -10261,31 +10275,32 @@ body.dark-mode .category-selector-modal {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 6px;
+  padding-bottom: 2px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed .form-group {
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed label {
-  margin-bottom: 3px;
+  margin-bottom: 2px;
+  font-size: 11px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed input,
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed button.category-select-btn {
-  min-height: 38px;
-  padding-top: 7px;
-  padding-bottom: 7px;
+  min-height: 34px;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-actions.sticky-footer.rfq-create-fixed-footer {
-  position: sticky;
-  bottom: calc(8px + env(safe-area-inset-bottom));
+  position: relative;
+  bottom: auto;
   flex-shrink: 0;
-  margin-top: 4px;
-  padding-top: 6px;
-  padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  margin-top: 2px;
+  padding-top: 5px;
+  padding-bottom: calc(2px + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
@@ -10293,8 +10308,8 @@ body.dark-mode .category-selector-modal {
 .create-sheet-content .jobseeker-date-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 6px;
-  margin-bottom: 5px;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 .create-sheet-content .jobseeker-date-field {
@@ -10303,16 +10318,16 @@ body.dark-mode .category-selector-modal {
 }
 
 .create-sheet-content .jobseeker-date-field label {
-  min-height: 28px;
+  min-height: 24px;
   line-height: 1.2;
 }
 
 .create-sheet-content .jobseeker-date-field input[type='date'] {
   width: 100%;
   min-width: 0;
-  min-height: 38px;
-  padding: 7px 8px;
-  font-size: 12px;
+  min-height: 34px;
+  padding: 5px 6px;
+  font-size: 11px;
 }
 
 .create-sheet-content .jobseeker-card-grid {
