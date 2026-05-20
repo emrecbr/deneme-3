@@ -10,6 +10,12 @@ const formatDate = (value) => {
   return date.toLocaleString('tr-TR');
 };
 
+const formatRfqStatus = (status) => {
+  if (status === 'expired') return 'Süresi Doldu';
+  if (status === 'awarded') return 'Tamamlandı';
+  return status || '-';
+};
+
 export default function AdminUserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -303,7 +309,7 @@ export default function AdminUserDetail() {
               <li key={item._id}>
                 <div>
                   <strong>{item.title}</strong>
-                  <span className="admin-muted">{item.status}</span>
+                  <span className="admin-muted">{formatRfqStatus(item.status)}</span>
                 </div>
                 <span className="admin-muted">{formatDate(item.createdAt)}</span>
               </li>

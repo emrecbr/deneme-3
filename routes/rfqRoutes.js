@@ -14,7 +14,7 @@ import Notification from '../models/Notification.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import { getRecommendedRfqsForDetail } from '../src/services/rfqRecommendationService.js';
 import { emitToRoom } from '../config/socket.js';
-import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, isRfqExpired, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
 import { checkModeration } from '../src/utils/moderation.js';
 import { triggerMatchingAlertsForRfq } from '../src/services/alertSubscriptionService.js';
@@ -308,13 +308,6 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
         message: 'Konum bilgisi gecersiz.'
       });
     }
-    if (!resolvedLocation) {
-      return res.status(400).json({
-        success: false,
-        message: 'Konum seçilmedi (lat/lng zorunlu)'
-      });
-    }
-
     if (resolvedLocation) {
       const nearestAddress = await Location.findOne({
         coordinates: {
@@ -347,10 +340,17 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       });
     }
 
+    if (!resolvedLocationData.district) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ilce secimi zorunludur.'
+      });
+    }
+
     const selectedCity = await City.findOne({
       name: new RegExp(`^${escapeRegex(resolvedLocationData.city)}$`, 'i')
     })
-      .select('_id name')
+      .select('_id name center')
       .lean();
 
     if (!selectedCity?._id) {
@@ -399,16 +399,20 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
     quotaConsumption = quotaResult;
 
     const imagePaths = req.files?.map((file) => `/uploads/${file.filename}`) || [];
-    let selectedDistrictId;
-    if (resolvedLocationData.district) {
-      const districtDoc = await District.findOne({
-        city: selectedCity._id,
-        name: new RegExp(`^${escapeRegex(resolvedLocationData.district)}$`, 'i')
-      })
-        .select('_id')
-        .lean();
-      selectedDistrictId = districtDoc?._id;
+    const districtDoc = await District.findOne({
+      city: selectedCity._id,
+      name: new RegExp(`^${escapeRegex(resolvedLocationData.district)}$`, 'i')
+    })
+      .select('_id name')
+      .lean();
+    if (!districtDoc?._id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Secilen ilce sistemde bulunamadi.'
+      });
     }
+    const selectedDistrictId = districtDoc._id;
+    const selectedDistrictName = districtDoc.name || resolvedLocationData.district;
 
     let carPayload = null;
     if (req.body?.car) {
@@ -440,6 +444,18 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
 
     const listingExpiryDays = await getListingExpiryDays();
     const computedExpiresAt = computeExpiresAt(new Date(), listingExpiryDays);
+    const cityCenterCoords = Array.isArray(selectedCity.center?.coordinates) ? selectedCity.center.coordinates : null;
+    const cityCenterLocation =
+      cityCenterCoords &&
+      cityCenterCoords.length === 2 &&
+      isValidLngLat(Number(cityCenterCoords[0]), Number(cityCenterCoords[1]))
+        ? {
+            type: 'Point',
+            coordinates: [Number(cityCenterCoords[0]), Number(cityCenterCoords[1])]
+          }
+        : null;
+    const finalLocation = resolvedLocation || cityCenterLocation || undefined;
+    const isExpiredOnCreate = parsedDeadline.getTime() <= Date.now();
 
     const rfq = await RFQ.create({
       title: cleanText(title),
@@ -452,16 +468,17 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       workStartDate: requestedSegment === 'jobseeker' ? parsedWorkStartDate : undefined,
       workEndDate: requestedSegment === 'jobseeker' && parsedWorkEndDate ? parsedWorkEndDate : undefined,
       expiresAt: computedExpiresAt,
+      expiredAt: isExpiredOnCreate ? new Date() : undefined,
       isAuction: toBoolean(isAuction),
       currentBestOffer: toBoolean(isAuction) && targetPrice ? Number(targetPrice) : undefined,
-      location: resolvedLocation,
+      ...(finalLocation ? { location: finalLocation } : {}),
       city: selectedCity._id,
       district: selectedDistrictId || undefined,
       neighborhood: resolvedLocationData.neighborhood || undefined,
       street: resolvedLocationData.street || undefined,
       locationData: {
         city: resolvedLocationData.city || undefined,
-        district: resolvedLocationData.district || undefined,
+        district: selectedDistrictName || undefined,
         neighborhood: resolvedLocationData.neighborhood || undefined,
         street: resolvedLocationData.street || undefined
       },
@@ -479,6 +496,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       productDetails: productDetailsPayload || {},
       segmentMetadata: segmentMetadataPayload || {},
       buyer: req.user.id,
+      status: isExpiredOnCreate ? 'expired' : 'open',
       images: imagePaths
     });
 
@@ -490,7 +508,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       .lean();
     applySegmentToRfqPayload(populatedRFQ);
 
-    if (global.io) {
+    if (global.io && !isExpiredOnCreate) {
       const cityRoom = normalizeCity((populatedRFQ || rfq)?.locationData?.city || resolvedLocationData.city);
       if (cityRoom) {
         global.io.to(`city_${cityRoom}`).emit('new_rfq', populatedRFQ || rfq);
@@ -504,11 +522,13 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       data: populatedRFQ || rfq
     });
 
-    setTimeout(() => {
-      triggerMatchingAlertsForRfq(populatedRFQ || rfq).catch((notifyError) => {
-        console.error('ALERT MATCH ERROR:', notifyError?.message || notifyError);
-      });
-    }, 0);
+    if (!isExpiredOnCreate) {
+      setTimeout(() => {
+        triggerMatchingAlertsForRfq(populatedRFQ || rfq).catch((notifyError) => {
+          console.error('ALERT MATCH ERROR:', notifyError?.message || notifyError);
+        });
+      }, 0);
+    }
 
     if (quotaConsumption?.mode === 'paid') {
       try {
@@ -758,7 +778,7 @@ rfqRoutes.get('/', optionalAuthMiddleware, async (req, res, next) => {
         });
       }
       query.buyer = req.user.id;
-      applyExpiryFilter(query, now);
+      query.isDeleted = { $ne: true };
     } else {
       query.status = 'open';
       if (segment) {
@@ -925,7 +945,10 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
         message: 'RFQ not found.'
       });
     }
-    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= now)) {
+    const requesterId = req.user?.id || null;
+    const ownerId = rfq.buyer?._id?.toString?.() || rfq.buyer?.toString?.();
+    const isOwner = Boolean(requesterId && ownerId === requesterId);
+    if (isRfqExpired(rfq, now) && !isOwner) {
       return res.status(410).json({
         success: false,
         message: 'İlan süresi doldu.'
@@ -936,10 +959,6 @@ rfqRoutes.get('/:id', optionalAuthMiddleware, async (req, res, next) => {
     applySegmentToRfqPayload(rfqData);
     const featuredUntil = rfqData.featuredUntil ? new Date(rfqData.featuredUntil) : null;
     rfqData.featuredActive = Boolean(rfqData.isFeatured && featuredUntil && featuredUntil > new Date());
-    const requesterId = req.user?.id || null;
-    const ownerId = rfq.buyer?._id?.toString?.() || rfq.buyer?.toString?.();
-    const isOwner = Boolean(requesterId && ownerId === requesterId);
-
     if (isOwner) {
       const offers = await Offer.find({ rfq: rfq._id })
         .sort({ createdAt: -1 })
@@ -1019,7 +1038,7 @@ rfqRoutes.patch('/:id/close', authMiddleware, async (req, res, next) => {
       });
     }
 
-    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+    if (isRfqExpired(rfq)) {
       rfq.status = 'expired';
       rfq.expiredAt = rfq.expiredAt || new Date();
       await rfq.save();
@@ -1059,7 +1078,7 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       });
     }
 
-    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+    if (isRfqExpired(rfq)) {
       rfq.status = 'expired';
       rfq.expiredAt = rfq.expiredAt || new Date();
       await rfq.save();

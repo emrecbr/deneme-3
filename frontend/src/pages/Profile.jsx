@@ -71,7 +71,7 @@ function Profile() {
   }, [rfqs]);
 
   const { approvedRequests, pendingRequests } = useMemo(() => {
-    const approvedStatuses = new Set(['open', 'approved', 'awarded']);
+    const approvedStatuses = new Set(['open', 'approved', 'awarded', 'expired']);
     const pendingStatuses = new Set(['pending', 'waiting', 'draft']);
     const approved = [];
     const pending = [];

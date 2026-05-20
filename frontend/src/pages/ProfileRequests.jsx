@@ -65,7 +65,9 @@ function ProfileRequests({ surfaceVariant = 'app' }) {
   }, [requests]);
 
   const approved = useMemo(() => {
-    return sorted.filter((item) => item.status === 'open' || item.status === 'approved' || item.status === 'awarded');
+    return sorted.filter(
+      (item) => item.status === 'open' || item.status === 'approved' || item.status === 'awarded' || item.status === 'expired'
+    );
   }, [sorted]);
 
   const pending = useMemo(() => {
@@ -73,6 +75,12 @@ function ProfileRequests({ surfaceVariant = 'app' }) {
   }, [sorted]);
 
   const list = activeTab === 'approved' ? approved : pending;
+  const getStatusLabel = (status) => {
+    if (status === 'expired') return 'Süresi Doldu';
+    if (status === 'awarded') return 'Tamamlandı';
+    if (status === 'open' || status === 'approved') return 'Onaylandı';
+    return status || 'Bekliyor';
+  };
 
   return (
     <div className={`page ${isWebSurface ? 'website-profile-module' : ''}`}>
@@ -126,7 +134,7 @@ function ProfileRequests({ surfaceVariant = 'app' }) {
                   </div>
                   <strong>{item.title}</strong>
                   <div className="rfq-sub">Fiyat: {item.targetPrice ? `${item.targetPrice} TL` : 'Belirtilmedi'}</div>
-                  <div className="rfq-sub">Durum: {item.status}</div>
+                  <div className="rfq-sub">Durum: {getStatusLabel(item.status)}</div>
                 </article>
               ))
             ) : (

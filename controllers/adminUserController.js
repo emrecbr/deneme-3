@@ -94,7 +94,7 @@ export const getAdminUser = async (req, res, next) => {
     const rfqs = await RFQ.find({ buyer: user._id })
       .sort({ createdAt: -1 })
       .limit(10)
-      .select('_id title status createdAt city district')
+      .select('_id title status createdAt deadline expiresAt expiredAt city district')
       .lean();
 
     const notes = await AdminNote.find({ targetType: 'user', targetId: user._id })

@@ -56,13 +56,16 @@ const rfqSchema = new mongoose.Schema(
       type: {
         type: String,
         enum: ['Point'],
-        default: 'Point'
+        default: undefined
       },
       coordinates: {
         type: [Number],
-        required: true,
+        default: undefined,
         validate: {
           validator(value) {
+            if (typeof value === 'undefined' || value === null) {
+              return true;
+            }
             if (!Array.isArray(value) || value.length !== 2) {
               return false;
             }

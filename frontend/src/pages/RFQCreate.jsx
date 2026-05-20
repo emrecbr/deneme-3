@@ -986,9 +986,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       if (!form.district) {
         return { message: 'İlçe seç', field: 'district' };
       }
-      if (!buildGeoPoint(selectedLocation)) {
-        return { message: getLocationValidationMessage(selectedLocation), field: 'location' };
-      }
       return { message: '', field: '' };
     }
 
@@ -1038,16 +1035,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
     try {
       const geoPoint = buildGeoPoint(selectedLocation);
-      if (!geoPoint) {
-        trackRFQCreateEvent('rfq_create_validation_blocked', {
-          step: 3,
-          field: 'location',
-          error: getLocationValidationMessage(selectedLocation)
-        });
-        setError(getLocationValidationMessage(selectedLocation));
-        setLoading(false);
-        return;
-      }
       if (isEdit && initialData?._id) {
         const payload = {
           title: form.title,
@@ -1065,7 +1052,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
             : undefined,
           workEndDate: isJobseekerSegment ? (jobseekerMeta.workEndDate || undefined) : undefined,
           targetPrice: Number.isFinite(priceValue) ? priceValue : undefined,
-          location: geoPoint,
+          ...(geoPoint ? { location: geoPoint } : {}),
           isAuction: Boolean(form.isAuction)
         };
         if (isJobseekerSegment) {
@@ -1116,9 +1103,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
           formData.append('expiresAt', expiresAt);
         }
-        formData.append('location', JSON.stringify(geoPoint));
-        formData.append('latitude', String(geoPoint.coordinates[1]));
-        formData.append('longitude', String(geoPoint.coordinates[0]));
+        if (geoPoint) {
+          formData.append('location', JSON.stringify(geoPoint));
+          formData.append('latitude', String(geoPoint.coordinates[1]));
+          formData.append('longitude', String(geoPoint.coordinates[0]));
+        }
 
     if (Number.isFinite(priceValue)) {
       formData.append('targetPrice', String(priceValue));

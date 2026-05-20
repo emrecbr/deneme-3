@@ -4,7 +4,7 @@ import RFQ from '../../models/RFQ.js';
 import SearchLog from '../../models/SearchLog.js';
 import User from '../../models/User.js';
 import { haversineDistanceKm } from '../utils/geoDistance.js';
-import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../utils/rfqExpiry.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, isRfqExpired, markExpiredRfqs } from '../utils/rfqExpiry.js';
 
 const MAX_SEGMENT_CANDIDATES = 120;
 const MAX_FALLBACK_CANDIDATES = 120;
@@ -459,7 +459,7 @@ export const getRecommendedRfqsForDetail = async ({ rfqId, userId, limit = 12 })
     throw error;
   }
 
-  if (currentRfq.status === 'expired' || (currentRfq.expiresAt && new Date(currentRfq.expiresAt) <= new Date())) {
+  if (isRfqExpired(currentRfq)) {
     const error = new Error('RFQ expired.');
     error.statusCode = 410;
     throw error;

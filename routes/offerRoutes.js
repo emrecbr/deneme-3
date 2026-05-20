@@ -8,6 +8,7 @@ import Notification from '../models/Notification.js';
 import Chat from '../models/Chat.js';
 import { emitToRoom } from '../config/socket.js';
 import { sendPushToUser } from '../src/services/pushNotificationService.js';
+import { isRfqExpired } from '../src/utils/rfqExpiry.js';
 
 const offerRoutes = Router();
 const UPDATABLE_STATUSES = ['sent', 'viewed', 'countered'];
@@ -33,6 +34,16 @@ const acceptOffer = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'Forbidden: only RFQ owner can accept an offer.'
+      });
+    }
+
+    if (isRfqExpired(rfq)) {
+      rfq.status = 'expired';
+      rfq.expiredAt = rfq.expiredAt || new Date();
+      await rfq.save();
+      return res.status(410).json({
+        success: false,
+        message: 'İlan süresi doldu.'
       });
     }
 
@@ -320,7 +331,7 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
       });
     }
 
-    if (rfq.status === 'expired' || (rfq.expiresAt && new Date(rfq.expiresAt) <= new Date())) {
+    if (isRfqExpired(rfq)) {
       rfq.status = 'expired';
       rfq.expiredAt = rfq.expiredAt || new Date();
       await rfq.save();

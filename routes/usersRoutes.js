@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import PaymentMethod from '../models/PaymentMethod.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 
@@ -389,8 +390,15 @@ router.post('/favorite/:rfqId', authMiddleware, async (req, res) => {
 
 router.get('/favorites', authMiddleware, async (req, res) => {
   try {
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+    const favoriteMatch = {};
+    applyExpiryFilter(favoriteMatch, now);
     const user = await User.findById(req.user.id).populate({
       path: 'favorites',
+      match: favoriteMatch,
       populate: [
         {
           path: 'buyer',

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
+import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 
 const userRoutes = Router();
 
@@ -55,8 +56,15 @@ userRoutes.post('/favorite/:rfqId', authMiddleware, async (req, res, next) => {
 
 userRoutes.get('/favorites', authMiddleware, async (req, res, next) => {
   try {
+    const now = new Date();
+    const listingExpiryDays = await getListingExpiryDays();
+    await backfillMissingExpiresAt(listingExpiryDays);
+    await markExpiredRfqs(now);
+    const favoriteMatch = {};
+    applyExpiryFilter(favoriteMatch, now);
     const user = await User.findById(req.user.id).populate({
       path: 'favorites',
+      match: favoriteMatch,
       populate: {
         path: 'buyer',
         select: 'name email'

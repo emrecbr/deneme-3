@@ -28,10 +28,29 @@ export const computeExpiresAt = (createdAt, days) => {
   return new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
 };
 
+const isValidDateValue = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime());
+};
+
+export const isRfqExpired = (rfq, now = new Date()) => {
+  if (!rfq) return false;
+  if (rfq.status === 'expired') return true;
+  const nowTime = new Date(now).getTime();
+  if (!Number.isFinite(nowTime)) return false;
+
+  return [rfq.expiresAt, rfq.deadline].some((value) => {
+    if (!isValidDateValue(value)) return false;
+    return new Date(value).getTime() <= nowTime;
+  });
+};
+
 export const applyExpiryFilter = (query, now = new Date()) => {
   const expiryClause = {
     $and: [
-      { $or: [{ expiresAt: { $exists: false } }, { expiresAt: { $gt: now } }] },
+      { $or: [{ expiresAt: { $exists: false } }, { expiresAt: null }, { expiresAt: { $gt: now } }] },
+      { $or: [{ deadline: { $exists: false } }, { deadline: null }, { deadline: { $gt: now } }] },
       { status: { $ne: 'expired' } },
       { isDeleted: { $ne: true } }
     ]
@@ -48,7 +67,10 @@ export const markExpiredRfqs = async (now = new Date()) => {
   const result = await RFQ.updateMany(
     {
       status: 'open',
-      expiresAt: { $lte: now },
+      $or: [
+        { expiresAt: { $lte: now } },
+        { deadline: { $lte: now } }
+      ],
       isDeleted: { $ne: true }
     },
     {
