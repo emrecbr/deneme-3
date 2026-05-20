@@ -1410,6 +1410,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
   const isJobseekerStep2 = !isWebSurface && step === 2 && isJobseekerSegment;
 
+  useEffect(() => {
+    if (!isJobseekerStep2) return;
+    window.dispatchEvent(new CustomEvent('rfq-create-sheet:expand'));
+  }, [isJobseekerStep2]);
+
   return (
     <div className={`page ${isWebSurface ? 'rfq-create-page--web' : ''} ${isJobseekerStep2 ? 'rfq-create-page--jobseeker-step2' : ''}`}>
       <div className={`card ${isWebSurface ? 'rfq-create-card--web' : ''} ${isJobseekerStep2 ? 'rfq-create-card--jobseeker-step2' : ''}`}>

@@ -1381,6 +1381,22 @@ function RFQList({ surfaceVariant = 'app' }) {
   }, [openCreateSheet]);
 
   useEffect(() => {
+    const handleExpandCreateSheet = () => {
+      if (!isCreateSheetMounted || createSheetState === 'closed') return;
+      setCreateSheetState('expanded');
+      window.requestAnimationFrame(() => {
+        const snap = getCreateSheetSnapPoints();
+        setCreateSheetTranslate(snap.expanded, { syncState: true });
+      });
+    };
+
+    window.addEventListener('rfq-create-sheet:expand', handleExpandCreateSheet);
+    return () => {
+      window.removeEventListener('rfq-create-sheet:expand', handleExpandCreateSheet);
+    };
+  }, [createSheetState, getCreateSheetSnapPoints, isCreateSheetMounted, setCreateSheetTranslate]);
+
+  useEffect(() => {
     if (isCreateSheetMounted) {
       window.dispatchEvent(new CustomEvent('bottomnav:hide'));
     } else {

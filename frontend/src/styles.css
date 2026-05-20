@@ -10238,21 +10238,35 @@ body.dark-mode .category-selector-modal {
 }
 
 /* RFQ Create (create sheet): jobseeker step 2 can have long content; keep actions always reachable. */
+.create-sheet-content:has(.rfq-create-page--jobseeker-step2) {
+  display: block;
+  height: auto;
+  max-height: 88vh;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+}
+
+.create-sheet-content:has(.rfq-create-page--jobseeker-step2) .create-sheet-drag-zone {
+  flex: 0 0 8px;
+}
+
+.create-sheet-content:has(.rfq-create-page--jobseeker-step2) > .rfq-create-page--jobseeker-step2 {
+  max-height: calc(88vh - 18px - env(safe-area-inset-bottom));
+}
+
 .create-sheet-content .rfq-create-page--jobseeker-step2 {
-  height: 100%;
-  overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
+  height: auto;
+  overflow-y: auto;
+  display: block;
+  min-height: 0;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  display: block;
+  height: auto;
   min-height: 0;
-  overflow: hidden;
-  padding-top: 10px;
-  padding-bottom: 8px;
+  overflow: visible;
+  padding-top: 8px;
+  padding-bottom: 0;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 h1 {
@@ -10265,51 +10279,57 @@ body.dark-mode .category-selector-modal {
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-card--jobseeker-step2 form {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+  display: block;
+  flex: initial;
   min-height: 0;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed {
-  flex: 1;
+  flex: initial;
   min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 2px;
+  overflow: visible;
+  padding-bottom: 4px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed .form-group {
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed label {
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   font-size: 11px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed input,
 .create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed button.category-select-btn {
-  min-height: 34px;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  min-height: 32px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-actions.sticky-footer.rfq-create-fixed-footer {
-  position: relative;
-  bottom: auto;
+  position: sticky;
+  bottom: 0;
   flex-shrink: 0;
-  margin-top: 2px;
-  padding-top: 5px;
-  padding-bottom: calc(2px + env(safe-area-inset-bottom));
+  margin-top: 0;
+  padding-top: 6px;
+  padding-bottom: calc(4px + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid rgba(148, 163, 184, 0.14);
+  z-index: 2;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-actions.sticky-footer.rfq-create-fixed-footer > button {
+  min-height: 38px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .create-sheet-content .jobseeker-date-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 5px;
-  margin-bottom: 3px;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
 .create-sheet-content .jobseeker-date-field {
@@ -10318,15 +10338,15 @@ body.dark-mode .category-selector-modal {
 }
 
 .create-sheet-content .jobseeker-date-field label {
-  min-height: 24px;
+  min-height: 20px;
   line-height: 1.2;
 }
 
 .create-sheet-content .jobseeker-date-field input[type='date'] {
   width: 100%;
   min-width: 0;
-  min-height: 34px;
-  padding: 5px 6px;
+  min-height: 32px;
+  padding: 4px 6px;
   font-size: 11px;
 }
 
