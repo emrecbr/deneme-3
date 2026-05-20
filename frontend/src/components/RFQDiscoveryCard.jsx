@@ -5,37 +5,18 @@ function MetaIcon({ children }) {
   return <span className="rfq-discovery-card__meta-icon" aria-hidden="true">{children}</span>;
 }
 
-function SellerAvatar({ sellerAvatar, sellerName }) {
-  const initials = String(sellerName || 'T')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('') || 'T';
-
-  if (sellerAvatar) {
-    return <img src={sellerAvatar} alt="" className="rfq-discovery-card__seller-avatar" loading="lazy" />;
-  }
-
-  return <span className="rfq-discovery-card__seller-avatar rfq-discovery-card__seller-avatar--fallback">{initials}</span>;
-}
-
 export default function RFQDiscoveryCard({
   title,
   categoryLabel,
   locationLabel,
   publishedLabel,
   description,
-  sellerName,
-  sellerVerified = false,
-  sellerAvatar = '',
   distanceLabel = '',
   isPremium = false,
   isFeatured = false,
   isFavorite = false,
   favoriteAnimating = false,
   onFavoriteToggle = null,
-  footerHint = 'Detayi gor',
   className = '',
   variant = 'feed'
 }) {
@@ -114,35 +95,6 @@ export default function RFQDiscoveryCard({
       </div>
 
       <p className="rfq-discovery-card__description">{description || 'Detaya gecerek talebin tum kapsamini inceleyebilirsin.'}</p>
-
-      <div className="rfq-discovery-card__footer">
-        <div className="rfq-discovery-card__seller">
-          <SellerAvatar sellerAvatar={sellerAvatar} sellerName={sellerName} />
-          <div className="rfq-discovery-card__seller-copy">
-            <span className="rfq-discovery-card__seller-name">
-              {sellerName || 'Talep sahibi'}
-            </span>
-            <span className="rfq-discovery-card__seller-status">
-              {sellerVerified ? 'Dogrulanmis profil' : 'Profil bilgisi'}
-            </span>
-          </div>
-          {sellerVerified ? (
-            <span className="rfq-discovery-card__verified" aria-label="Dogrulanmis profil">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m7.5 12 3 3 6-6" />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
-            </span>
-          ) : null}
-        </div>
-
-        <span className="rfq-discovery-card__hint">
-          {footerHint}
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="m9 6 6 6-6 6" />
-          </svg>
-        </span>
-      </div>
     </div>
   );
 }

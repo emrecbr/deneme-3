@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { API_BASE_URL } from '../api/axios';
+import api from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
@@ -9,7 +9,6 @@ import { formatRfqLocation } from '../utils/rfqFormatters';
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
 function Favorites({ surfaceVariant = 'app' }) {
-  const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
   const isWebSurface = surfaceVariant === 'web';
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -49,21 +48,6 @@ function Favorites({ surfaceVariant = 'app' }) {
       active = false;
     };
   }, [fetchFavorites]);
-
-  const getImage = (rfq) => {
-    const avatarPath =
-      rfq?.buyer?.avatar ||
-      rfq?.buyer?.profileImage ||
-      rfq?.user?.avatar ||
-      rfq?.user?.profileImage ||
-      '';
-
-    if (!avatarPath) {
-      return '';
-    }
-
-    return `${BACKEND_ORIGIN}${avatarPath}`.replace(/([^:]\/)\/+/g, '$1');
-  };
 
   const getCategoryName = (categoryValue) => {
     if (!categoryValue) {
@@ -119,12 +103,8 @@ function Favorites({ surfaceVariant = 'app' }) {
                     locationLabel={formatRfqLocation(rfq)}
                     publishedLabel={rfq.createdAt ? new Date(rfq.createdAt).toLocaleDateString('tr-TR') : ''}
                     description={rfq.description || (rfq.quantity ? `Miktar: ${rfq.quantity}` : '')}
-                    sellerName={rfq?.buyer?.name || rfq?.user?.name || 'Talep sahibi'}
-                    sellerVerified={Boolean(rfq?.buyer?.isVerified || rfq?.buyer?.emailVerified || rfq?.buyer?.phoneVerified)}
-                    sellerAvatar={getImage(rfq)}
                     isPremium={Boolean(rfq?.isPremium)}
                     isFeatured={Boolean(rfq?.featuredActive || rfq?.isFeatured)}
-                    footerHint="Detaya git"
                     variant="compact"
                   />
                 </article>

@@ -83,6 +83,9 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   const OFFER_FINAL = ['accepted', 'rejected', 'withdrawn', 'completed'];
   const currentUserId = currentUser?.id || currentUser?._id || null;
   const buyerId = typeof rfq?.buyer === 'object' ? rfq?.buyer?._id : rfq?.buyer;
+  const buyerName = typeof rfq?.buyer === 'object' ? rfq?.buyer?.name || rfq?.buyer?.email || 'Talep sahibi' : 'Talep sahibi';
+  const buyerContact = typeof rfq?.buyer === 'object' ? rfq?.buyer?.email || '' : '';
+  const buyerInitial = String(buyerName || 'T').trim().charAt(0).toUpperCase() || 'T';
   const isOwner = useMemo(() => idEq(rfq?.buyer, currentUserId), [currentUserId, rfq?.buyer]);
   const isBuyer = isOwner;
   const isSeller = Boolean(currentUserId && !isBuyer);
@@ -1290,6 +1293,14 @@ function RFQDetail({ surfaceVariant = 'app' }) {
               </div>
             ) : null}
             <p className="detail-description">{rfq.description}</p>
+            <div className="rfq-detail-owner">
+              <span className="rfq-detail-owner__avatar" aria-hidden="true">{buyerInitial}</span>
+              <div className="rfq-detail-owner__copy">
+                <span>Talep sahibi</span>
+                <strong>{buyerName}</strong>
+                {buyerContact ? <small>{buyerContact}</small> : null}
+              </div>
+            </div>
             <div className="rfq-sub">Kategori: {getCategoryName(rfq.category)}</div>
             {productDetails?.brand || productDetails?.model ? (
               <div className="rfq-sub">

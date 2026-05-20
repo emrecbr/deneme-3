@@ -2721,27 +2721,6 @@ function RFQList({ surfaceVariant = 'app' }) {
       const animating = Boolean(favoriteAnimating[rfq._id]);
       const isFeatured = isFeaturedRFQ(rfq) || (import.meta.env.DEV && index === 0);
       const isPremium = Boolean(rfq?.isPremium) || (import.meta.env.DEV && index === 1);
-      const sellerName =
-        rfq?.buyer?.name ||
-        rfq?.buyer?.fullName ||
-        rfq?.user?.name ||
-        rfq?.owner?.name ||
-        'Talep sahibi';
-      const sellerVerified = Boolean(
-        rfq?.buyer?.isVerified ||
-        rfq?.buyer?.emailVerified ||
-        rfq?.buyer?.phoneVerified ||
-        rfq?.user?.isVerified
-      );
-      const sellerAvatarPath =
-        rfq?.buyer?.avatar ||
-        rfq?.buyer?.profileImage ||
-        rfq?.user?.avatar ||
-        rfq?.user?.profileImage ||
-        '';
-      const sellerAvatar = sellerAvatarPath
-        ? `${BACKEND_ORIGIN}${sellerAvatarPath}`.replace(/([^:]\/)\/+/g, '$1')
-        : '';
       const categoryLabel = (() => {
         const fullLabel = getCategoryDisplayName(rfq.category) || 'Talep';
         const parts = fullLabel.split('>').map((item) => item.trim()).filter(Boolean);
@@ -2876,9 +2855,6 @@ function RFQList({ surfaceVariant = 'app' }) {
               locationLabel={formatRfqLocation(rfq)}
               publishedLabel={publishedLabel}
               description={descriptionText}
-              sellerName={sellerName}
-              sellerVerified={sellerVerified}
-              sellerAvatar={sellerAvatar}
               distanceLabel={distanceLabel}
               isPremium={isPremium}
               isFeatured={isFeatured}
@@ -2891,7 +2867,6 @@ function RFQList({ surfaceVariant = 'app' }) {
       );
     },
     [
-      BACKEND_ORIGIN,
       closeSwipeActions,
       currentUserId,
       favorites,
@@ -3026,136 +3001,6 @@ function RFQList({ surfaceVariant = 'app' }) {
           </div>
         </div>
       </section>
-
-      {searchPanelEnabled ? (
-      <div className={`rfq-search-area ${isWebSurface ? 'rfq-search-area--web' : ''}`} ref={searchAreaRef}>
-        <div
-          className={`rfq-search-trigger ${isSearchTriggerOpen ? 'is-open' : ''}`}
-          role={isSearchTriggerOpen ? 'search' : 'button'}
-          tabIndex={isSearchTriggerOpen ? -1 : 0}
-          aria-label="Talepleri ara"
-          aria-expanded={isSearchTriggerOpen}
-          onClick={(event) => {
-            if (isSearchTriggerOpen) {
-              setIsSearchTriggerOpen(false);
-              return;
-            }
-            setIsMapFilterOpen(false);
-            setIsSearchTriggerOpen(true);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              setIsSearchTriggerOpen(false);
-              return;
-            }
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              if (!isSearchTriggerOpen) {
-                setIsMapFilterOpen(false);
-                setIsSearchTriggerOpen(true);
-                return;
-              }
-              searchInputRef.current?.focus();
-            }
-          }}
-        >
-          <span className="rfq-search-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <line x1="16.2" y1="16.2" x2="20" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </span>
-          {isSearchTriggerOpen ? null : null}
-        </div>
-        {isSearchTriggerOpen ? (
-          <div className="rfq-search-panel">
-            <div className="search-input-wrap">
-              <span className="search-input-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                  <line x1="16.2" y1="16.2" x2="20" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </span>
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    pushSearchHistory(searchQuery);
-                  }
-                }}
-                placeholder="Başlık, kategori, açıklama..."
-                className="search-input rfq-inline-search-input"
-                ref={searchInputRef}
-                autoComplete="off"
-                inputMode="search"
-                enterKeyHint="search"
-                disabled={!filters.segment}
-              />
-              <button
-                type="button"
-                className="rfq-search-cta"
-                disabled={!filters.segment}
-                onClick={() => pushSearchHistory(searchQuery)}
-              >
-                Ara
-              </button>
-            </div>
-            <div className="search-hint">{uiTexts.searchHint}</div>
-            <div className="search-category-meta">
-              <div className="search-meta-title">Ana Kategori</div>
-              <div className="search-parent-chip">{filters.segment ? (activeParentName || 'Kategori seçilmedi') : 'Segment seçilmedi'}</div>
-            </div>
-
-            {suggestionResults.length ? (
-              <div className="search-suggestions">
-                <div className="search-meta-title">Öneriler</div>
-                <div className="search-suggestion-list">
-                  {suggestionResults.map((item) => (
-                    <button
-                      key={`${item._id}`}
-                      type="button"
-                      className="suggest-row"
-                      onClick={() => handleSuggestSelect(item)}
-                    >
-                      <div className="suggest-title">{item.name}</div>
-                      <div className="suggest-meta">{item.parentName}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {searchHistory.length ? (
-              <div className="search-history">
-                <div className="search-history-head">
-                  <span>Geçmiş aramalar</span>
-                  <button
-                    type="button"
-                    className="search-history-clear"
-                    onClick={() => saveSearchHistory([])}
-                  >
-                    Temizle
-                  </button>
-                </div>
-                <div className="search-history-list">
-                  {searchHistory.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className="search-history-item"
-                      onClick={() => setSearchQuery(item)}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      ) : null}
 
       {loading ? <RFQSkeletonGrid count={6} /> : null}
 

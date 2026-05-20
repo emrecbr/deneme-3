@@ -6376,6 +6376,50 @@ body.dark-mode .toast {
   margin: 0 0 8px;
 }
 
+.rfq-detail-owner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.rfq-detail-owner__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.rfq-detail-owner__copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.rfq-detail-owner__copy span,
+.rfq-detail-owner__copy small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.rfq-detail-owner__copy strong {
+  color: #0f172a;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .offer-form {
   margin-top: 8px;
 }
@@ -12242,14 +12286,14 @@ body.dark-mode .premium-web-summary__card strong {
 .rfq-discovery-card {
   position: relative;
   display: grid;
-  gap: 16px;
-  padding: 18px 18px 16px;
+  gap: 10px;
+  padding: 14px 16px;
   min-width: 0;
 }
 
 .rfq-discovery-card--compact {
-  padding: 16px;
-  gap: 14px;
+  padding: 14px 16px;
+  gap: 10px;
 }
 
 .rfq-discovery-card.is-featured::after,
@@ -12290,10 +12334,10 @@ body.dark-mode .premium-web-summary__card strong {
 
 .rfq-discovery-card__favorite {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 34px;
-  height: 34px;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
@@ -12309,13 +12353,13 @@ body.dark-mode .premium-web-summary__card strong {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .rfq-discovery-card__icon-shell {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
   display: inline-flex;
@@ -12332,7 +12376,7 @@ body.dark-mode .premium-web-summary__card strong {
 .rfq-discovery-card__hero-copy {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .rfq-discovery-card__category-row {
@@ -12352,8 +12396,8 @@ body.dark-mode .premium-web-summary__card strong {
 .rfq-discovery-card__title {
   margin: 0;
   color: #0f172a;
-  font-size: 1.01rem;
-  line-height: 1.38;
+  font-size: 0.98rem;
+  line-height: 1.32;
   font-weight: 700;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -12364,7 +12408,7 @@ body.dark-mode .premium-web-summary__card strong {
 .rfq-discovery-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 6px 10px;
   color: #64748b;
 }
 
@@ -12395,12 +12439,11 @@ body.dark-mode .premium-web-summary__card strong {
   margin: 0;
   color: #475569;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  min-height: calc(1.55em * 2);
   position: relative;
 }
 
@@ -12485,7 +12528,7 @@ body.dark-mode .premium-web-summary__card strong {
 }
 
 .rfq-grid {
-  gap: 16px;
+  gap: 12px;
 }
 
 .rfq-skeleton-card {
@@ -12693,6 +12736,25 @@ body.dark-mode .rfq-discovery-card__description {
   color: rgba(226, 232, 240, 0.8);
 }
 
+body.dark-mode .rfq-detail-owner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+body.dark-mode .rfq-detail-owner__avatar {
+  background: rgba(148, 163, 184, 0.14);
+  color: #f8fafc;
+}
+
+body.dark-mode .rfq-detail-owner__copy strong {
+  color: #f8fafc;
+}
+
+body.dark-mode .rfq-detail-owner__copy span,
+body.dark-mode .rfq-detail-owner__copy small {
+  color: #94a3b8;
+}
+
 body.dark-mode .rfq-discovery-card__seller-avatar--fallback {
   background: rgba(148, 163, 184, 0.14);
   color: #e2e8f0;
@@ -12705,12 +12767,8 @@ body.dark-mode .rfq-skeleton-card {
 
 @media (max-width: 768px) {
   .rfq-discovery-card {
-    padding: 16px;
-    gap: 14px;
-  }
-
-  .rfq-discovery-card__footer {
-    align-items: flex-end;
+    padding: 14px;
+    gap: 10px;
   }
 
   .custom-marker .marker-badge {
