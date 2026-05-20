@@ -4,9 +4,7 @@ import api from '../api/axios';
 import BackIconButton from '../components/BackIconButton';
 import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
-import { formatRfqLocation } from '../utils/rfqFormatters';
-
-const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+import { formatCategoryLabel, formatRfqLocation } from '../utils/rfqFormatters';
 
 function Favorites({ surfaceVariant = 'app' }) {
   const isWebSurface = surfaceVariant === 'web';
@@ -50,16 +48,7 @@ function Favorites({ surfaceVariant = 'app' }) {
   }, [fetchFavorites]);
 
   const getCategoryName = (categoryValue) => {
-    if (!categoryValue) {
-      return '-';
-    }
-
-    if (typeof categoryValue === 'string') {
-      return OBJECT_ID_PATTERN.test(categoryValue) ? 'Talep' : categoryValue;
-    }
-
-    const label = categoryValue.name || categoryValue.slug || '';
-    return label && !OBJECT_ID_PATTERN.test(label) ? label : 'Talep';
+    return formatCategoryLabel(categoryValue, 'Talep');
   };
 
   return (

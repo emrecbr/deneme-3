@@ -17,7 +17,7 @@ import { triggerHaptic } from '../utils/haptic';
 import { trackAnalyticsEvent } from '../utils/analytics';
 import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../utils/rfqStatus';
 import { getDistanceKm } from '../utils/distance';
-import { extractRfqCityName, extractRfqDistrictName, formatRfqLocation } from '../utils/rfqFormatters';
+import { extractRfqCityName, extractRfqDistrictName, formatCategoryLabel, formatRfqLocation } from '../utils/rfqFormatters';
 import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
 
 const PAGE_LIMIT = 10;
@@ -2725,7 +2725,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         const fullLabel = getCategoryDisplayName(rfq.category) || 'Talep';
         const parts = fullLabel.split('>').map((item) => item.trim()).filter(Boolean);
         const readableLabel = parts[parts.length - 1] || fullLabel;
-        return OBJECT_ID_PATTERN.test(readableLabel) ? 'Talep' : readableLabel;
+        return formatCategoryLabel(readableLabel, 'Talep');
       })();
       const publishedLabel = formatDate(rfq.createdAt || rfq.updatedAt || rfq.date);
       const distanceLabel =

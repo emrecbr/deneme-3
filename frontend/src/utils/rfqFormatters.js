@@ -7,6 +7,30 @@ const normalizeText = (value) => {
 
 const isLikelyObjectId = (value) => OBJECT_ID_PATTERN.test(normalizeText(value));
 
+const CATEGORY_LABELS = {
+  'is-arayanlar': 'İş Arayanlar',
+  'is arayanlar': 'İş Arayanlar',
+  'iş arayanlar': 'İş Arayanlar',
+  nakliye: 'Nakliye',
+  temizlik: 'Temizlik',
+  yazilim: 'Yazılım',
+  'yazılım': 'Yazılım',
+  tadilat: 'Tadilat',
+  cafe: 'Cafe',
+  kafe: 'Cafe',
+  sanayi: 'Sanayi',
+  lokanta: 'Lokanta',
+  diger: 'Diğer',
+  'diğer': 'Diğer'
+};
+
+const normalizeCategoryKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLocaleLowerCase('tr-TR')
+    .replace(/_/g, '-')
+    .replace(/\s+/g, ' ');
+
 const firstReadableText = (...values) => {
   for (let index = 0; index < values.length; index += 1) {
     const text = normalizeText(values[index]);
@@ -77,4 +101,46 @@ export const formatRfqLocation = (rfq) => {
   }
 
   return 'Konum belirtilmemis';
+};
+
+export const formatCategoryLabel = (value, fallback = 'Kategori belirtilmedi') => {
+  if (!value) return fallback;
+
+  const raw =
+    typeof value === 'object'
+      ? value.name || value.title || value.label || value.slug || ''
+      : value;
+  const text = normalizeText(raw);
+  if (!text || isLikelyObjectId(text)) return fallback;
+
+  const normalized = normalizeCategoryKey(text);
+  const hyphenated = normalized.replace(/\s+/g, '-');
+  return CATEGORY_LABELS[normalized] || CATEGORY_LABELS[hyphenated] || text;
+};
+
+export const extractRfqCategoryLabels = (rfq) => {
+  const category = rfq?.category;
+  const parentCandidate =
+    category && typeof category === 'object'
+      ? category.parentName || category.parent?.name || category.parent?.title || category.parent?.label
+      : '';
+  const subcategoryCandidate =
+    rfq?.subcategory ||
+    rfq?.subCategory ||
+    rfq?.subcategoryName ||
+    rfq?.subCategoryName ||
+    (parentCandidate ? category : null);
+
+  const categoryLabel = parentCandidate
+    ? formatCategoryLabel(parentCandidate)
+    : formatCategoryLabel(category);
+  const subcategoryLabel = subcategoryCandidate
+    ? formatCategoryLabel(subcategoryCandidate, 'Alt kategori belirtilmedi')
+    : '';
+
+  return {
+    categoryLabel,
+    subcategoryLabel:
+      subcategoryLabel && subcategoryLabel !== categoryLabel ? subcategoryLabel : ''
+  };
 };

@@ -12,46 +12,7 @@ import RFQCreate from './RFQCreate';
 import OfferSheet from '../components/OfferSheet';
 import ReportIssueSheet from '../components/ReportIssueSheet';
 import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
-
-const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
-const CATEGORY_LABELS = {
-  'is-arayanlar': 'İş Arayanlar',
-  'is arayanlar': 'İş Arayanlar',
-  'iş arayanlar': 'İş Arayanlar',
-  nakliye: 'Nakliye',
-  temizlik: 'Temizlik',
-  yazilim: 'Yazılım',
-  'yazılım': 'Yazılım',
-  tadilat: 'Tadilat',
-  cafe: 'Cafe',
-  kafe: 'Cafe',
-  sanayi: 'Sanayi',
-  lokanta: 'Lokanta',
-  diger: 'Diğer',
-  'diğer': 'Diğer'
-};
-
-const normalizeCategoryKey = (value) =>
-  String(value || '')
-    .trim()
-    .toLocaleLowerCase('tr-TR')
-    .replace(/_/g, '-')
-    .replace(/\s+/g, ' ');
-
-const formatCategoryLabel = (value, fallback = 'Kategori belirtilmedi') => {
-  if (!value) return fallback;
-
-  const raw =
-    typeof value === 'object'
-      ? value.name || value.title || value.label || value.slug || ''
-      : value;
-  const text = String(raw || '').trim();
-  if (!text || OBJECT_ID_PATTERN.test(text)) return fallback;
-
-  const normalized = normalizeCategoryKey(text);
-  const hyphenated = normalized.replace(/\s+/g, '-');
-  return CATEGORY_LABELS[normalized] || CATEGORY_LABELS[hyphenated] || text;
-};
+import { extractRfqCategoryLabels, formatCategoryLabel } from '../utils/rfqFormatters';
 
 const maskNamePart = (part) => {
   const text = String(part || '').trim();
@@ -140,6 +101,10 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   const rawBuyerName = typeof rfq?.buyer === 'object' ? rfq?.buyer?.name || '' : '';
   const buyerName = formatOwnerNameMasked(rawBuyerName);
   const buyerInitial = String(rawBuyerName || 'T').trim().charAt(0).toUpperCase() || 'T';
+  const { categoryLabel: detailCategoryLabel, subcategoryLabel: detailSubcategoryLabel } = useMemo(
+    () => extractRfqCategoryLabels(rfq),
+    [rfq]
+  );
   const isOwner = useMemo(() => idEq(rfq?.buyer, currentUserId), [currentUserId, rfq?.buyer]);
   const isBuyer = isOwner;
   const isSeller = Boolean(currentUserId && !isBuyer);
@@ -1296,22 +1261,26 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 </button>
               ) : null}
             </div>
-            {isWebSurface ? (
-              <div className="rfq-detail-meta-grid">
-                <div className="rfq-detail-meta-card">
-                  <span>Kategori</span>
-                  <strong>{getCategoryName(rfq.category)}</strong>
-                </div>
-                <div className="rfq-detail-meta-card">
-                  <span>Konum</span>
-                  <strong>{getCityName(rfq) ? `${getCityName(rfq)}${getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}` : '-'}</strong>
-                </div>
-                <div className="rfq-detail-meta-card">
-                  <span>Termin</span>
-                  <strong>{formatDate(rfq.deadline)}</strong>
-                </div>
+            <div className="rfq-detail-meta-grid">
+              <div className="rfq-detail-meta-card">
+                <span>Kategori</span>
+                <strong>{detailCategoryLabel}</strong>
               </div>
-            ) : null}
+              {detailSubcategoryLabel ? (
+                <div className="rfq-detail-meta-card">
+                  <span>Alt kategori</span>
+                  <strong>{detailSubcategoryLabel}</strong>
+                </div>
+              ) : null}
+              <div className="rfq-detail-meta-card">
+                <span>Termin</span>
+                <strong>{formatDate(rfq.deadline)}</strong>
+              </div>
+              <div className="rfq-detail-meta-card">
+                <span>Konum</span>
+                <strong>{getCityName(rfq) ? `${getCityName(rfq)}${getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}` : '-'}</strong>
+              </div>
+            </div>
             {isOwner ? (
               <div className="detail-feature-row">
                 <div className="rfq-sub">Kredi: {featuredCredits}</div>
@@ -1346,7 +1315,6 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 <strong>{buyerName}</strong>
               </div>
             </div>
-            <div className="rfq-sub">Kategori: {getCategoryName(rfq.category)}</div>
             {productDetails?.brand || productDetails?.model ? (
               <div className="rfq-sub">
                 Marka/Model: {productDetails?.brand || ''} {productDetails?.model || ''}
@@ -1368,7 +1336,6 @@ function RFQDetail({ surfaceVariant = 'app' }) {
               </div>
             ) : null}
             <div className="rfq-sub">Miktar: {rfq.quantity}</div>
-            <div className="rfq-sub">Termin: {formatDate(rfq.deadline)}</div>
             {rfq.isAuction ? (
               <div className={`auction-live ${flashBid ? 'flash' : ''}`}>
                 <div>Canli En Iyi Teklif: {rfq.currentBestOffer ? `${rfq.currentBestOffer} TL` : 'Henuz yok'}</div>
