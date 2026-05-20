@@ -1589,11 +1589,32 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                     <button
                       id="workTypeButton"
                       type="button"
-                      className="secondary-btn category-select-btn"
-                      onClick={() => setWorkTypeSheetOpen(true)}
+                      className="secondary-btn category-select-btn jobseeker-work-type-trigger"
+                      aria-expanded={workTypeSheetOpen}
+                      onClick={() => setWorkTypeSheetOpen((open) => !open)}
                     >
                       {selectedJobseekerWorkTypeLabel || 'Çalışma tipi seç'}
                     </button>
+                    {workTypeSheetOpen ? (
+                      <div className="jobseeker-work-type-menu" role="listbox" aria-label="Çalışma tipi seçenekleri">
+                        {JOBSEEKER_WORK_TYPES.map((option) => {
+                          const isActive = jobseekerMeta.workTypes?.[0] === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`jobseeker-work-type-option ${isActive ? 'is-active' : ''}`}
+                              role="option"
+                              aria-selected={isActive}
+                              onClick={() => selectJobseekerWorkType(option.value)}
+                            >
+                              <span>{option.label}</span>
+                              {isActive ? <span>Seçili</span> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -1743,7 +1764,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <button
                   type="button"
                   className="primary-btn"
-                  disabled={!canContinueStep2}
+                  disabled={!isJobseekerSegment && !canContinueStep2}
                   onClick={() => {
                     const detail = getStepErrorDetail(2);
                     if (detail.message) {
@@ -1760,6 +1781,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                     setStepError('');
                     logFlowEvent({ step: 2, event: 'step_complete' });
                     trackRFQCreateEvent('rfq_create_step_complete', { step: 2 });
+                    setWorkTypeSheetOpen(false);
                     setStep(3);
                   }}
                 >
@@ -2116,34 +2138,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   {item.year ? <span className="notif-time">{item.year}</span> : null}
                 </button>
               ))}
-            </div>
-          </ReusableBottomSheet>
-        </Suspense>
-      ) : null}
-      {workTypeSheetOpen ? (
-        <Suspense fallback={null}>
-          <ReusableBottomSheet
-            open={workTypeSheetOpen}
-            onClose={() => setWorkTypeSheetOpen(false)}
-            title="Çalışma Tipi"
-            contentClassName="notif-sheet"
-            initialSnap="mid"
-          >
-            <div className="notif-list">
-              {JOBSEEKER_WORK_TYPES.map((option) => {
-                const isActive = jobseekerMeta.workTypes?.[0] === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className="notif-item"
-                    onClick={() => selectJobseekerWorkType(option.value)}
-                  >
-                    <span>{option.label}</span>
-                    {isActive ? <span className="notif-time">Seçili</span> : null}
-                  </button>
-                );
-              })}
             </div>
           </ReusableBottomSheet>
         </Suspense>
