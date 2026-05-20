@@ -1651,38 +1651,40 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
               {isJobseekerSegment ? (
                 <>
-                  <div className="form-group">
-                    <label htmlFor="workStartDate">İşe Başlama Tarihi</label>
-                    <input
-                      id="workStartDate"
-                      type="date"
-                      value={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate}
-                      onChange={(event) =>
-                        setJobseekerMeta((prev) => ({
-                          ...prev,
-                          availabilityDate: event.target.value,
-                          workStartDate: event.target.value,
-                          workEndDate:
-                            prev.workEndDate && new Date(prev.workEndDate) < new Date(event.target.value)
-                              ? ''
-                              : prev.workEndDate
-                        }))
-                      }
-                      required
-                    />
-                  </div>
+                  <div className="jobseeker-date-grid">
+                    <div className="form-group jobseeker-date-field">
+                      <label htmlFor="workStartDate">İşe Başlama Tarihi</label>
+                      <input
+                        id="workStartDate"
+                        type="date"
+                        value={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate}
+                        onChange={(event) =>
+                          setJobseekerMeta((prev) => ({
+                            ...prev,
+                            availabilityDate: event.target.value,
+                            workStartDate: event.target.value,
+                            workEndDate:
+                              prev.workEndDate && new Date(prev.workEndDate) < new Date(event.target.value)
+                                ? ''
+                                : prev.workEndDate
+                          }))
+                        }
+                        required
+                      />
+                    </div>
 
-                  <div className="form-group">
-                    <label htmlFor="workEndDate">İş Bitiş Tarihi (Opsiyonel)</label>
-                    <input
-                      id="workEndDate"
-                      type="date"
-                      min={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate || undefined}
-                      value={jobseekerMeta.workEndDate}
-                      onChange={(event) =>
-                        setJobseekerMeta((prev) => ({ ...prev, workEndDate: event.target.value }))
-                      }
-                    />
+                    <div className="form-group jobseeker-date-field">
+                      <label htmlFor="workEndDate">İş Bitiş Tarihi (Opsiyonel)</label>
+                      <input
+                        id="workEndDate"
+                        type="date"
+                        min={jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate || undefined}
+                        value={jobseekerMeta.workEndDate}
+                        onChange={(event) =>
+                          setJobseekerMeta((prev) => ({ ...prev, workEndDate: event.target.value }))
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div className="form-group">

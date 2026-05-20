@@ -10275,6 +10275,31 @@ body.dark-mode .category-selector-modal {
   border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
 
+.create-sheet-content .jobseeker-date-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.create-sheet-content .jobseeker-date-field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.create-sheet-content .jobseeker-date-field label {
+  min-height: 28px;
+  line-height: 1.2;
+}
+
+.create-sheet-content .jobseeker-date-field input[type='date'] {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
 .create-sheet-content .jobseeker-card-grid {
   gap: 8px;
 }
