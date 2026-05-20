@@ -92,7 +92,8 @@ body.dark-mode .app-layout {
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  background: rgba(255, 252, 247, 0.94);
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.98), rgba(255, 243, 224, 0.94));
+  border-bottom: 1px solid rgba(17, 24, 39, 0.06);
   box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
   z-index: 20;
 }
@@ -177,6 +178,7 @@ body.native-capacitor .rfq-discovery-card__hint {
 
 body.dark-mode .app-header {
   background: #0f172a;
+  border-bottom-color: rgba(148, 163, 184, 0.16);
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.55);
 }
 
@@ -3549,13 +3551,13 @@ body.dark-mode .ux-error-state {
 
 .list-hero-title {
   font-size: 12px;
-  color: rgba(226, 232, 240, 0.65);
+  color: #92400e;
   margin-bottom: 6px;
 }
 
 .list-subtitle {
   font-size: 12px;
-  color: rgba(226, 232, 240, 0.6);
+  color: #6b7280;
   margin-top: 4px;
 }
 
@@ -3567,7 +3569,15 @@ body.dark-mode .ux-error-state {
   position: relative;
   min-height: 100vh;
   padding: 10px 10px 94px;
-  background: #0f172a;
+  background:
+    radial-gradient(circle at top left, rgba(255, 243, 224, 0.92), rgba(255, 247, 237, 0) 38%),
+    linear-gradient(180deg, #fff7ed 0%, #fff3e0 100%);
+}
+
+body.dark-mode .rfq-list-page:not(.rfq-list-page--web) {
+  background:
+    radial-gradient(circle at top left, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0) 38%),
+    linear-gradient(180deg, #0b1224 0%, #0f172a 100%);
 }
 
 .rfq-list-page--web {
@@ -4027,10 +4037,22 @@ body.dark-mode .rfq-detail-value {
 }
 
 .rfq-list-page .list-head h1 {
-  color: #e2e8f0;
+  color: #111827;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0;
+}
+
+body.dark-mode .list-hero-title {
+  color: #94a3b8;
+}
+
+body.dark-mode .list-subtitle {
+  color: #94a3b8;
+}
+
+body.dark-mode .rfq-list-page .list-head h1 {
+  color: #f8fafc;
 }
 
 .premium-filter-sheet-overlay {
@@ -5262,15 +5284,25 @@ body.dark-mode .rfq-detail-value {
 
 .home-filters {
   margin-bottom: 10px;
+  padding: 8px 0 2px;
+  background: transparent;
 }
 
 .home-filter-btn {
   height: 34px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: rgba(255, 252, 247, 0.9);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  color: #111827;
   padding: 0 12px;
+  box-shadow: 0 8px 20px rgba(17, 24, 39, 0.06);
+}
+
+body.dark-mode .home-filter-btn {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+  box-shadow: none;
 }
 
 .filter-bar select,
@@ -5884,10 +5916,16 @@ body.dark-mode .custom-cluster .cluster-bubble.premium-cluster {
   margin: 6px 0 10px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(226, 232, 240, 0.8);
+  background: rgba(255, 252, 247, 0.9);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  color: #374151;
   font-size: 12px;
+}
+
+body.dark-mode .filter-loading {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
 }
 
 .map-picker-loading {
@@ -8479,15 +8517,31 @@ body.dark-mode .category-name {
   white-space: nowrap;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(15, 23, 42, 0.6);
-  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: rgba(255, 252, 247, 0.88);
+  color: #374151;
+  box-shadow: 0 6px 16px rgba(17, 24, 39, 0.05);
 }
 
 .cats-inline-chip.active {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
-  color: #ffffff;
+  border-color: rgba(194, 65, 12, 0.22);
+  background: #fed7aa;
+  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.22);
+  color: #7c2d12;
+}
+
+body.dark-mode .cats-inline-chip {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+  box-shadow: none;
+}
+
+body.dark-mode .cats-inline-chip.active {
+  border-color: rgba(96, 165, 250, 0.34);
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.18);
 }
 
 .home-search-row {
