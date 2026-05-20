@@ -10261,16 +10261,31 @@ body.dark-mode .category-selector-modal {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 12px;
+  padding-bottom: 6px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed .form-group {
+  margin-bottom: 5px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed label {
+  margin-bottom: 3px;
+}
+
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed input,
+.create-sheet-content .rfq-create-page--jobseeker-step2 .rfq-create-step-body--footer-fixed button.category-select-btn {
+  min-height: 38px;
+  padding-top: 7px;
+  padding-bottom: 7px;
 }
 
 .create-sheet-content .rfq-create-page--jobseeker-step2 .wizard-actions.sticky-footer.rfq-create-fixed-footer {
   position: sticky;
   bottom: calc(8px + env(safe-area-inset-bottom));
   flex-shrink: 0;
-  margin-top: 10px;
-  padding-top: 10px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  margin-top: 4px;
+  padding-top: 6px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom));
   background: var(--card);
   border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
@@ -10278,8 +10293,8 @@ body.dark-mode .category-selector-modal {
 .create-sheet-content .jobseeker-date-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 5px;
 }
 
 .create-sheet-content .jobseeker-date-field {
