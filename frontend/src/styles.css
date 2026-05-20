@@ -3817,6 +3817,63 @@ body.dark-mode .ux-error-state {
   margin-bottom: 16px;
 }
 
+.rfq-detail-meta-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.rfq-detail-content-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.rfq-detail-category-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rfq-detail-category-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.rfq-detail-category-chip--sub {
+  color: #475569;
+  font-weight: 600;
+}
+
+.rfq-detail-field {
+  display: grid;
+  gap: 6px;
+}
+
+.rfq-detail-field > span {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rfq-detail-value {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.rfq-detail-feature-card {
+  display: grid;
+  gap: 12px;
+}
+
 .rfq-detail-meta-card {
   padding: 16px;
   border-radius: 18px;
@@ -3849,6 +3906,21 @@ body.dark-mode .rfq-detail-meta-card span {
 }
 
 body.dark-mode .rfq-detail-meta-card strong {
+  color: #f8fafc;
+}
+
+body.dark-mode .rfq-detail-category-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(148, 163, 184, 0.14);
+  color: #f8fafc;
+}
+
+body.dark-mode .rfq-detail-category-chip--sub,
+body.dark-mode .rfq-detail-field > span {
+  color: #94a3b8;
+}
+
+body.dark-mode .rfq-detail-value {
   color: #f8fafc;
 }
 
@@ -12345,10 +12417,17 @@ body.dark-mode .premium-web-summary__card strong {
   border-color: rgba(79, 70, 229, 0.16);
 }
 
+.rfq-discovery-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
 .rfq-discovery-card__favorite {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  position: static;
+  flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border: 0;
@@ -12399,11 +12478,23 @@ body.dark-mode .premium-web-summary__card strong {
 }
 
 .rfq-discovery-card__category {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(248, 250, 252, 0.92);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   color: #64748b;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rfq-discovery-card__title {
@@ -12737,6 +12828,11 @@ body.dark-mode .rfq-discovery-card__category,
 body.dark-mode .rfq-discovery-card__meta,
 body.dark-mode .rfq-discovery-card__seller-status {
   color: #94a3b8;
+}
+
+body.dark-mode .rfq-discovery-card__category {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(148, 163, 184, 0.12);
 }
 
 body.dark-mode .rfq-discovery-card__title,

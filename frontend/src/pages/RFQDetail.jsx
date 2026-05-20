@@ -105,6 +105,33 @@ function RFQDetail({ surfaceVariant = 'app' }) {
     () => extractRfqCategoryLabels(rfq),
     [rfq]
   );
+  const amountBudgetLabel = useMemo(() => {
+    if (!rfq) {
+      return 'Belirtilmedi';
+    }
+
+    const parts = [];
+    const quantity = Number(rfq.quantity);
+    if (Number.isFinite(quantity) && quantity > 0) {
+      parts.push(`Miktar: ${quantity}`);
+    }
+
+    const targetPrice = Number(rfq.targetPrice);
+    if (Number.isFinite(targetPrice) && targetPrice > 0) {
+      parts.push(`Bütçe: ${targetPrice.toLocaleString('tr-TR')} TL`);
+    }
+
+    const expectedPay =
+      rfq.segmentMetadata?.expectedPay ||
+      rfq.segmentMetadata?.expectedSalary ||
+      rfq.expectedPay ||
+      rfq.expectedSalary;
+    if (expectedPay) {
+      parts.push(`Beklenen ücret: ${expectedPay}`);
+    }
+
+    return parts.length ? parts.join(' • ') : 'Belirtilmedi';
+  }, [rfq]);
   const isOwner = useMemo(() => idEq(rfq?.buyer, currentUserId), [currentUserId, rfq?.buyer]);
   const isBuyer = isOwner;
   const isSeller = Boolean(currentUserId && !isBuyer);
@@ -1252,36 +1279,37 @@ function RFQDetail({ surfaceVariant = 'app' }) {
       {!loading && !userLoading && !error && rfq ? (
         <>
           <section className={`card fade-in ${isWebSurface ? 'rfq-detail-hero-card' : ''}`} style={{ animationDelay: '0ms' }}>
-            <div className="detail-title-row">
-              <h1>{rfq.title}</h1>
-              {isAwarded ? <span className="badge done">Talep Tamamlandi</span> : null}
-              {isOwner && rfq.status === 'open' ? (
-                <button type="button" className="secondary-btn" onClick={() => setIsEditOpen(true)}>
-                  Duzenle
-                </button>
-              ) : null}
-            </div>
-            <div className="rfq-detail-meta-grid">
-              <div className="rfq-detail-meta-card">
-                <span>Kategori</span>
-                <strong>{detailCategoryLabel}</strong>
+            <div className="rfq-detail-content-stack">
+              <div className="rfq-detail-category-stack">
+                <span className="rfq-detail-category-chip">{detailCategoryLabel}</span>
+                {detailSubcategoryLabel ? (
+                  <span className="rfq-detail-category-chip rfq-detail-category-chip--sub">{detailSubcategoryLabel}</span>
+                ) : null}
               </div>
-              {detailSubcategoryLabel ? (
-                <div className="rfq-detail-meta-card">
-                  <span>Alt kategori</span>
-                  <strong>{detailSubcategoryLabel}</strong>
+
+              <div className="rfq-detail-field">
+                <span>Talep Başlığı</span>
+                <div className="detail-title-row">
+                  <h1>{rfq.title}</h1>
+                  {isAwarded ? <span className="badge done">Talep Tamamlandi</span> : null}
+                  {isOwner && rfq.status === 'open' ? (
+                    <button type="button" className="secondary-btn" onClick={() => setIsEditOpen(true)}>
+                      Duzenle
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-              <div className="rfq-detail-meta-card">
-                <span>Termin</span>
-                <strong>{formatDate(rfq.deadline)}</strong>
               </div>
-              <div className="rfq-detail-meta-card">
-                <span>Konum</span>
-                <strong>{getCityName(rfq) ? `${getCityName(rfq)}${getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}` : '-'}</strong>
+              <div className="rfq-detail-field">
+                <span>Açıklama</span>
+                <p className="detail-description">{rfq.description || 'Açıklama belirtilmedi.'}</p>
               </div>
-            </div>
-            {isOwner ? (
+
+              <div className="rfq-detail-field">
+                <span>Miktar / Bütçe</span>
+                <strong className="rfq-detail-value">{amountBudgetLabel}</strong>
+              </div>
+
+            {false ? (
               <div className="detail-feature-row">
                 <div className="rfq-sub">Kredi: {featuredCredits}</div>
                 <button
@@ -1301,13 +1329,12 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 ) : null}
               </div>
             ) : null}
-            {isOwner ? (
+            {false ? (
               <div className="rfq-sub">
                 Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
                 araciligi yapmaz.
               </div>
             ) : null}
-            <p className="detail-description">{rfq.description}</p>
             <div className="rfq-detail-owner">
               <span className="rfq-detail-owner__avatar" aria-hidden="true">{buyerInitial}</span>
               <div className="rfq-detail-owner__copy">
@@ -1335,7 +1362,6 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 ))}
               </div>
             ) : null}
-            <div className="rfq-sub">Miktar: {rfq.quantity}</div>
             {rfq.isAuction ? (
               <div className={`auction-live ${flashBid ? 'flash' : ''}`}>
                 <div>Canli En Iyi Teklif: {rfq.currentBestOffer ? `${rfq.currentBestOffer} TL` : 'Henuz yok'}</div>
@@ -1365,6 +1391,24 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 ) : null}
               </div>
             ) : null}
+            </div>
+          </section>
+
+          <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '35ms' }}>
+            <div className="rfq-detail-meta-grid rfq-detail-meta-grid--two">
+              <div className="rfq-detail-meta-card">
+                <span>Konum</span>
+                <strong>
+                  {getCityName(rfq)
+                    ? `${getCityName(rfq)}${getDistrictName(rfq) ? ` / ${getDistrictName(rfq)}` : ''}`
+                    : 'Konum belirtilmedi'}
+                </strong>
+              </div>
+              <div className="rfq-detail-meta-card">
+                <span>Termin</span>
+                <strong>{formatDate(rfq.deadline)}</strong>
+              </div>
+            </div>
           </section>
 
           {activeTab === 'offers' ? (
@@ -1512,6 +1556,37 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 </section>
               )}
             </>
+          ) : null}
+
+          {activeTab === 'offers' && isOwner ? (
+            <section className={`card fade-in rfq-detail-feature-card ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '70ms' }}>
+              <div>
+                <h2>Öne çıkarma</h2>
+                <p className="rfq-sub">Kredi ve premium görünürlük işlemleri bu talep için yönetilir.</p>
+              </div>
+              <div className="detail-feature-row">
+                <div className="rfq-sub">Kredi: {featuredCredits}</div>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={handleFeatureRFQ}
+                  disabled={featureLoading || featuredActive || featuredCredits <= 0}
+                >
+                  {featuredActive ? 'Öne Çıkarıldı' : featureLoading ? 'Isleniyor...' : 'Öne Çıkar'}
+                </button>
+                {featuredCredits <= 0 && !featuredActive ? (
+                  <button type="button" className="primary-btn" onClick={handlePurchaseFeatured}>
+                    {PREMIUM_PURCHASES_ENABLED
+                      ? 'One Cikarma Paketini Aktiflestir'
+                      : 'One Cikarma Yakinda'}
+                  </button>
+                ) : null}
+              </div>
+              <div className="rfq-sub">
+                Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
+                araciligi yapmaz.
+              </div>
+            </section>
           ) : null}
 
           {activeTab === 'chat' ? (

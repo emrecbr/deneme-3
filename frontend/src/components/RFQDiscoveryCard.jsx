@@ -32,16 +32,19 @@ export default function RFQDiscoveryCard({
         </span>
       ) : null}
 
-      {onFavoriteToggle ? (
-        <button
-          type="button"
-          className="rfq-discovery-card__favorite"
-          aria-label={isFavorite ? 'Favorilerden cikar' : 'Favorilere ekle'}
-          onClick={onFavoriteToggle}
-        >
-          <FavoriteIcon size={18} active={isFavorite} className={favoriteAnimating ? 'favorite-animating' : ''} />
-        </button>
-      ) : null}
+      <div className="rfq-discovery-card__topline">
+        <span className="rfq-discovery-card__category">{categoryLabel || 'Talep'}</span>
+        {onFavoriteToggle ? (
+          <button
+            type="button"
+            className="rfq-discovery-card__favorite"
+            aria-label={isFavorite ? 'Favorilerden cikar' : 'Favorilere ekle'}
+            onClick={onFavoriteToggle}
+          >
+            <FavoriteIcon size={18} active={isFavorite} className={favoriteAnimating ? 'favorite-animating' : ''} />
+          </button>
+        ) : null}
+      </div>
 
       <div className="rfq-discovery-card__hero">
         <span className="rfq-discovery-card__icon-shell">
@@ -49,9 +52,6 @@ export default function RFQDiscoveryCard({
         </span>
 
         <div className="rfq-discovery-card__hero-copy">
-          <div className="rfq-discovery-card__category-row">
-            <span className="rfq-discovery-card__category">{categoryLabel || 'Talep'}</span>
-          </div>
           <h3 className="rfq-discovery-card__title">{title || 'Yeni talep'}</h3>
         </div>
       </div>
