@@ -13,6 +13,60 @@ import OfferSheet from '../components/OfferSheet';
 import ReportIssueSheet from '../components/ReportIssueSheet';
 import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+const CATEGORY_LABELS = {
+  'is-arayanlar': 'İş Arayanlar',
+  'is arayanlar': 'İş Arayanlar',
+  'iş arayanlar': 'İş Arayanlar',
+  nakliye: 'Nakliye',
+  temizlik: 'Temizlik',
+  yazilim: 'Yazılım',
+  'yazılım': 'Yazılım',
+  tadilat: 'Tadilat',
+  cafe: 'Cafe',
+  kafe: 'Cafe',
+  sanayi: 'Sanayi',
+  lokanta: 'Lokanta',
+  diger: 'Diğer',
+  'diğer': 'Diğer'
+};
+
+const normalizeCategoryKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLocaleLowerCase('tr-TR')
+    .replace(/_/g, '-')
+    .replace(/\s+/g, ' ');
+
+const formatCategoryLabel = (value, fallback = 'Kategori belirtilmedi') => {
+  if (!value) return fallback;
+
+  const raw =
+    typeof value === 'object'
+      ? value.name || value.title || value.label || value.slug || ''
+      : value;
+  const text = String(raw || '').trim();
+  if (!text || OBJECT_ID_PATTERN.test(text)) return fallback;
+
+  const normalized = normalizeCategoryKey(text);
+  const hyphenated = normalized.replace(/\s+/g, '-');
+  return CATEGORY_LABELS[normalized] || CATEGORY_LABELS[hyphenated] || text;
+};
+
+const maskNamePart = (part) => {
+  const text = String(part || '').trim();
+  if (!text) return '';
+  return `${text.charAt(0)}${'*'.repeat(Math.max(text.length - 1, 1))}`;
+};
+
+const formatOwnerNameMasked = (value) => {
+  const text = String(value || '').trim();
+  if (!text || text.includes('@')) return 'Talep sahibi';
+  const parts = text.split(/\s+/).filter(Boolean).slice(0, 2);
+  const masked = parts.map(maskNamePart).filter(Boolean).join(' ');
+  return masked || 'Talep sahibi';
+};
+
 function RFQDetail({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -83,9 +137,9 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   const OFFER_FINAL = ['accepted', 'rejected', 'withdrawn', 'completed'];
   const currentUserId = currentUser?.id || currentUser?._id || null;
   const buyerId = typeof rfq?.buyer === 'object' ? rfq?.buyer?._id : rfq?.buyer;
-  const buyerName = typeof rfq?.buyer === 'object' ? rfq?.buyer?.name || rfq?.buyer?.email || 'Talep sahibi' : 'Talep sahibi';
-  const buyerContact = typeof rfq?.buyer === 'object' ? rfq?.buyer?.email || '' : '';
-  const buyerInitial = String(buyerName || 'T').trim().charAt(0).toUpperCase() || 'T';
+  const rawBuyerName = typeof rfq?.buyer === 'object' ? rfq?.buyer?.name || '' : '';
+  const buyerName = formatOwnerNameMasked(rawBuyerName);
+  const buyerInitial = String(rawBuyerName || 'T').trim().charAt(0).toUpperCase() || 'T';
   const isOwner = useMemo(() => idEq(rfq?.buyer, currentUserId), [currentUserId, rfq?.buyer]);
   const isBuyer = isOwner;
   const isSeller = Boolean(currentUserId && !isBuyer);
@@ -457,15 +511,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   };
 
   const getCategoryName = (categoryValue) => {
-    if (!categoryValue) {
-      return '-';
-    }
-
-    if (typeof categoryValue === 'string') {
-      return categoryValue;
-    }
-
-    return categoryValue.name || categoryValue.slug || '-';
+    return formatCategoryLabel(categoryValue);
   };
 
   const getCityName = (item) => {
@@ -1298,7 +1344,6 @@ function RFQDetail({ surfaceVariant = 'app' }) {
               <div className="rfq-detail-owner__copy">
                 <span>Talep sahibi</span>
                 <strong>{buyerName}</strong>
-                {buyerContact ? <small>{buyerContact}</small> : null}
               </div>
             </div>
             <div className="rfq-sub">Kategori: {getCategoryName(rfq.category)}</div>
