@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseStoreFile = System.getenv("TALEPET_ANDROID_KEYSTORE")
+def releaseStorePassword = System.getenv("TALEPET_ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("TALEPET_ANDROID_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("TALEPET_ANDROID_KEY_PASSWORD")
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     namespace = "com.talepet.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +22,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn("Release signing is not configured. Set TALEPET_ANDROID_KEYSTORE, TALEPET_ANDROID_KEYSTORE_PASSWORD, TALEPET_ANDROID_KEY_ALIAS, and TALEPET_ANDROID_KEY_PASSWORD.")
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
