@@ -3,6 +3,11 @@ export const isNativeCapacitorRuntime = () => {
     return false;
   }
 
+  const protocol = window.location?.protocol;
+  if (protocol === 'capacitor:' || protocol === 'ionic:') {
+    return true;
+  }
+
   const capacitor = window.Capacitor;
   if (!capacitor) {
     return false;

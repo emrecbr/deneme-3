@@ -1,3 +1,5 @@
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
+
 export const trimTrailingSlash = (value) => String(value || '').trim().replace(/\/$/, '');
 const trimLeadingSlash = (value) => String(value || '').trim().replace(/^\/+/, '');
 const normalizePath = (value = '/') => {
@@ -113,6 +115,10 @@ const isKnownSurfaceHost = (surface, hostname) => {
 };
 
 export const resolveSurfaceLabelFromHostname = (hostname = getBrowserHostname()) => {
+  if (isNativeCapacitorRuntime()) {
+    return SURFACE_LABELS.app;
+  }
+
   const normalizedHostname = normalizeHostname(hostname);
   if (!normalizedHostname) {
     return '';
@@ -143,6 +149,7 @@ export const isAdminSurfaceHost = (hostname = getBrowserHostname()) =>
   resolveSurfaceLabelFromHostname(hostname) === SURFACE_LABELS.admin;
 
 export const shouldUseWebFirstSurface = (hostname = getBrowserHostname()) =>
+  !isNativeCapacitorRuntime() &&
   TALEPET_HOST_ALIASES.web.includes(normalizeHostname(hostname));
 
 export const isWebsiteAuthPath = (pathname = '') => {
@@ -194,6 +201,10 @@ export const resolvePostAuthHref = (role = 'user', hostname = getBrowserHostname
 };
 
 export const resolveSurfaceLabel = (pathname = '', hostname = getBrowserHostname()) => {
+  if (isNativeCapacitorRuntime()) {
+    return SURFACE_LABELS.app;
+  }
+
   const hostnameSurface = resolveSurfaceLabelFromHostname(hostname);
   if (hostnameSurface === SURFACE_LABELS.admin) {
     return SURFACE_LABELS.admin;
