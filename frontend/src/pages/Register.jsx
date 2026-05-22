@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api, { buildProviderAuthUrl } from '../api/axios';
 import { buildSurfaceHref, WEBSITE_HOW_IT_WORKS_PATH, WEBSITE_PACKAGES_PATH } from '../config/surfaces';
 import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
+import { openNativeSocialAuth } from '../utils/nativeSocialAuth';
 
 function Register() {
   const navigate = useNavigate();
@@ -66,19 +67,30 @@ function Register() {
     return buildProviderAuthUrl(provider);
   };
 
-  const handleProviderLogin = (provider) => {
+  const handleProviderLogin = async (provider) => {
     if (providerLoading) {
       return;
     }
 
+    setError('');
+    setHelper('');
+    setProviderLoading(provider);
+    let redirected = false;
+
     if (nativeRuntime) {
-      setError('');
-      setHelper(getNativeSocialAuthMessage());
+      try {
+        await openNativeSocialAuth(buildAuthUrl(provider));
+      } catch (providerError) {
+        setError(providerError?.message || getNativeSocialAuthMessage());
+      } finally {
+        if (!redirected) {
+          setProviderLoading('');
+        }
+      }
       return;
     }
 
-    setHelper('');
-    setProviderLoading(provider);
+    redirected = true;
     window.location.href = buildAuthUrl(provider);
   };
 

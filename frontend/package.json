@@ -16,6 +16,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/browser": "^6.0.6",
     "axios": "^1.7.7",
     "framer-motion": "^12.34.3",
     "leaflet": "^1.9.4",

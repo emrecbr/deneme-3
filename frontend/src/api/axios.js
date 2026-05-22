@@ -7,6 +7,7 @@ import {
   resolveSurfaceLabelFromHostname,
   SURFACE_LABELS
 } from '../config/surfaces';
+import { NATIVE_OAUTH_CALLBACK_URL, isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 let unauthorizedHandler = null;
 
@@ -87,6 +88,10 @@ const isAdminScopedToken = (token) => {
 };
 
 const resolveApiBaseUrl = () => {
+  if (import.meta.env.PROD && isNativeCapacitorRuntime()) {
+    return PROD_FALLBACK;
+  }
+
   const hostSurface = resolveSurfaceLabelFromHostname(getBrowserHostname());
   const candidateList = [ENV_API_BASE, getSurfaceBaseUrl('api')]
     .map(normalizeApiBase)
@@ -389,8 +394,9 @@ export const warmApiForInteractiveAuth = async ({ provider = 'google', onStatus 
 
 export const buildProviderAuthUrl = (provider) => {
   const normalizedProvider = String(provider || '').trim().toLowerCase();
-  const sourceQuery = resolveOauthSourceQuery();
-  const returnTo = getBrowserOrigin();
+  const nativeRuntime = isNativeCapacitorRuntime();
+  const sourceQuery = nativeRuntime ? 'app' : resolveOauthSourceQuery();
+  const returnTo = nativeRuntime ? NATIVE_OAUTH_CALLBACK_URL : getBrowserOrigin();
   const returnSurface = sourceQuery;
   if (!normalizedProvider) {
     return appendSocialReturnQuery(appendSourceQuery('/api/auth/google', sourceQuery), {

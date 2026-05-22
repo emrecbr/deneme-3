@@ -17,7 +17,8 @@ import {
   WEBSITE_PACKAGES_PATH
 } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
-import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
+import { openNativeSocialAuth } from '../utils/nativeSocialAuth';
 
 const PRECHECK_TIMEOUT_MS = 8000;
 const PRECHECK_RETRY_DELAY_MS = 300;
@@ -25,6 +26,19 @@ const SOCIAL_AUTH_TIMEOUT_MS = 12000;
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 const isRetryableRequestError = (error) =>
   !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
+const getSocialAuthErrorMessage = (provider, reason) => {
+  const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
+  if (String(reason || '').startsWith('provider_access_denied')) {
+    return `${providerLabel} ile giris iptal edildi.`;
+  }
+  if (reason === 'invalid_state') {
+    return `${providerLabel} oturumu suresi doldu. Lutfen tekrar dene.`;
+  }
+  if (reason === 'missing_email' || reason === 'email_not_verified') {
+    return `${providerLabel} hesabinda dogrulanmis e-posta bulunamadi.`;
+  }
+  return `${providerLabel} ile giris tamamlanamadi. Lutfen tekrar dene.`;
+};
 
 function Login({ embedded = false }) {
   const navigate = useNavigate();
@@ -66,6 +80,19 @@ function Login({ embedded = false }) {
     const role = user?.role;
     completeAuthRedirect(role);
   }, [isAuthenticated, isWebsiteLoginRoute, navigate, user?.role]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const authError = String(params.get('error') || '').trim();
+    if (!authError) {
+      return;
+    }
+
+    if (authError === 'google_auth_failed' || authError === 'apple_auth_failed') {
+      const provider = authError.startsWith('apple') ? 'apple' : 'google';
+      setError(getSocialAuthErrorMessage(provider, String(params.get('reason') || '').trim()));
+    }
+  }, [location.search]);
 
   const normalizeEmail = (v) =>
     String(v || '')
@@ -298,7 +325,8 @@ function Login({ embedded = false }) {
 
     try {
       if (nativeRuntime) {
-        setNotice(getNativeSocialAuthMessage());
+        rememberSocialLoginReturnTarget();
+        await openNativeSocialAuth(buildProviderAuthUrl(provider));
         return;
       }
 

@@ -23,11 +23,14 @@ const TOKEN_EXPIRES_IN = '7d';
 const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const GOOGLE_OAUTH_STATE_COOKIE_NAME = 'google_oauth_state';
 const GOOGLE_OAUTH_SOURCE_COOKIE_NAME = 'google_oauth_source';
+const GOOGLE_OAUTH_RETURN_COOKIE_NAME = 'google_oauth_return';
 const GOOGLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 const APPLE_OAUTH_STATE_COOKIE_NAME = 'apple_oauth_state';
 const APPLE_OAUTH_SOURCE_COOKIE_NAME = 'apple_oauth_source';
+const APPLE_OAUTH_RETURN_COOKIE_NAME = 'apple_oauth_return';
 const APPLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 const OAUTH_SURFACE_SOURCES = new Set(['web', 'app', 'admin']);
+const NATIVE_OAUTH_SCHEME = 'tr.com.talepet.app:';
 
 const signToken = (payload) => {
   if (!process.env.JWT_SECRET) {
@@ -442,6 +445,9 @@ const mapGoogleCallbackErrorToReason = (error) => {
 const getOauthSourceCookieName = (provider = 'google') =>
   provider === 'apple' ? APPLE_OAUTH_SOURCE_COOKIE_NAME : GOOGLE_OAUTH_SOURCE_COOKIE_NAME;
 
+const getOauthReturnCookieName = (provider = 'google') =>
+  provider === 'apple' ? APPLE_OAUTH_RETURN_COOKIE_NAME : GOOGLE_OAUTH_RETURN_COOKIE_NAME;
+
 const setOauthSourceCookie = (res, provider, sourceSurface, cookieOptions) => {
   res.cookie(
     getOauthSourceCookieName(provider),
@@ -457,6 +463,58 @@ const clearOauthSourceCookie = (res, provider, cookieOptions) => {
   res.clearCookie(getOauthSourceCookieName(provider), cookieOptions);
 };
 
+const normalizeOauthReturnTo = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol === NATIVE_OAUTH_SCHEME && url.hostname === 'auth' && url.pathname === '/callback') {
+      return url.toString();
+    }
+  } catch (_error) {
+    return '';
+  }
+
+  return '';
+};
+
+const setOauthReturnCookie = (req, res, provider, cookieOptions) => {
+  const returnTo = normalizeOauthReturnTo(req.query?.returnTo || req.body?.returnTo);
+  if (returnTo) {
+    res.cookie(getOauthReturnCookieName(provider), returnTo, cookieOptions);
+  }
+};
+
+const getOauthReturnFromCookie = (req, provider = 'google') =>
+  normalizeOauthReturnTo(req.cookies?.[getOauthReturnCookieName(provider)]);
+
+const clearOauthReturnCookie = (res, provider, cookieOptions) => {
+  res.clearCookie(getOauthReturnCookieName(provider), cookieOptions);
+};
+
+const buildNativeOauthRedirect = (returnTo, path, params = {}) => {
+  const normalizedReturnTo = normalizeOauthReturnTo(returnTo);
+  if (!normalizedReturnTo) {
+    return '';
+  }
+
+  const targetUrl =
+    path === '/login'
+      ? new URL(`${NATIVE_OAUTH_SCHEME}//login`)
+      : new URL(normalizedReturnTo);
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value != null && value !== '') {
+      targetUrl.searchParams.set(key, String(value));
+    }
+  });
+
+  return targetUrl.toString();
+};
+
 const resolvePostLoginRedirectSurface = (req, provider = 'google', fallback = 'app') => {
   const cookieSource = getOauthSourceFromCookie(req, provider);
   if (cookieSource) {
@@ -465,7 +523,16 @@ const resolvePostLoginRedirectSurface = (req, provider = 'google', fallback = 'a
   return resolveAuthSourceSurface(req, fallback);
 };
 
-const redirectToFrontend = (res, path, params = {}, sourceSurface = 'app') => {
+const redirectToFrontend = (res, path, params = {}, sourceSurface = 'app', options = {}) => {
+  const nativeRedirectUrl = buildNativeOauthRedirect(options.returnTo, path, params);
+  if (nativeRedirectUrl) {
+    console.info('AUTH_NATIVE_REDIRECT', {
+      sourceSurface: normalizeOauthSurfaceSource(sourceSurface),
+      path
+    });
+    return res.redirect(nativeRedirectUrl);
+  }
+
   const normalizedSurface = normalizeOauthSurfaceSource(sourceSurface);
   const frontendConfig = getFrontendBaseConfig(normalizedSurface);
   const frontendBaseUrl = frontendConfig.value;
@@ -808,12 +875,13 @@ const failAppleCallback = (stage, reason, req, res, options = {}) => {
 
   res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
   clearOauthSourceCookie(res, 'apple', stateCookieOptions);
+  clearOauthReturnCookie(res, 'apple', stateCookieOptions);
 
   try {
     return redirectToFrontend(res, '/login', {
       error: 'apple_auth_failed',
       reason
-    }, sourceSurface);
+    }, sourceSurface, { returnTo: options.returnTo });
   } catch (redirectError) {
     const redirectReason = resolveAppleCallbackReason(redirectError, 'redirect_build');
     console.error('APPLE_AUTH_FAIL_STAGE', 'redirect_build');
@@ -1678,6 +1746,7 @@ export const oauthGoogle = async (_req, res) => {
   const state = crypto.randomBytes(24).toString('hex');
   res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
   setOauthSourceCookie(res, 'google', sourceSurface, stateCookieOptions);
+  setOauthReturnCookie(req, res, 'google', stateCookieOptions);
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID);
@@ -1703,6 +1772,7 @@ export const oauthGoogle = async (_req, res) => {
 
 export const oauthGoogleCallback = async (req, res) => {
   const sourceSurface = resolvePostLoginRedirectSurface(req, 'google');
+  const returnTo = getOauthReturnFromCookie(req, 'google');
   const envSnapshot = buildGoogleAuthEnvSnapshot(req, sourceSurface);
   const stateCookieOptions = getGoogleStateCookieOptions(req);
   const fail = (reason, meta = {}) => {
@@ -1713,12 +1783,13 @@ export const oauthGoogleCallback = async (req, res) => {
     });
     res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
     clearOauthSourceCookie(res, 'google', stateCookieOptions);
+    clearOauthReturnCookie(res, 'google', stateCookieOptions);
 
     try {
       return redirectToFrontend(res, '/login', {
         error: 'google_auth_failed',
         reason
-      }, sourceSurface);
+      }, sourceSurface, { returnTo });
     } catch (redirectError) {
       console.error('GOOGLE_AUTH_FAILURE', {
         reason: 'frontend_redirect_resolution_failed',
@@ -1777,6 +1848,7 @@ export const oauthGoogleCallback = async (req, res) => {
   });
   res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
   clearOauthSourceCookie(res, 'google', stateCookieOptions);
+  clearOauthReturnCookie(res, 'google', stateCookieOptions);
 
   try {
     console.info('GOOGLE_AUTH_TOKEN_EXCHANGE_START', {
@@ -1894,7 +1966,10 @@ export const oauthGoogleCallback = async (req, res) => {
       created
     });
 
-    return redirectToFrontend(res, '/auth/callback', { token }, sourceSurface);
+    return redirectToFrontend(res, '/auth/callback', {
+      token,
+      returnSurface: sourceSurface
+    }, sourceSurface, { returnTo });
   } catch (error) {
     const reason = mapGoogleCallbackErrorToReason(error);
     return fail(reason, {
@@ -1953,6 +2028,7 @@ export const oauthApple = async (_req, res) => {
   const state = crypto.randomBytes(24).toString('hex');
   res.cookie(APPLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
   setOauthSourceCookie(res, 'apple', sourceSurface, stateCookieOptions);
+  setOauthReturnCookie(req, res, 'apple', stateCookieOptions);
 
   const authUrl = new URL('https://appleid.apple.com/auth/authorize');
   authUrl.searchParams.set('client_id', String(process.env.APPLE_CLIENT_ID || '').trim());
@@ -2056,6 +2132,7 @@ export const oauthAppleTokenLogin = async (req, res) => {
 
 export const oauthAppleCallback = async (req, res) => {
   const sourceSurface = resolvePostLoginRedirectSurface(req, 'apple');
+  const returnTo = getOauthReturnFromCookie(req, 'apple');
   const envSnapshot = buildAppleAuthEnvSnapshot(req, sourceSurface);
   const appleConfig = hasAppleOAuthConfig(req);
   const stateCookieOptions = getAppleStateCookieOptions(req);
@@ -2063,6 +2140,7 @@ export const oauthAppleCallback = async (req, res) => {
   const fail = (stage, reason, options = {}) =>
     failAppleCallback(stage, reason, req, res, {
       sourceSurface,
+      returnTo,
       envSnapshot,
       stateCookieOptions,
       clientSecretDebug,
@@ -2118,6 +2196,7 @@ export const oauthAppleCallback = async (req, res) => {
   });
   res.clearCookie(APPLE_OAUTH_STATE_COOKIE_NAME, stateCookieOptions);
   clearOauthSourceCookie(res, 'apple', stateCookieOptions);
+  clearOauthReturnCookie(res, 'apple', stateCookieOptions);
 
   try {
     console.info('APPLE_AUTH_TOKEN_EXCHANGE_START', {
@@ -2209,7 +2288,10 @@ export const oauthAppleCallback = async (req, res) => {
     });
 
     try {
-      return redirectToFrontend(res, '/auth/callback', { token }, sourceSurface);
+      return redirectToFrontend(res, '/auth/callback', {
+        token,
+        returnSurface: sourceSurface
+      }, sourceSurface, { returnTo });
     } catch (redirectError) {
       redirectError.stage = 'redirect_build';
       throw redirectError;

@@ -25,5 +25,20 @@ export const isNativeCapacitorRuntime = () => {
   return platform === 'android' || platform === 'ios';
 };
 
+export const getNativePlatform = () => {
+  if (!isNativeCapacitorRuntime()) {
+    return '';
+  }
+
+  try {
+    return typeof window.Capacitor?.getPlatform === 'function' ? window.Capacitor.getPlatform() : 'native';
+  } catch {
+    return 'native';
+  }
+};
+
+export const NATIVE_OAUTH_SCHEME = 'tr.com.talepet.app';
+export const NATIVE_OAUTH_CALLBACK_URL = `${NATIVE_OAUTH_SCHEME}://auth/callback`;
+
 export const getNativeSocialAuthMessage = () =>
-  'Mobil uygulamada sosyal giris hazirlaniyor. Simdilik e-posta ve sifre ile devam edebilirsin.';
+  'Sosyal giris baslatilamadi. Lutfen tekrar dene veya e-posta ile devam et.';

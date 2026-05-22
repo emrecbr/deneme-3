@@ -20,6 +20,8 @@
     "seed:turkey-full": "node scripts/seedTurkeyFullLocation.js"
   },
   "dependencies": {
+    "@capacitor/app": "^6.0.3",
+    "@capacitor/browser": "^6.0.6",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

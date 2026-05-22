@@ -4,6 +4,7 @@ import api, { buildProviderAuthUrl, rememberSocialLoginReturnTarget } from '../a
 import { isAbsoluteHref, isWebSurfaceHost, resolvePostAuthHref } from '../config/surfaces';
 import { useAuth } from '../context/AuthContext';
 import { getNativeSocialAuthMessage, isNativeCapacitorRuntime } from '../utils/nativePlatform';
+import { openNativeSocialAuth } from '../utils/nativeSocialAuth';
 
 const EMAIL_REGEX = /\S+@\S+\.\S+/;
 
@@ -146,17 +147,30 @@ function RegisterOtp({ embedded = false }) {
     await sendOtp();
   };
 
-  const handleProviderLogin = (provider) => {
+  const handleProviderLogin = async (provider) => {
     if (providerLoading) {
       return;
     }
+    resetMessages();
+    setProviderLoading(provider);
+    let redirected = false;
+
     if (nativeRuntime) {
-      resetMessages();
-      setSuccess(getNativeSocialAuthMessage());
+      try {
+        rememberSocialLoginReturnTarget();
+        await openNativeSocialAuth(buildProviderAuthUrl(provider));
+      } catch (providerError) {
+        setError(providerError?.message || getNativeSocialAuthMessage());
+      } finally {
+        if (!redirected) {
+          setProviderLoading('');
+        }
+      }
       return;
     }
-    setProviderLoading(provider);
+
     rememberSocialLoginReturnTarget();
+    redirected = true;
     window.location.href = buildProviderAuthUrl(provider);
   };
 

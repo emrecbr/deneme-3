@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import WebsiteAuthShell from './components/WebsiteAuthShell';
 import WebsiteProfileShell from './components/WebsiteProfileShell';
@@ -88,6 +88,7 @@ import {
 } from './config/surfaces';
 import { useAuth } from './context/AuthContext';
 import { useAdminAuth } from './context/AdminAuthContext';
+import { registerNativeSocialAuthRedirects } from './utils/nativeSocialAuth';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
@@ -187,6 +188,7 @@ function App() {
   const { user, loading, checkAuth } = useAuth();
   const { admin, loading: adminLoading } = useAdminAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const appHost = isAppSurfaceHost();
   const adminHost = isAdminSurfaceHost();
   const webSurfacePreferred = shouldUseWebFirstSurface();
@@ -208,6 +210,8 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.surface = resolveSurfaceLabel(location.pathname);
   }, [location.pathname]);
+
+  useEffect(() => registerNativeSocialAuthRedirects(navigate), [navigate]);
 
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
