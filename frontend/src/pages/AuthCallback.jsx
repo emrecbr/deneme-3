@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { clearSocialLoginReturnTarget, readSocialLoginReturnTarget } from '../api/axios';
-import { buildSurfaceHref, isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
+import { APP_HOME_PATH, buildSurfaceHref, isAbsoluteHref, resolvePostAuthHref } from '../config/surfaces';
 import { debugInfo, debugWarn } from '../utils/debugLog';
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 function AuthCallback() {
   const navigate = useNavigate();
@@ -18,9 +19,12 @@ function AuthCallback() {
 
     const rememberedReturnSurface = String(rememberedTarget?.returnSurface || '').trim();
     const rememberedReturnTo = String(rememberedTarget?.returnTo || '').trim();
+    const nativeRuntime = isNativeCapacitorRuntime();
 
     let nextHref = '';
-    if (returnSurface === 'web' || rememberedReturnSurface === 'web') {
+    if (nativeRuntime) {
+      nextHref = APP_HOME_PATH;
+    } else if (returnSurface === 'web' || rememberedReturnSurface === 'web') {
       nextHref = buildSurfaceHref('web', '/kesfet');
     } else if (returnSurface === 'app' || rememberedReturnSurface === 'app') {
       nextHref = buildSurfaceHref('app', '/app');

@@ -247,11 +247,12 @@ export const rememberSocialLoginReturnTarget = () => {
     return;
   }
 
-  const origin = getBrowserOrigin();
+  const nativeRuntime = isNativeCapacitorRuntime();
+  const origin = nativeRuntime ? NATIVE_OAUTH_CALLBACK_URL : getBrowserOrigin();
   const pathname = window.location?.pathname || '/';
   const search = window.location?.search || '';
   const hash = window.location?.hash || '';
-  const surface = resolveOauthSourceQuery();
+  const surface = nativeRuntime ? 'app' : resolveOauthSourceQuery();
 
   window.sessionStorage.setItem(
     'talepet_social_return',

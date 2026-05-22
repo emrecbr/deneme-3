@@ -31,6 +31,7 @@ const APPLE_OAUTH_RETURN_COOKIE_NAME = 'apple_oauth_return';
 const APPLE_OAUTH_STATE_MAX_AGE = 10 * 60 * 1000;
 const OAUTH_SURFACE_SOURCES = new Set(['web', 'app', 'admin']);
 const NATIVE_OAUTH_SCHEME = 'tr.com.talepet.app:';
+const OAUTH_STATE_VERSION = 1;
 
 const signToken = (payload) => {
   if (!process.env.JWT_SECRET) {
@@ -493,6 +494,41 @@ const getOauthReturnFromCookie = (req, provider = 'google') =>
 
 const clearOauthReturnCookie = (res, provider, cookieOptions) => {
   res.clearCookie(getOauthReturnCookieName(provider), cookieOptions);
+};
+
+const base64UrlEncode = (value) =>
+  Buffer.from(String(value || ''), 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+
+const base64UrlDecode = (value) => {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  return Buffer.from(padded, 'base64').toString('utf8');
+};
+
+const createOauthState = (returnTo = '') => {
+  const payload = {
+    v: OAUTH_STATE_VERSION,
+    nonce: crypto.randomBytes(24).toString('hex'),
+    returnTo: normalizeOauthReturnTo(returnTo)
+  };
+
+  return base64UrlEncode(JSON.stringify(payload));
+};
+
+const parseOauthStateReturnTo = (value) => {
+  try {
+    const parsed = JSON.parse(base64UrlDecode(value));
+    if (Number(parsed?.v) !== OAUTH_STATE_VERSION) {
+      return '';
+    }
+    return normalizeOauthReturnTo(parsed?.returnTo);
+  } catch (_error) {
+    return '';
+  }
 };
 
 const buildNativeOauthRedirect = (returnTo, path, params = {}) => {
@@ -1743,7 +1779,8 @@ export const oauthGoogle = async (_req, res) => {
     });
   }
 
-  const state = crypto.randomBytes(24).toString('hex');
+  const nativeReturnTo = normalizeOauthReturnTo(req.query?.returnTo || req.body?.returnTo);
+  const state = createOauthState(nativeReturnTo);
   res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
   setOauthSourceCookie(res, 'google', sourceSurface, stateCookieOptions);
   setOauthReturnCookie(req, res, 'google', stateCookieOptions);
@@ -1772,7 +1809,8 @@ export const oauthGoogle = async (_req, res) => {
 
 export const oauthGoogleCallback = async (req, res) => {
   const sourceSurface = resolvePostLoginRedirectSurface(req, 'google');
-  const returnTo = getOauthReturnFromCookie(req, 'google');
+  const requestState = String(req.query?.state || '').trim();
+  const returnTo = getOauthReturnFromCookie(req, 'google') || parseOauthStateReturnTo(requestState);
   const envSnapshot = buildGoogleAuthEnvSnapshot(req, sourceSurface);
   const stateCookieOptions = getGoogleStateCookieOptions(req);
   const fail = (reason, meta = {}) => {
@@ -1820,7 +1858,7 @@ export const oauthGoogleCallback = async (req, res) => {
 
   const providerError = String(req.query?.error || '').trim();
   const code = String(req.query?.code || '').trim();
-  const state = String(req.query?.state || '').trim();
+  const state = requestState;
   const expectedState = String(req.cookies?.[GOOGLE_OAUTH_STATE_COOKIE_NAME] || '').trim();
 
   if (providerError) {
@@ -2025,7 +2063,8 @@ export const oauthApple = async (_req, res) => {
     });
   }
 
-  const state = crypto.randomBytes(24).toString('hex');
+  const nativeReturnTo = normalizeOauthReturnTo(req.query?.returnTo || req.body?.returnTo);
+  const state = createOauthState(nativeReturnTo);
   res.cookie(APPLE_OAUTH_STATE_COOKIE_NAME, state, stateCookieOptions);
   setOauthSourceCookie(res, 'apple', sourceSurface, stateCookieOptions);
   setOauthReturnCookie(req, res, 'apple', stateCookieOptions);
@@ -2132,7 +2171,10 @@ export const oauthAppleTokenLogin = async (req, res) => {
 
 export const oauthAppleCallback = async (req, res) => {
   const sourceSurface = resolvePostLoginRedirectSurface(req, 'apple');
-  const returnTo = getOauthReturnFromCookie(req, 'apple');
+  const body = req.body || {};
+  const query = req.query || {};
+  const requestState = String(body.state || query.state || '').trim();
+  const returnTo = getOauthReturnFromCookie(req, 'apple') || parseOauthStateReturnTo(requestState);
   const envSnapshot = buildAppleAuthEnvSnapshot(req, sourceSurface);
   const appleConfig = hasAppleOAuthConfig(req);
   const stateCookieOptions = getAppleStateCookieOptions(req);
@@ -2164,11 +2206,9 @@ export const oauthAppleCallback = async (req, res) => {
     return fail('callback_entry', 'invalid_redirect_uri');
   }
 
-  const body = req.body || {};
-  const query = req.query || {};
   const providerError = String(body.error || query.error || '').trim();
   const code = String(body.code || query.code || '').trim();
-  const state = String(body.state || query.state || '').trim();
+  const state = requestState;
   const expectedState = String(req.cookies?.[APPLE_OAUTH_STATE_COOKIE_NAME] || '').trim();
 
   console.info('APPLE_AUTH_CODE_PRESENT', {
