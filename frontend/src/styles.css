@@ -117,11 +117,22 @@ body.native-capacitor .app-header {
 }
 
 body.native-capacitor .app-content {
-  min-height: 100dvh;
+  min-height: calc(100dvh - 56px - var(--nativeTopInset));
   padding-left: max(12px, env(safe-area-inset-left));
   padding-right: max(12px, env(safe-area-inset-right));
   padding-bottom: calc(var(--navHeight) + var(--navDockBottom) + 46px + env(safe-area-inset-bottom));
   overflow-x: hidden;
+}
+
+body.native-capacitor .auth-page {
+  min-height: calc(100dvh - 56px - var(--nativeTopInset));
+  align-items: flex-start;
+  padding-top: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+body.native-capacitor .auth-card {
+  margin-top: 0;
 }
 
 body.native-capacitor .header-filter-pill {
@@ -2082,6 +2093,7 @@ body.dark-mode .app-content {
 .social-btn.apple {
   background: #6f7277;
   color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.18);
   opacity: 1;
 }
@@ -3184,6 +3196,7 @@ button:active {
 .primary-btn {
   background: var(--primary);
   color: #fff;
+  -webkit-text-fill-color: #fff;
   border: none;
 }
 
@@ -3199,6 +3212,7 @@ button:active {
 .secondary-btn {
   background: #e5e7eb;
   color: #111827;
+  -webkit-text-fill-color: #111827;
   border: none;
 }
 
