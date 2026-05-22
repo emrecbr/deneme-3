@@ -2313,6 +2313,14 @@ div {
   border: 1px solid #d1d5db;
 }
 
+body.native-capacitor input,
+body.native-capacitor textarea,
+body.native-capacitor select,
+body.native-capacitor [contenteditable='true'] {
+  font-size: max(16px, 1em) !important;
+  line-height: 1.25;
+}
+
 body.dark-mode .app-content input,
 body.dark-mode .app-content textarea,
 body.dark-mode .app-content select {
