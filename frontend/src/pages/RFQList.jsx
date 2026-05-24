@@ -19,6 +19,7 @@ import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../
 import { getDistanceKm } from '../utils/distance';
 import { extractRfqCityName, extractRfqDistrictName, formatCategoryLabel, formatRfqLocation } from '../utils/rfqFormatters';
 import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const PAGE_LIMIT = 10;
 const RFQ_CACHE_KEY = 'rfq_list_cache_v1';
@@ -41,6 +42,16 @@ const DEFAULT_MAP_SETTINGS = {
   clusterEnabled: true,
   radiusCircleEnabled: true,
   controlsEnabled: true
+};
+const nativeAuthPerf = (event, extra = {}) => {
+  if (!isNativeCapacitorRuntime()) {
+    return;
+  }
+  console.info('NATIVE_AUTH_PERF', {
+    event,
+    path: window.location.pathname,
+    ...extra
+  });
 };
 const DEFAULT_FEATURE_FLAGS = {
   mapViewEnabled: true,
@@ -137,6 +148,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const { selectedCity, setSelectedCity, selectedDistrict, setSelectedDistrict } = useAuth();
   const navigate = useNavigate();
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  const nativeBootstrapHandledRef = useRef(0);
   const observerRef = useRef(null);
   const clusterRef = useRef(null);
   const newMarkerTimeoutsRef = useRef({});
@@ -680,6 +692,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   }, []);
 
   useEffect(() => {
+    nativeAuthPerf('home_mounted', { surfaceVariant });
     let lastPath = window.location.pathname;
     const watchPath = () => {
       const nextPath = window.location.pathname;
@@ -691,7 +704,7 @@ function RFQList({ surfaceVariant = 'app' }) {
 
     const intervalId = window.setInterval(watchPath, 200);
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [surfaceVariant]);
 
   useEffect(() => {
     if (!isSearchTriggerOpen) {
@@ -717,6 +730,57 @@ function RFQList({ surfaceVariant = 'app' }) {
   useEffect(() => {
     fetchLocationSelection();
   }, [fetchLocationSelection]);
+
+  const bootstrapHomeAfterNativeLogin = useCallback(
+    async (event) => {
+      const completedAt = Number(event?.detail?.completedAt || Date.now());
+      if (completedAt && completedAt === nativeBootstrapHandledRef.current) {
+        return;
+      }
+      nativeBootstrapHandledRef.current = completedAt || Date.now();
+      nativeAuthPerf('app_bootstrap_requested', { source: event?.type || 'manual' });
+      window.dispatchEvent(new CustomEvent('bottomnav:show'));
+      setIsFilterSheetOpen(false);
+      setCreateSheetState('closed');
+      setIsCreateSheetMounted(false);
+      setIsSearchTriggerOpen(false);
+      setLoading(true);
+      nativeAuthPerf('home_fetch_started');
+      await Promise.allSettled([
+        fetchRFQs({ nextPage: 1, replace: true, isRefresh: true }),
+        fetchCurrentUser(),
+        fetchFavorites(),
+        fetchLocationSelection()
+      ]);
+      nativeAuthPerf('home_fetch_done');
+      nativeAuthPerf('app_bootstrap_done');
+    },
+    [fetchCurrentUser, fetchFavorites, fetchLocationSelection, fetchRFQs]
+  );
+
+  useEffect(() => {
+    window.addEventListener('native-login-completed', bootstrapHomeAfterNativeLogin);
+    window.addEventListener('native-auth-hydrated', bootstrapHomeAfterNativeLogin);
+    return () => {
+      window.removeEventListener('native-login-completed', bootstrapHomeAfterNativeLogin);
+      window.removeEventListener('native-auth-hydrated', bootstrapHomeAfterNativeLogin);
+    };
+  }, [bootstrapHomeAfterNativeLogin]);
+
+  useEffect(() => {
+    if (!isNativeCapacitorRuntime() || pathname !== '/app') {
+      return undefined;
+    }
+    if (!localStorage.getItem('token')) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      if (loading || (!rfqs.length && !error)) {
+        bootstrapHomeAfterNativeLogin({ type: 'native-app-safe-refetch', detail: { completedAt: Date.now() } });
+      }
+    }, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [bootstrapHomeAfterNativeLogin, error, loading, pathname, rfqs.length]);
 
   useEffect(() => {
     userPositionRef.current = userPosition;

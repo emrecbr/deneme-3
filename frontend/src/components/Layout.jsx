@@ -33,6 +33,18 @@ function Layout({ children, showBottomNav = true }) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [hideBottomNav, setHideBottomNav] = useState(false);
   const notifRef = useRef(null);
+  const hasStoredToken = () => Boolean(localStorage.getItem('token'));
+  const canShowAuthenticatedChrome = Boolean(user) || hasStoredToken();
+  const nativeAuthPerf = (event, extra = {}) => {
+    if (!isNativeCapacitorRuntime()) {
+      return;
+    }
+    console.info('NATIVE_AUTH_PERF', {
+      event,
+      path: window.location.pathname,
+      ...extra
+    });
+  };
 
   useEffect(() => {
     if (!isNativeCapacitorRuntime()) {
@@ -172,11 +184,21 @@ function Layout({ children, showBottomNav = true }) {
   useEffect(() => {
     const onHide = () => setHideBottomNav(true);
     const onShow = () => setHideBottomNav(false);
+    const onNativeLoginCompleted = () => {
+      setHideBottomNav(false);
+      window.dispatchEvent(new CustomEvent('bottomnav:show'));
+      nativeAuthPerf('bottom_nav_rendered');
+      fetchNotifications();
+    };
     window.addEventListener('bottomnav:hide', onHide);
     window.addEventListener('bottomnav:show', onShow);
+    window.addEventListener('native-login-completed', onNativeLoginCompleted);
+    window.addEventListener('native-auth-hydrated', onNativeLoginCompleted);
     return () => {
       window.removeEventListener('bottomnav:hide', onHide);
       window.removeEventListener('bottomnav:show', onShow);
+      window.removeEventListener('native-login-completed', onNativeLoginCompleted);
+      window.removeEventListener('native-auth-hydrated', onNativeLoginCompleted);
     };
   }, []);
 
@@ -336,7 +358,7 @@ function Layout({ children, showBottomNav = true }) {
             )}
           </button>
         ) : null}
-        {user ? (
+        {canShowAuthenticatedChrome ? (
           <div className="header-actions" ref={notifRef}>
             <button
               type="button"

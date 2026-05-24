@@ -43,6 +43,12 @@ const hasNativeCallbackToken = () =>
   typeof window !== 'undefined' &&
   window.location.pathname === APP_AUTH_CALLBACK_PATH &&
   Boolean(readCallbackTokenFromLocation());
+const dispatchNativeLoginEvent = (name, detail = {}) => {
+  if (!isNativeCapacitorRuntime() || typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(name, { detail: { completedAt: Date.now(), ...detail } }));
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -156,6 +162,11 @@ export function AuthProvider({ children }) {
         blocking,
         userId: userData?.id || userData?._id || ''
       });
+      if (!blocking) {
+        dispatchNativeLoginEvent('native-auth-hydrated', {
+          userId: userData?.id || userData?._id || ''
+        });
+      }
       return userData;
     } catch (error) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
@@ -219,6 +230,9 @@ export function AuthProvider({ children }) {
         name: localStorage.getItem('userName') || 'Kullanici',
         _optimistic: true
       });
+      nativeAuthPerf('optimistic_auth_set', startedAt);
+      dispatchNativeLoginEvent('native-login-completed');
+      nativeAuthPerf('app_bootstrap_requested', startedAt);
 
       checkAuth({ blocking: false, keepUserOnNetworkError: true }).catch(() => null);
       nativeAuthPerf('login_fast_done', startedAt);
