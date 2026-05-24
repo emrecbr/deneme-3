@@ -8,7 +8,7 @@ import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 function AuthCallback() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginFast } = useAuth();
   const [error, setError] = useState('');
 
   const completeAuthRedirect = (role = 'user') => {
@@ -58,6 +58,12 @@ function AuthCallback() {
       setError('Token bulunamadi.');
       return;
     }
+    if (isNativeCapacitorRuntime()) {
+      loginFast(token);
+      completeAuthRedirect('user');
+      return;
+    }
+
     login(token)
       .then((nextUser) => {
         debugInfo('AUTH_CALLBACK_LOGIN_OK', {
@@ -75,7 +81,7 @@ function AuthCallback() {
         });
         setError('Giris tamamlanamadi.');
       });
-  }, [login, navigate]);
+  }, [login, loginFast, navigate]);
 
   return (
     <div className="page auth-page">

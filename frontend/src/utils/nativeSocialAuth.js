@@ -52,13 +52,15 @@ export const registerNativeSocialAuthRedirects = (navigate) => {
   }
 
   let disposed = false;
-  const handleUrl = async (url) => {
+  const handledUrls = new Set();
+  const handleUrl = (url) => {
     const internalPath = buildInternalPathFromNativeUrl(url);
-    if (!internalPath || disposed) {
+    if (!internalPath || disposed || handledUrls.has(internalPath)) {
       return;
     }
 
-    await closeNativeSocialAuth();
+    handledUrls.add(internalPath);
+    void closeNativeSocialAuth();
     navigate(internalPath, { replace: true });
   };
 

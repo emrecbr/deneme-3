@@ -64,8 +64,11 @@ export function AuthProvider({ children }) {
     [clearSession]
   );
 
-  const checkAuth = useCallback(async () => {
-    setLoading(true);
+  const checkAuth = useCallback(async (options = {}) => {
+    const { blocking = true, keepUserOnNetworkError = false } = options;
+    if (blocking) {
+      setLoading(true);
+    }
     setNetworkError('');
     sanitizeNonAdminSurfaceAuthState();
     const storedToken = readUserAccessToken();
@@ -73,7 +76,9 @@ export function AuthProvider({ children }) {
     if (!storedToken) {
       delete api.defaults.headers.common.Authorization;
       setUser(null);
-      setLoading(false);
+      if (blocking) {
+        setLoading(false);
+      }
       return null;
     }
 
@@ -123,8 +128,10 @@ export function AuthProvider({ children }) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         clearSession();
       } else if (!error?.response) {
-        setUser(null);
-        delete api.defaults.headers.common.Authorization;
+        if (!keepUserOnNetworkError) {
+          setUser(null);
+          delete api.defaults.headers.common.Authorization;
+        }
         setNetworkError('Sunucuya su an ulasilamiyor. Website guest modda acildi.');
         if (import.meta.env.DEV) {
           console.warn('Auth network error:', {
@@ -137,7 +144,9 @@ export function AuthProvider({ children }) {
       }
       return null;
     } finally {
-      setLoading(false);
+      if (blocking) {
+        setLoading(false);
+      }
     }
   }, [clearSession]);
 
@@ -156,6 +165,23 @@ export function AuthProvider({ children }) {
         throw error;
       }
       return nextUser;
+    },
+    [checkAuth]
+  );
+
+  const loginFast = useCallback(
+    (nextToken) => {
+      localStorage.setItem('token', nextToken);
+      api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
+      setNetworkError('');
+      setLoading(false);
+      setUser((prev) => prev || {
+        role: 'user',
+        name: localStorage.getItem('userName') || 'Kullanici',
+        _optimistic: true
+      });
+
+      checkAuth({ blocking: false, keepUserOnNetworkError: true }).catch(() => null);
     },
     [checkAuth]
   );
@@ -269,6 +295,7 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       networkError,
       login,
+      loginFast,
       loginWithEmail,
       requestOtp,
       verifyOtp,
@@ -286,6 +313,7 @@ export function AuthProvider({ children }) {
       listingQuota,
       loading,
       login,
+      loginFast,
       loginWithEmail,
       requestOtp,
       verifyOtp,
