@@ -19,6 +19,10 @@ import { formatRemainingTime, getRequestStatusLabel, isActiveRequest } from '../
 import { getDistanceKm } from '../utils/distance';
 import { extractRfqCityName, extractRfqDistrictName, formatCategoryLabel, formatRfqLocation } from '../utils/rfqFormatters';
 import { lockSheetSurface, unlockSheetSurface } from '../utils/sheetLock';
+import {
+  clearNativeLoginBootstrapPending,
+  readNativeLoginBootstrapPending
+} from '../utils/nativeLoginBootstrap';
 import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const PAGE_LIMIT = 10;
@@ -149,6 +153,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const nativeBootstrapHandledRef = useRef(0);
+  const nativeBootstrapInFlightRef = useRef(false);
   const observerRef = useRef(null);
   const clusterRef = useRef(null);
   const newMarkerTimeoutsRef = useRef({});
@@ -733,11 +738,16 @@ function RFQList({ surfaceVariant = 'app' }) {
 
   const bootstrapHomeAfterNativeLogin = useCallback(
     async (event) => {
-      const completedAt = Number(event?.detail?.completedAt || Date.now());
-      if (completedAt && completedAt === nativeBootstrapHandledRef.current) {
+      const markerAt = readNativeLoginBootstrapPending();
+      const completedAt = Number(event?.detail?.completedAt || markerAt || Date.now());
+      if (nativeBootstrapInFlightRef.current || (completedAt && completedAt === nativeBootstrapHandledRef.current)) {
         return;
       }
+      nativeBootstrapInFlightRef.current = true;
       nativeBootstrapHandledRef.current = completedAt || Date.now();
+      if (markerAt) {
+        nativeAuthPerf('home_marker_detected', { completedAt: markerAt });
+      }
       nativeAuthPerf('app_bootstrap_requested', { source: event?.type || 'manual' });
       window.dispatchEvent(new CustomEvent('bottomnav:show'));
       setIsFilterSheetOpen(false);
@@ -746,14 +756,20 @@ function RFQList({ surfaceVariant = 'app' }) {
       setIsSearchTriggerOpen(false);
       setLoading(true);
       nativeAuthPerf('home_fetch_started');
-      await Promise.allSettled([
-        fetchRFQs({ nextPage: 1, replace: true, isRefresh: true }),
-        fetchCurrentUser(),
-        fetchFavorites(),
-        fetchLocationSelection()
-      ]);
-      nativeAuthPerf('home_fetch_done');
-      nativeAuthPerf('app_bootstrap_done');
+      try {
+        await Promise.allSettled([
+          fetchRFQs({ nextPage: 1, replace: true, isRefresh: true }),
+          fetchCurrentUser(),
+          fetchFavorites(),
+          fetchLocationSelection()
+        ]);
+        nativeAuthPerf('home_fetch_done');
+        clearNativeLoginBootstrapPending();
+        nativeAuthPerf('marker_cleared');
+        nativeAuthPerf('app_bootstrap_done');
+      } finally {
+        nativeBootstrapInFlightRef.current = false;
+      }
     },
     [fetchCurrentUser, fetchFavorites, fetchLocationSelection, fetchRFQs]
   );
@@ -761,6 +777,9 @@ function RFQList({ surfaceVariant = 'app' }) {
   useEffect(() => {
     window.addEventListener('native-login-completed', bootstrapHomeAfterNativeLogin);
     window.addEventListener('native-auth-hydrated', bootstrapHomeAfterNativeLogin);
+    if (readNativeLoginBootstrapPending()) {
+      bootstrapHomeAfterNativeLogin({ type: 'native-login-marker-mount' });
+    }
     return () => {
       window.removeEventListener('native-login-completed', bootstrapHomeAfterNativeLogin);
       window.removeEventListener('native-auth-hydrated', bootstrapHomeAfterNativeLogin);

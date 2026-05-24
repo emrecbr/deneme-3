@@ -9,6 +9,7 @@ import api, {
 import { APP_AUTH_CALLBACK_PATH, buildCurrentSurfaceHref } from '../config/surfaces';
 import { disconnectSocket } from '../lib/socket';
 import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
+import { markNativeLoginBootstrapPending } from '../utils/nativeLoginBootstrap';
 import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const AuthContext = createContext(null);
@@ -231,7 +232,9 @@ export function AuthProvider({ children }) {
         _optimistic: true
       });
       nativeAuthPerf('optimistic_auth_set', startedAt);
-      dispatchNativeLoginEvent('native-login-completed');
+      const completedAt = markNativeLoginBootstrapPending();
+      nativeAuthPerf('marker_written', startedAt, { completedAt });
+      dispatchNativeLoginEvent('native-login-completed', { completedAt });
       nativeAuthPerf('app_bootstrap_requested', startedAt);
 
       checkAuth({ blocking: false, keepUserOnNetworkError: true }).catch(() => null);

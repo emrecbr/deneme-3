@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { APP_HOME_PATH } from '../config/surfaces';
 import { disconnectSocket, getSocket } from '../lib/socket';
+import { readNativeLoginBootstrapPending } from '../utils/nativeLoginBootstrap';
 import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 function Layout({ children, showBottomNav = true }) {
@@ -194,6 +195,10 @@ function Layout({ children, showBottomNav = true }) {
     window.addEventListener('bottomnav:show', onShow);
     window.addEventListener('native-login-completed', onNativeLoginCompleted);
     window.addEventListener('native-auth-hydrated', onNativeLoginCompleted);
+    if (readNativeLoginBootstrapPending()) {
+      nativeAuthPerf('app_shell_marker_detected');
+      onNativeLoginCompleted();
+    }
     return () => {
       window.removeEventListener('bottomnav:hide', onHide);
       window.removeEventListener('bottomnav:show', onShow);
