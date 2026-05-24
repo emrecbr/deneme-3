@@ -13,6 +13,7 @@ import { isListingQuotaExhausted, normalizeListingQuotaSnapshot } from '../utils
 import { trackAnalyticsEvent } from '../utils/analytics';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
+const CoachmarkGuide = lazy(() => import('../components/CoachmarkGuide'));
 const ReusableBottomSheet = lazy(() => import('../components/ReusableBottomSheet'));
 
 const SEGMENT_OPTIONS = [
@@ -38,6 +39,74 @@ const EMPTY_JOBSEEKER_META = {
   skills: '',
   shortNote: '',
   expectedPay: ''
+};
+const RFQ_TUTORIAL_COMPLETED_KEY = 'rfq_create_tutorial_completed';
+const RFQ_TUTORIAL_STEP_KEY = 'rfq_create_tutorial_step';
+const RFQ_TUTORIAL_STEPS = [
+  {
+    key: 'segment',
+    target: '[data-rfq-tutorial="segment"]',
+    title: 'Talep Türünü Seç',
+    description: 'İhtiyacına uygun talep tipini seçerek daha doğru teklifler alabilirsin.'
+  },
+  {
+    key: 'title',
+    target: '[data-rfq-tutorial="title"]',
+    title: 'Kısa ve Net Bir Başlık Yaz',
+    description: "Talebini birkaç kelimeyle net anlat. Örn: 'Klima Montajı'"
+  },
+  {
+    key: 'category',
+    target: '[data-rfq-tutorial="category"]',
+    title: 'Doğru Kategoriyi Seç',
+    description: 'Doğru kategori daha hızlı ve ilgili teklifler almanı sağlar.'
+  },
+  {
+    key: 'description',
+    target: '[data-rfq-tutorial="description"]',
+    title: 'Detayları Belirt',
+    description: 'Ne istediğini detaylı yazarsan daha kaliteli teklifler alırsın.'
+  },
+  {
+    key: 'continue',
+    target: '[data-rfq-tutorial="continue"]',
+    title: 'Talebini Yayınlamaya Hazırsın',
+    description: 'Konumunu kontrol edip devam ederek talebini yayınlayabilirsin.'
+  }
+];
+
+const readTutorialCompleted = () => {
+  try {
+    return localStorage.getItem(RFQ_TUTORIAL_COMPLETED_KEY) === 'true';
+  } catch (_error) {
+    return false;
+  }
+};
+
+const readTutorialStep = () => {
+  try {
+    const value = Number(localStorage.getItem(RFQ_TUTORIAL_STEP_KEY) || 0);
+    return Number.isFinite(value) ? Math.min(Math.max(value, 0), RFQ_TUTORIAL_STEPS.length - 1) : 0;
+  } catch (_error) {
+    return 0;
+  }
+};
+
+const writeTutorialStep = (value) => {
+  try {
+    localStorage.setItem(RFQ_TUTORIAL_STEP_KEY, String(value));
+  } catch (_error) {
+    // ignore storage errors
+  }
+};
+
+const completeTutorial = () => {
+  try {
+    localStorage.setItem(RFQ_TUTORIAL_COMPLETED_KEY, 'true');
+    localStorage.removeItem(RFQ_TUTORIAL_STEP_KEY);
+  } catch (_error) {
+    // ignore storage errors
+  }
 };
 
 function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, surfaceVariant = 'app' }) {
@@ -80,6 +149,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [districtQuery, setDistrictQuery] = useState('');
   const [neighborhoodQuery, setNeighborhoodQuery] = useState('');
   const [workTypeSheetOpen, setWorkTypeSheetOpen] = useState(false);
+  const [tutorialActive, setTutorialActive] = useState(() => mode !== 'edit' && !readTutorialCompleted());
+  const [tutorialStep, setTutorialStep] = useState(() => readTutorialStep());
   const [streetQuery, setStreetQuery] = useState('');
   const [cityOptions, setCityOptions] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
@@ -1329,6 +1400,39 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     categoryId: form.categoryId ? '' : 'Kategori seç',
     description: form.description.trim().length >= 10 ? '' : 'Açıklama en az 10 karakter olmalı'
   };
+  const finishTutorial = useCallback(() => {
+    completeTutorial();
+    setTutorialActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!tutorialActive) {
+      return;
+    }
+    writeTutorialStep(tutorialStep);
+  }, [tutorialActive, tutorialStep]);
+
+  useEffect(() => {
+    if (!tutorialActive || step === 1) {
+      return;
+    }
+    finishTutorial();
+  }, [finishTutorial, step, tutorialActive]);
+
+  useEffect(() => {
+    if (!tutorialActive || step !== 1) {
+      return;
+    }
+
+    let nextStep = 0;
+    if (form.segment) nextStep = 1;
+    if (form.title.trim().length >= 3) nextStep = 2;
+    if (form.categoryId) nextStep = 3;
+    if (form.description.trim().length >= 10) nextStep = 4;
+    if (canContinueStep1) nextStep = 4;
+
+    setTutorialStep((current) => (nextStep > current ? nextStep : current));
+  }, [canContinueStep1, form.categoryId, form.description, form.segment, form.title, step, tutorialActive]);
 
   const handleCheckout = async (planCode) => {
     if (!PREMIUM_PURCHASES_ENABLED) {
@@ -1461,7 +1565,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           {isWebSurface && error ? <div className="rfq-create-inline-alert rfq-create-inline-alert--error">{error}</div> : null}
           {step === 1 ? (
             <>
-              <div className="form-group">
+              <div className="form-group" data-rfq-tutorial="segment">
                 <label>Segment</label>
                 <div className="cats-inline-wrap">
                   <div className="cats-inline-scroll">
@@ -1482,7 +1586,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 </div>
                 {showStep1Errors && !canContinueStep1 && !form.segment ? <div className="error">Segment seç</div> : null}
               </div>
-              <div className="form-group">
+              <div className="form-group" data-rfq-tutorial="title">
                 <label htmlFor="title">Başlık</label>
                 <input id="title" name="title" value={form.title} onChange={handleChange} required />
                 {showStep1Errors && !canContinueStep1 && step1FieldErrors.title ? (
@@ -1490,7 +1594,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 ) : null}
               </div>
 
-              <div className="form-group">
+              <div className="form-group" data-rfq-tutorial="category">
                 <label htmlFor="categoryButton">Kategori</label>
                 <button
                   id="categoryButton"
@@ -1514,7 +1618,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 </div>
               ) : null}
 
-              <div className="form-group">
+              <div className="form-group" data-rfq-tutorial="description">
                 <label htmlFor="description">Açıklama</label>
                 <textarea
                   id="description"
@@ -1532,6 +1636,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <button
                   type="button"
                   className="primary-btn"
+                  data-rfq-tutorial="continue"
                   disabled={!canContinueStep1}
                   onClick={() => {
                     const detail = getStepErrorDetail(1);
@@ -2012,6 +2117,17 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           {stepError ? <div className="error">{stepError}</div> : null}
         </form>
       </div>
+
+      {tutorialActive && step === 1 ? (
+        <Suspense fallback={null}>
+          <CoachmarkGuide
+            open={tutorialActive}
+            steps={RFQ_TUTORIAL_STEPS}
+            activeIndex={tutorialStep}
+            onSkip={finishTutorial}
+          />
+        </Suspense>
+      ) : null}
 
       {isCategoryModalOpen ? (
         <Suspense fallback={null}>
