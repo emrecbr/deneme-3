@@ -61,6 +61,7 @@ import PrivateRoute from './components/PrivateRoute';
 import api, { buildApiUrl, buildPublicRequestConfig } from './api/axios';
 import {
   ADMIN_HOME_PATH,
+  APP_AUTH_CALLBACK_PATH,
   APP_HOME_PATH,
   SURFACE_LABELS,
   buildSurfaceHref,
@@ -89,6 +90,7 @@ import {
 import { useAuth } from './context/AuthContext';
 import { useAdminAuth } from './context/AdminAuthContext';
 import { registerNativeSocialAuthRedirects } from './utils/nativeSocialAuth';
+import { isNativeCapacitorRuntime } from './utils/nativePlatform';
 
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
@@ -127,6 +129,22 @@ const WebsiteProfileHome = lazy(() => import('./pages/WebsiteProfileHome'));
 const LiveAnalyticsOverlay = import.meta.env.DEV
   ? lazy(() => import('./components/LiveAnalyticsOverlay'))
   : null;
+
+const readRouteToken = (location) => {
+  const params = new URLSearchParams(location.search || '');
+  const hashParams = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+  return params.get('token') || hashParams.get('token') || '';
+};
+const nativeAuthPerf = (event, extra = {}) => {
+  if (!isNativeCapacitorRuntime()) {
+    return;
+  }
+  console.info('NATIVE_AUTH_PERF', {
+    event,
+    path: window.location.pathname,
+    ...extra
+  });
+};
 
 function WebsiteProfilePlaceholder({ title, description }) {
   if (String(title || '').toLowerCase().includes('takiplerim')) {
@@ -209,6 +227,12 @@ function App() {
 
   useEffect(() => {
     document.documentElement.dataset.surface = resolveSurfaceLabel(location.pathname);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (location.pathname === APP_HOME_PATH) {
+      nativeAuthPerf('app_route_rendered');
+    }
   }, [location.pathname]);
 
   useEffect(() => registerNativeSocialAuthRedirects(navigate), [navigate]);
@@ -375,7 +399,15 @@ function App() {
     };
   }, []);
 
-  const blockBootstrapRender = adminHost ? loading || adminLoading : appHost ? loading : false;
+  const nativeAuthCallbackWithToken =
+    isNativeCapacitorRuntime() &&
+    location.pathname === APP_AUTH_CALLBACK_PATH &&
+    Boolean(readRouteToken(location));
+  const blockBootstrapRender = adminHost
+    ? loading || adminLoading
+    : appHost
+      ? loading && !nativeAuthCallbackWithToken
+      : false;
 
   if (blockBootstrapRender) {
     return <div className="card">Yükleniyor...</div>;

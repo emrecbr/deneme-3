@@ -6,21 +6,47 @@ import api, {
   sanitizeNonAdminSurfaceAuthState,
   setUnauthorizedHandler
 } from '../api/axios';
-import { buildCurrentSurfaceHref } from '../config/surfaces';
+import { APP_AUTH_CALLBACK_PATH, buildCurrentSurfaceHref } from '../config/surfaces';
 import { disconnectSocket } from '../lib/socket';
 import { normalizeListingQuotaSnapshot } from '../utils/listingQuota';
+import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
 const AuthContext = createContext(null);
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 8000;
 const AUTH_BOOTSTRAP_RETRY_DELAY_MS = 300;
 
 const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const nativeAuthPerf = (event, startedAt, extra = {}) => {
+  if (!isNativeCapacitorRuntime()) {
+    return;
+  }
+  console.info('NATIVE_AUTH_PERF', {
+    event,
+    elapsedMs: Math.round(now() - startedAt),
+    ...extra
+  });
+};
 const isRetryableBootstrapError = (error) =>
   !error?.response || error?.code === 'ECONNABORTED' || error?.name === 'CanceledError';
+const readCallbackTokenFromLocation = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const params = new URLSearchParams(window.location.search || '');
+  const hashParams = new URLSearchParams(String(window.location.hash || '').replace(/^#/, ''));
+  return params.get('token') || hashParams.get('token') || '';
+};
+const hasNativeCallbackToken = () =>
+  isNativeCapacitorRuntime() &&
+  typeof window !== 'undefined' &&
+  window.location.pathname === APP_AUTH_CALLBACK_PATH &&
+  Boolean(readCallbackTokenFromLocation());
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !hasNativeCallbackToken());
   const [networkError, setNetworkError] = useState('');
   const [selectedCity, setSelectedCityState] = useState(() => {
     const raw = localStorage.getItem('selectedCity');
@@ -66,6 +92,8 @@ export function AuthProvider({ children }) {
 
   const checkAuth = useCallback(async (options = {}) => {
     const { blocking = true, keepUserOnNetworkError = false } = options;
+    const startedAt = now();
+    nativeAuthPerf('auth_check_start', startedAt, { blocking });
     if (blocking) {
       setLoading(true);
     }
@@ -104,6 +132,7 @@ export function AuthProvider({ children }) {
               Authorization: `Bearer ${storedToken}`
             }
           });
+          nativeAuthPerf('auth_me_done', startedAt, { attempt: attempt + 1 });
           break;
         } catch (error) {
           if (attempt === 0 && isRetryableBootstrapError(error)) {
@@ -123,6 +152,10 @@ export function AuthProvider({ children }) {
 
       localStorage.setItem('userName', userData.name || 'Kullanici');
       setUser(userData);
+      nativeAuthPerf('profile_hydrated', startedAt, {
+        blocking,
+        userId: userData?.id || userData?._id || ''
+      });
       return userData;
     } catch (error) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
@@ -147,10 +180,14 @@ export function AuthProvider({ children }) {
       if (blocking) {
         setLoading(false);
       }
+      nativeAuthPerf('auth_check_end', startedAt, { blocking });
     }
   }, [clearSession]);
 
   useEffect(() => {
+    if (hasNativeCallbackToken()) {
+      return;
+    }
     checkAuth();
   }, [checkAuth]);
 
@@ -171,6 +208,8 @@ export function AuthProvider({ children }) {
 
   const loginFast = useCallback(
     (nextToken) => {
+      const startedAt = now();
+      nativeAuthPerf('login_fast_start', startedAt);
       localStorage.setItem('token', nextToken);
       api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
       setNetworkError('');
@@ -182,6 +221,7 @@ export function AuthProvider({ children }) {
       });
 
       checkAuth({ blocking: false, keepUserOnNetworkError: true }).catch(() => null);
+      nativeAuthPerf('login_fast_done', startedAt);
     },
     [checkAuth]
   );

@@ -25,6 +25,17 @@ const buildInternalPathFromNativeUrl = (value = '') => {
 
   return '';
 };
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const nativeAuthPerf = (event, startedAt, extra = {}) => {
+  if (!isNativeCapacitorRuntime()) {
+    return;
+  }
+  console.info('NATIVE_AUTH_PERF', {
+    event,
+    elapsedMs: Math.round(now() - startedAt),
+    ...extra
+  });
+};
 
 export const openNativeSocialAuth = async (url) => {
   if (!isNativeCapacitorRuntime()) {
@@ -54,13 +65,22 @@ export const registerNativeSocialAuthRedirects = (navigate) => {
   let disposed = false;
   const handledUrls = new Set();
   const handleUrl = (url) => {
+    const startedAt = now();
+    nativeAuthPerf('deep_link_received', startedAt, { hasUrl: Boolean(url) });
     const internalPath = buildInternalPathFromNativeUrl(url);
     if (!internalPath || disposed || handledUrls.has(internalPath)) {
+      nativeAuthPerf('deep_link_ignored', startedAt, {
+        hasInternalPath: Boolean(internalPath),
+        disposed,
+        duplicate: Boolean(internalPath && handledUrls.has(internalPath))
+      });
       return;
     }
 
     handledUrls.add(internalPath);
+    nativeAuthPerf('browser_close_start', startedAt);
     void closeNativeSocialAuth();
+    nativeAuthPerf('native_route_navigate', startedAt, { internalPath });
     navigate(internalPath, { replace: true });
   };
 
