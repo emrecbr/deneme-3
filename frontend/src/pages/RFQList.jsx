@@ -3382,21 +3382,6 @@ function RFQList({ surfaceVariant = 'app' }) {
           onChange={updateDraftFilter}
           compact={filterCompact}
         />
-        <div className="home-sheet-filters">
-          <label htmlFor="sheetSort">Gelişmiş sıralama</label>
-          <select
-            id="sheetSort"
-            className="home-filter-select"
-            value={(draftFilters || filters).sort}
-            onChange={(event) => updateDraftFilter('sort', event.target.value)}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
         <div className="home-sheet-filters alert-follow-card">
           <div>
             <div className="alert-follow-title">Bu aramayı takip et</div>
