@@ -69,6 +69,57 @@ const SEGMENT_OPTIONS = [
   { value: 'auto', label: 'Otomobil' },
   { value: 'jobseeker', label: 'İş Arayan Kişi' }
 ];
+const SORT_OPTIONS = [
+  { value: 'price_asc', label: 'Fiyata göre: yükselen' },
+  { value: 'price_desc', label: 'Fiyata göre: düşen' },
+  { value: 'date_desc', label: 'Tarihe göre: yeni ilan' },
+  { value: 'date_asc', label: 'Tarihe göre: eski ilan' }
+];
+
+const normalizeSortNumber = (value) => {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  const normalized = String(value)
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+};
+
+const normalizeRFQSortPrice = (item) => {
+  const candidates = [
+    item?.price,
+    item?.budget,
+    item?.targetPrice,
+    item?.minPrice,
+    item?.maxPrice,
+    item?.offerPrice,
+    item?.estimatedPrice,
+    item?.amount,
+    item?.priceRange?.min,
+    item?.priceRange?.max,
+    item?.budgetRange?.min,
+    item?.budgetRange?.max
+  ];
+  for (const candidate of candidates) {
+    const value = normalizeSortNumber(candidate);
+    if (value != null) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const normalizeRFQSortDate = (item) => {
+  const raw = item?.createdAt || item?.created_at || item?.date || null;
+  const value = raw ? new Date(raw).getTime() : null;
+  return Number.isFinite(value) ? value : null;
+};
 
 function buildCategoryTree(items) {
   const map = new Map();
@@ -173,6 +224,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const createSheetSnapRef = useRef({ full: 0, half: 0, closed: 0 });
   const searchInputRef = useRef(null);
   const mapFilterRef = useRef(null);
+  const sortMenuRef = useRef(null);
   const overlayTimerRef = useRef(null);
   const feedViewKeyRef = useRef('');
   const feedScrollMarksRef = useRef(new Set());
@@ -203,6 +255,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const [hasMore, setHasMore] = useState(true);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState(() => localStorage.getItem('rfq_sortKey') || 'date_desc');
   const [isCreateSheetMounted, setIsCreateSheetMounted] = useState(false);
@@ -1204,6 +1257,9 @@ function RFQList({ surfaceVariant = 'app' }) {
       ...prev,
       ...nextFilters
     }));
+    if (nextFilters.sort) {
+      setSortKey(nextFilters.sort);
+    }
     setIsFilterSheetOpen(false);
     window.dispatchEvent(new CustomEvent('bottomnav:show'));
     setDraftFilters(null);
@@ -1885,21 +1941,11 @@ function RFQList({ surfaceVariant = 'app' }) {
   const applySort = useCallback(
     (items = []) => {
       const next = [...items];
-      const getPrice = (x) => {
-        const raw = x?.targetPrice ?? x?.price;
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : null;
-      };
-      const getDate = (x) => {
-        const raw = x?.createdAt ?? x?.updatedAt ?? x?.date ?? x?.created_at;
-        const t = raw ? new Date(raw).getTime() : 0;
-        return Number.isFinite(t) ? t : 0;
-      };
       switch (sortKey) {
         case 'price_desc':
           return next.sort((a, b) => {
-            const aPrice = getPrice(a);
-            const bPrice = getPrice(b);
+            const aPrice = normalizeRFQSortPrice(a);
+            const bPrice = normalizeRFQSortPrice(b);
             if (aPrice == null && bPrice == null) return 0;
             if (aPrice == null) return 1;
             if (bPrice == null) return -1;
@@ -1907,18 +1953,32 @@ function RFQList({ surfaceVariant = 'app' }) {
           });
         case 'price_asc':
           return next.sort((a, b) => {
-            const aPrice = getPrice(a);
-            const bPrice = getPrice(b);
+            const aPrice = normalizeRFQSortPrice(a);
+            const bPrice = normalizeRFQSortPrice(b);
             if (aPrice == null && bPrice == null) return 0;
             if (aPrice == null) return 1;
             if (bPrice == null) return -1;
             return aPrice - bPrice;
           });
         case 'date_asc':
-          return next.sort((a, b) => getDate(a) - getDate(b));
+          return next.sort((a, b) => {
+            const aDate = normalizeRFQSortDate(a);
+            const bDate = normalizeRFQSortDate(b);
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            return aDate - bDate;
+          });
         case 'date_desc':
         default:
-          return next.sort((a, b) => getDate(b) - getDate(a));
+          return next.sort((a, b) => {
+            const aDate = normalizeRFQSortDate(a);
+            const bDate = normalizeRFQSortDate(b);
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            return bDate - aDate;
+          });
       }
     },
     [sortKey]
@@ -2043,8 +2103,12 @@ function RFQList({ surfaceVariant = 'app' }) {
   );
   const filteredOrderedRFQs = orderedRFQs;
   const selectedCityLabel = useMemo(
-    () => deferredFilters.city || selectedCity?.name || 'Tum sehirler',
+    () => deferredFilters.city || selectedCity?.name || 'Tüm şehir',
     [deferredFilters.city, selectedCity?.name]
+  );
+  const activeSortLabel = useMemo(
+    () => SORT_OPTIONS.find((item) => item.value === sortKey)?.label || 'Gelişmiş Sıralama',
+    [sortKey]
   );
   const mapRadiusCenter = radiusCenter;
   const hasRadiusCenter = Boolean(mapRadiusCenter && Number.isFinite(mapRadiusCenter.lat) && Number.isFinite(mapRadiusCenter.lng));
@@ -2053,30 +2117,52 @@ function RFQList({ surfaceVariant = 'app' }) {
     let items = filteredOrderedRFQs;
     if (sortKey !== 'advanced') {
       const arr = [...items];
-      const getPrice = (x) => Number(x?.price ?? x?.budget ?? x?.amount ?? 0);
       const getKm = (x) => {
         const v = x?.distanceKm ?? x?.km ?? x?.distance;
         const n = Number(v);
         return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
       };
-      const getDate = (x) => {
-        const raw = x?.createdAt ?? x?.date ?? x?.created_at;
-        const t = raw ? new Date(raw).getTime() : 0;
-        return Number.isFinite(t) ? t : 0;
-      };
 
       switch (sortKey) {
         case 'price_desc':
-          arr.sort((a, b) => getPrice(b) - getPrice(a));
+          arr.sort((a, b) => {
+            const aPrice = normalizeRFQSortPrice(a);
+            const bPrice = normalizeRFQSortPrice(b);
+            if (aPrice == null && bPrice == null) return 0;
+            if (aPrice == null) return 1;
+            if (bPrice == null) return -1;
+            return bPrice - aPrice;
+          });
           break;
         case 'price_asc':
-          arr.sort((a, b) => getPrice(a) - getPrice(b));
+          arr.sort((a, b) => {
+            const aPrice = normalizeRFQSortPrice(a);
+            const bPrice = normalizeRFQSortPrice(b);
+            if (aPrice == null && bPrice == null) return 0;
+            if (aPrice == null) return 1;
+            if (bPrice == null) return -1;
+            return aPrice - bPrice;
+          });
           break;
         case 'date_desc':
-          arr.sort((a, b) => getDate(b) - getDate(a));
+          arr.sort((a, b) => {
+            const aDate = normalizeRFQSortDate(a);
+            const bDate = normalizeRFQSortDate(b);
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            return bDate - aDate;
+          });
           break;
         case 'date_asc':
-          arr.sort((a, b) => getDate(a) - getDate(b));
+          arr.sort((a, b) => {
+            const aDate = normalizeRFQSortDate(a);
+            const bDate = normalizeRFQSortDate(b);
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            return aDate - bDate;
+          });
           break;
         case 'km_asc':
           arr.sort((a, b) => getKm(a) - getKm(b));
@@ -2214,7 +2300,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const selectedKm = Number(filters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
   const canApplyFilters = Boolean((draftFilters || filters).city || (draftFilters || filters).cityId);
   const hasMapCoords = mapBaseItems.length > 0;
-  const effectiveListItems = filteredOrderedRFQs;
+  const effectiveListItems = canonicalFilteredRFQs;
   const effectiveSelectedCityLabel = appliedFilters.city || selectedCityLabel;
   const effectiveHasCityFilter = Boolean(appliedFilters.city);
   const effectiveSelectedKm = Number(appliedFilters.radius) || selectedKm;
@@ -2541,10 +2627,33 @@ function RFQList({ surfaceVariant = 'app' }) {
     };
   }, [isMapFilterOpen]);
 
+  useEffect(() => {
+    if (!isSortMenuOpen) {
+      return undefined;
+    }
+    const handleOutside = (event) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleOutside);
+    window.addEventListener('touchstart', handleOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside);
+      window.removeEventListener('touchstart', handleOutside);
+    };
+  }, [isSortMenuOpen]);
+
   const closeSearchSheet = useCallback(() => {
     pushSearchHistory(searchQuery);
     setIsSearchTriggerOpen(false);
   }, [pushSearchHistory, searchQuery]);
+
+  const handleSortSelect = useCallback((value) => {
+    setSortKey(value);
+    setIsSortMenuOpen(false);
+    setFilters((prev) => ({ ...prev, sort: value }));
+  }, []);
 
   const handleCreateRFQ = useCallback(() => {
     window.dispatchEvent(new Event('open-rfq-create-sheet'));
@@ -3093,7 +3202,43 @@ function RFQList({ surfaceVariant = 'app' }) {
             {homeContent.heroTitle ? (
               <div className="list-hero-title">{homeContent.heroTitle}</div>
             ) : null}
-            <h1>{`📍 ${effectiveSelectedCityLabel}`}</h1>
+            <div className="list-head-main">
+              <h1>{`📍 ${effectiveSelectedCityLabel}`}</h1>
+              {!isWebSurface ? (
+                <div className="advanced-sort" ref={sortMenuRef}>
+                  <button
+                    type="button"
+                    className="advanced-sort-btn"
+                    onClick={() => setIsSortMenuOpen((prev) => !prev)}
+                    aria-haspopup="menu"
+                    aria-expanded={isSortMenuOpen}
+                  >
+                    <span>Gelişmiş Sıralama</span>
+                  </button>
+                  {isSortMenuOpen ? (
+                    <div className="advanced-sort-menu" role="menu" aria-label="Gelişmiş sıralama seçenekleri">
+                      {SORT_OPTIONS.map((option) => {
+                        const isActive = sortKey === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`advanced-sort-option ${isActive ? 'is-active' : ''}`}
+                            onClick={() => handleSortSelect(option.value)}
+                            role="menuitemradio"
+                            aria-checked={isActive}
+                          >
+                            <span>{option.label}</span>
+                            {isActive ? <strong>Seçili</strong> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            {!isWebSurface ? <div className="advanced-sort-current">{activeSortLabel}</div> : null}
             {homeContent.heroSubtitle ? (
               <div className="list-subtitle">{homeContent.heroSubtitle}</div>
             ) : null}
@@ -3245,10 +3390,11 @@ function RFQList({ surfaceVariant = 'app' }) {
             value={(draftFilters || filters).sort}
             onChange={(event) => updateDraftFilter('sort', event.target.value)}
           >
-            <option value="price_desc">Fiyata göre (yüksek)</option>
-            <option value="price_asc">Fiyata göre (düşük)</option>
-            <option value="date_desc">Tarihe göre (yeni ilan)</option>
-            <option value="date_asc">Tarihe göre (eski ilan)</option>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="home-sheet-filters alert-follow-card">

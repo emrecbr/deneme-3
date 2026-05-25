@@ -3571,6 +3571,118 @@ body.dark-mode .ux-error-state {
   margin-bottom: 6px;
 }
 
+.list-head-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  position: relative;
+}
+
+.list-head-main h1 {
+  min-width: 0;
+}
+
+.advanced-sort {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 24;
+}
+
+.advanced-sort-btn {
+  height: 34px;
+  max-width: 178px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 0 13px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.advanced-sort-btn:active {
+  transform: translateY(1px);
+}
+
+.advanced-sort-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(280px, calc(100vw - 28px));
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 24px 58px rgba(15, 23, 42, 0.2);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  animation: sort-menu-in 160ms ease-out both;
+}
+
+.advanced-sort-option {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #0f172a;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.advanced-sort-option strong {
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.advanced-sort-option.is-active {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.advanced-sort-current {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+
+@media (max-width: 380px) {
+  .advanced-sort-btn {
+    max-width: 150px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+
+  .advanced-sort-current {
+    font-size: 10px;
+  }
+}
+
+@keyframes sort-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .list-hero-title {
   font-size: 12px;
   color: #92400e;
@@ -4075,6 +4187,32 @@ body.dark-mode .list-subtitle {
 
 body.dark-mode .rfq-list-page .list-head h1 {
   color: #f8fafc;
+}
+
+body.dark-mode .advanced-sort-btn {
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.34);
+}
+
+body.dark-mode .advanced-sort-menu {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 24px 58px rgba(2, 6, 23, 0.46);
+}
+
+body.dark-mode .advanced-sort-option {
+  color: #e2e8f0;
+}
+
+body.dark-mode .advanced-sort-option.is-active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+}
+
+body.dark-mode .advanced-sort-current {
+  color: #94a3b8;
 }
 
 .premium-filter-sheet-overlay {
