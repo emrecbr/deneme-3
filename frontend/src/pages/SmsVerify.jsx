@@ -70,7 +70,7 @@ function SmsVerify() {
     resetMessages();
     const e164 = toE164TR(phoneDigits);
     if (!e164) {
-      setError('Telefon 10 haneli olmali ve 5 ile baslamali.');
+      setError('Telefon 10 haneli olmalı ve 5 ile başlamalı.');
       return;
     }
     setLoadingSend(true);
@@ -78,16 +78,16 @@ function SmsVerify() {
       await api.post('/auth/sms/send', { phone: e164 });
       setStep(2);
       setResendSeconds(60);
-      setInfo('Kod gonderildi.');
+      setInfo('Kod gönderildi.');
     } catch (err) {
       if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
-        setError('SMS gonderilemedi. Trial hesap sadece dogrulanmis numaralara SMS gonderir.');
+        setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
       } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
-        setError('Bu ulkeye SMS gonderimi kapali.');
+        setError('Bu ülkeye SMS gönderimi kapalı.');
       } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
-        setError('Numara formati hatali (5XXXXXXXXX).');
+        setError('Numara formatı hatalı (5XXXXXXXXX).');
       } else {
-        setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+        setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
       }
     } finally {
       setLoadingSend(false);
@@ -97,14 +97,14 @@ function SmsVerify() {
   const verify = async () => {
     resetMessages();
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Kod 6 haneli olmali.');
+      setError('Kod 6 haneli olmalı.');
       return;
     }
     setLoadingVerify(true);
     try {
       const e164 = toE164TR(phoneDigits);
       if (!e164) {
-        setError('Telefon 10 haneli olmali ve 5 ile baslamali.');
+        setError('Telefon 10 haneli olmalı ve 5 ile başlamalı.');
         return;
       }
       const res = await api.post('/auth/sms/verify', {
@@ -126,9 +126,9 @@ function SmsVerify() {
         return;
       }
 
-      setInfo(data?.message || 'Dogrulandi.');
+      setInfo(data?.message || 'Doğrulandı.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingVerify(false);
     }
@@ -141,11 +141,11 @@ function SmsVerify() {
       return;
     }
     if (!signupPassword.trim()) {
-      setError('Sifre zorunlu.');
+      setError('Şifre zorunlu.');
       return;
     }
     if (!signupToken) {
-      setError('Signup token bulunamadi.');
+      setError('Signup token bulunamadı.');
       return;
     }
     setLoadingSignup(true);
@@ -162,10 +162,10 @@ function SmsVerify() {
         completeAuthRedirect();
         return;
       }
-      setInfo(data?.message || 'Kayit tamamlandi.');
+      setInfo(data?.message || 'Kayıt tamamlandı.');
       setModalOpen(false);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSignup(false);
     }
@@ -181,8 +181,8 @@ function SmsVerify() {
   return (
     <div className="otp-page">
       <div className="card otp-card">
-        <h2>SMS Dogrulama</h2>
-        <p className="muted">Telefon numaran ile giris yap.</p>
+        <h2>SMS Doğrulama</h2>
+        <p className="muted">Telefon numaran ile giriş yap.</p>
 
         {step === 1 && (
           <>
@@ -197,14 +197,14 @@ function SmsVerify() {
                 placeholder="5xx xxx xx xx"
               />
             </div>
-            <div className="input-helper">Sadece 10 hane yaz (5 ile baslayan).</div>
+            <div className="input-helper">Sadece 10 hane yaz (5 ile başlayan).</div>
             <button
               type="button"
               className="primary-btn"
               onClick={send}
               disabled={loadingSend}
             >
-              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+              {loadingSend ? 'Gönderiliyor...' : 'Kod Gönder'}
             </button>
           </>
         )}
@@ -212,10 +212,10 @@ function SmsVerify() {
         {step === 2 && (
           <>
             <p className="muted small">
-              Kod su numaraya gonderildi: <strong>{toE164TR(phoneDigits) || ''}</strong>
+              Kod şu numaraya gönderildi: <strong>{toE164TR(phoneDigits) || ''}</strong>
             </p>
             <div className="form-group">
-              <label>Dogrulama Kodu</label>
+              <label>Doğrulama Kodu</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -232,7 +232,7 @@ function SmsVerify() {
               onClick={verify}
               disabled={loadingVerify}
             >
-              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula'}
+              {loadingVerify ? 'Doğrulanıyor...' : 'Doğrula'}
             </button>
             <button
               type="button"
@@ -240,10 +240,10 @@ function SmsVerify() {
               onClick={resend}
               disabled={resendSeconds > 0 || loadingSend}
             >
-              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+              {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
             </button>
             <button type="button" className="link-btn" onClick={goBackToPhoneEntry}>
-              Numarayi duzenle
+              Numarayı düzenle
             </button>
           </>
         )}
@@ -255,8 +255,8 @@ function SmsVerify() {
       {modalOpen && (
         <div className="otp-modal-overlay">
           <div className="otp-modal">
-            <h3>Hesap Olustur</h3>
-            <p className="muted">Bu numara kayitli degil. Yeni hesap olusturmak ister misin?</p>
+            <h3>Hesap Oluştur</h3>
+            <p className="muted">Bu numara kayıtlı değil. Yeni hesap oluşturmak ister misin?</p>
             <div className="form-group">
               <label>Ad Soyad</label>
               <input
@@ -267,12 +267,12 @@ function SmsVerify() {
               />
             </div>
             <div className="form-group">
-              <label>Sifre</label>
+              <label>Şifre</label>
               <input
                 type="password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="Sifre"
+                placeholder="Şifre"
               />
             </div>
             <div className="modal-actions">
@@ -282,7 +282,7 @@ function SmsVerify() {
                 onClick={() => setModalOpen(false)}
                 disabled={loadingSignup}
               >
-                Hayir
+                Hayır
               </button>
               <button
                 type="button"
@@ -290,7 +290,7 @@ function SmsVerify() {
                 onClick={completeSignup}
                 disabled={loadingSignup}
               >
-                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Olustur'}
+                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Oluştur'}
               </button>
             </div>
           </div>

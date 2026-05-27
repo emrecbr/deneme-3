@@ -371,7 +371,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Yeni sifreler eslesmiyor');
+      setPasswordError('Yeni şifreler eşleşmiyor');
       return;
     }
     if (!passwordPolicy(newPassword)) {
@@ -391,11 +391,11 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
     } catch (requestError) {
       const code = requestError.response?.data?.code;
       if (code === 'BAD_PASSWORD') {
-        setPasswordError('Mevcut sifre yanlis');
+        setPasswordError('Mevcut şifre yanlış');
       } else if (code === 'WEAK_PASSWORD') {
         setPasswordError('Åifre kurallarÄ±nÄ± saÄŸlamÄ±yor');
       } else if (code === 'SAME_PASSWORD') {
-        setPasswordError('Yeni sifre eski sifre ile ayni olamaz');
+        setPasswordError('Yeni şifre eski şifre ile aynı olamaz');
       } else if (!requestError.response) {
         setPasswordError('Sunucuya baglanilamadi');
       } else {
@@ -872,15 +872,15 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         </div>
       </div>
       <div className="account-muted">
-        Kart bilgilerin uygulamada saklanmaz. Bu adim dijital platform hizmetleri icin guvenli
-        odeme saglayicisinin ekraninda tamamlanir. Talepet kullanicilar arasinda odeme araciligi
+        Kart bilgilerin uygulamada saklanmaz. Bu adım dijital platform hizmetleri için güvenli
+        ödeme sağlayıcısının ekranında tamamlanır. Talepet kullanıcılar arasında ödeme aracılığı
         yapmaz.
       </div>
       {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
       {paymentError ? <div className="error">{paymentError}</div> : null}
       <div className="website-profile-inline-actions">
         <button type="button" className="primary-btn" onClick={handleAddPaymentMethod} disabled={paymentLoading}>
-          {paymentLoading ? 'Yonlendiriliyor...' : 'Guvenli Odeme Ekranini Ac'}
+          {paymentLoading ? 'Yönlendiriliyor...' : 'Güvenli Ödeme Ekranını Aç'}
         </button>
         <button type="button" className="secondary-btn" onClick={() => setPaymentSheetOpen(false)}>
           Vazgeç
@@ -1150,8 +1150,8 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           <div className="payment-empty">
             <div>Henüz kayıtlı kart yok.</div>
             <div className="account-muted">
-              Kart eklemek icin guvenli odeme ekranina yonlendirileceksin. Bu akim kullanicilar
-              arasi para transferi degil, dijital platform hizmeti odeme zeminidir.
+              Kart eklemek için güvenli ödeme ekranına yönlendirileceksin. Bu akış kullanıcılar
+              arası para transferi değil, dijital platform hizmeti ödeme zeminidir.
             </div>
           </div>
         )}
@@ -1437,7 +1437,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           </div>
           {!PREMIUM_PURCHASES_ENABLED ? (
             <div className="account-muted">
-              Guvenli odeme ve kart ekleme ozellikleri inceleme surecinde gecici olarak pasiftir.
+              Güvenli ödeme ve kart ekleme özellikleri inceleme sürecinde geçici olarak pasiftir.
             </div>
           ) : null}
           {paymentFormError ? <div className="error">{paymentFormError}</div> : null}
@@ -1490,7 +1490,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
             <input
               type="password"
               name="currentPassword"
-              placeholder="Eski sifre"
+              placeholder="Eski şifre"
               value={passwordForm.currentPassword}
               onChange={handlePasswordChange}
               autoComplete="current-password"
@@ -1501,7 +1501,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
             <input
               type="password"
               name="newPassword"
-              placeholder="Yeni sifre"
+              placeholder="Yeni şifre"
               value={passwordForm.newPassword}
               onChange={handlePasswordChange}
               autoComplete="new-password"
@@ -1515,7 +1515,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
             <input
               type="password"
               name="confirmPassword"
-              placeholder="Yeni sifre (tekrar)"
+              placeholder="Yeni şifre (tekrar)"
               value={passwordForm.confirmPassword}
               onChange={handlePasswordChange}
               autoComplete="new-password"
@@ -1544,4 +1544,3 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
 }
 
 export default ProfileAccount;
-

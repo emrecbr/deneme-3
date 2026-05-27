@@ -25,7 +25,7 @@ function HowItWorksPage() {
             Array.isArray(payload.steps) && payload.steps.length
               ? [
                   {
-                    heading: 'Talep ve teklif akisi',
+                    heading: 'Talep ve teklif akışı',
                     paragraphs: payload.steps.map((item) => `${item.step} - ${item.title}: ${item.body}`)
                   },
                   {

@@ -8,7 +8,7 @@ const STEPS = [
     text: 'Konumuna göre canlı talepleri görüntüle.'
   },
   {
-    title: 'Teklif Ver veya Talep Olustur',
+    title: 'Teklif Ver veya Talep Oluştur',
     text: 'Ihtiyacini paylas ya da teklif vererek kazan.'
   },
   {

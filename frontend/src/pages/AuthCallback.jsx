@@ -106,7 +106,7 @@ function AuthCallback() {
           code: callbackError?.code || '',
           message: callbackError?.message || 'unknown_error'
         });
-        setError('Giris tamamlanamadi.');
+        setError('Giriş tamamlanamadı.');
       });
   }, [login, loginFast, navigate, startedAt]);
 
@@ -117,7 +117,7 @@ function AuthCallback() {
   return (
     <div className="page auth-page">
       <div className="card auth-card">
-        <h1 className="auth-title">Giris kontrol ediliyor...</h1>
+        <h1 className="auth-title">Giriş kontrol ediliyor...</h1>
         {error ? <div className="auth-alert">{error}</div> : null}
       </div>
     </div>

@@ -115,7 +115,7 @@ function CitySearch() {
       {open ? (
         <div className="city-dropdown">
           {loading ? <div className="city-dropdown-item muted">Yükleniyor...</div> : null}
-          {!loading && options.length === 0 ? <div className="city-dropdown-item muted">Sonuc yok</div> : null}
+          {!loading && options.length === 0 ? <div className="city-dropdown-item muted">Sonuç yok</div> : null}
           {!loading
             ? options.map((city) => (
                 <button

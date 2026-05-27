@@ -10,14 +10,14 @@ import {
 
 function WebsiteProfileShell({
   children,
-  title = 'Profil alanin',
-  description = 'Website icinden hesap ozetini gor, moduller arasinda gecis yap ve uygulama ile ayni backend altyapisina bagli kal.'
+  title = 'Profil alanın',
+  description = 'Web sitesi içinden hesap özetini gör, modüller arasında geçiş yap ve uygulama ile aynı backend altyapısına bağlı kal.'
 }) {
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  const displayName = user?.name || user?.email || 'Talepet kullanicisi';
-  const email = user?.email || 'E-posta bilgisi bulunamadi';
+  const displayName = user?.name || user?.email || 'Talepet kullanıcısı';
+  const email = user?.email || 'E-posta bilgisi bulunamadı';
   const premiumLabel = user?.isPremium ? 'Premium aktif' : 'Standart hesap';
   const activeItem =
     websiteProfileNavItems.find(
@@ -37,7 +37,7 @@ function WebsiteProfileShell({
 
         <div className="website-profile-shell__topbar-actions">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
-            Uygulamayi Ac
+            Uygulamayı Aç
           </a>
         </div>
       </header>
@@ -55,7 +55,7 @@ function WebsiteProfileShell({
               </>
             ) : null}
           </div>
-          <p className="landing-eyebrow">Website profil alani</p>
+          <p className="landing-eyebrow">Web sitesi profil alanı</p>
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
@@ -75,10 +75,10 @@ function WebsiteProfileShell({
       <div className="website-profile-shell__layout">
         <aside className="website-profile-shell__sidebar">
           <div className="website-profile-shell__sidebar-card">
-            <h2>Profil Modulleri</h2>
+            <h2>Profil Modülleri</h2>
             <p>
-              Profil, website baglaminda daha genis bir bilgi mimarisiyle acilir; app hostundaki
-              mobil akis degismeden kalir.
+              Profil, web sitesi bağlamında daha geniş bir bilgi mimarisiyle açılır; uygulama hostundaki
+              mobil akış değişmeden kalır.
             </p>
           </div>
 
@@ -115,19 +115,19 @@ function WebsiteProfileShell({
 
           <div className="website-profile-shell__sidebar-card website-profile-shell__session-card">
             <h2>Oturum</h2>
-            <p>Website profil alanindan cikis yapip giris ekranina kontrollu sekilde donebilirsin.</p>
+            <p>Web sitesi profil alanından çıkış yapıp giriş ekranına kontrollü şekilde dönebilirsin.</p>
             <button
               type="button"
               className="website-profile-shell__logout-button"
               onClick={handleLogout}
             >
-              Cikis Yap
+              Çıkış Yap
             </button>
             <a
               href={buildSurfaceHref('web', WEBSITE_LOGIN_PATH)}
               className="website-profile-shell__session-link"
             >
-              Giris ekranini ac
+              Giriş ekranını aç
             </a>
           </div>
         </aside>

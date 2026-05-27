@@ -79,7 +79,7 @@ function LoginOtp() {
     if (method === 'sms') {
       const e164 = toE164TR(phoneDigits);
       if (!e164) {
-        setError('Telefon 10 haneli olmali ve 5 ile baslamali.');
+        setError('Telefon 10 haneli olmalı ve 5 ile başlamalı.');
         return;
       }
       setLoadingSend(true);
@@ -87,16 +87,16 @@ function LoginOtp() {
         await api.post('/auth/sms/send', { phone: e164 });
         setStep(2);
         setResendSeconds(60);
-        setInfo('Kod gonderildi.');
+        setInfo('Kod gönderildi.');
       } catch (err) {
         if (err?.response?.data?.code === 'TWILIO_TRIAL_UNVERIFIED') {
-          setError('SMS gonderilemedi. Trial hesap sadece dogrulanmis numaralara SMS gonderir.');
+          setError('SMS gönderilemedi. Trial hesap sadece doğrulanmış numaralara SMS gönderir.');
         } else if (err?.response?.data?.code === 'TWILIO_GEO_BLOCKED') {
-          setError('Bu ulkeye SMS gonderimi kapali.');
+          setError('Bu ülkeye SMS gönderimi kapalı.');
         } else if (err?.response?.data?.code === 'TWILIO_INVALID_PHONE') {
-          setError('Numara formati hatali (5XXXXXXXXX).');
+          setError('Numara formatı hatalı (5XXXXXXXXX).');
         } else {
-          setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+          setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
         }
       } finally {
         setLoadingSend(false);
@@ -106,7 +106,7 @@ function LoginOtp() {
 
     const em = normalizeEmail(email);
     if (!isValidEmail(em)) {
-      setError('Gecerli bir e-posta gir.');
+      setError('Geçerli bir e-posta gir.');
       return;
     }
     setLoadingSend(true);
@@ -114,9 +114,9 @@ function LoginOtp() {
       await api.post('/auth/otp/send', { channel: 'email', email: em });
       setStep(2);
       setResendSeconds(60);
-      setInfo('Kod gonderildi.');
+      setInfo('Kod gönderildi.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSend(false);
     }
@@ -125,7 +125,7 @@ function LoginOtp() {
   const verify = async () => {
     resetMessages();
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Kod 6 haneli olmali.');
+      setError('Kod 6 haneli olmalı.');
       return;
     }
 
@@ -135,7 +135,7 @@ function LoginOtp() {
       if (method === 'sms') {
         const e164 = toE164TR(phoneDigits);
         if (!e164) {
-          setError('Telefon 10 haneli olmali ve 5 ile baslamali.');
+          setError('Telefon 10 haneli olmalı ve 5 ile başlamalı.');
           return;
         }
         const res = await api.post('/auth/sms/verify', { phone: e164, code: code.trim() });
@@ -143,7 +143,7 @@ function LoginOtp() {
       } else {
         const em = normalizeEmail(email);
         if (!isValidEmail(em)) {
-          setError('Gecerli bir e-posta gir.');
+          setError('Geçerli bir e-posta gir.');
           return;
         }
         const res = await api.post('/auth/otp/verify', {
@@ -165,9 +165,9 @@ function LoginOtp() {
         setModalOpen(true);
         return;
       }
-      setInfo(data?.message || 'Dogrulandi.');
+      setInfo(data?.message || 'Doğrulandı.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingVerify(false);
     }
@@ -180,11 +180,11 @@ function LoginOtp() {
       return;
     }
     if (!signupPassword.trim()) {
-      setError('Sifre zorunlu.');
+      setError('Şifre zorunlu.');
       return;
     }
     if (!signupToken) {
-      setError('Signup token bulunamadi.');
+      setError('Signup token bulunamadı.');
       return;
     }
 
@@ -204,10 +204,10 @@ function LoginOtp() {
         completeAuthRedirect();
         return;
       }
-      setInfo(data?.message || 'Kayit tamamlandi.');
+      setInfo(data?.message || 'Kayıt tamamlandı.');
       setModalOpen(false);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSignup(false);
     }
@@ -221,8 +221,8 @@ function LoginOtp() {
   return (
     <div className="otp-page">
       <div className="card otp-card">
-        <h2>OTP ile Giris</h2>
-        <p className="muted">E-posta veya telefon ile dogrulama yap.</p>
+        <h2>OTP ile Giriş</h2>
+        <p className="muted">E-posta veya telefon ile doğrulama yap.</p>
 
         <div className="otp-channel">
           <button
@@ -267,7 +267,7 @@ function LoginOtp() {
                     placeholder="5xx xxx xx xx"
                   />
                 </div>
-                <div className="input-helper">Sadece 10 hane yaz (5 ile baslayan).</div>
+                <div className="input-helper">Sadece 10 hane yaz (5 ile başlayan).</div>
               </div>
             ) : (
               <div className="form-group">
@@ -289,7 +289,7 @@ function LoginOtp() {
               onClick={send}
               disabled={loadingSend}
             >
-              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+              {loadingSend ? 'Gönderiliyor...' : 'Kod Gönder'}
             </button>
           </>
         )}
@@ -297,11 +297,11 @@ function LoginOtp() {
         {step === 2 && (
           <>
             <p className="muted small">
-              Kod su hedefe gonderildi:{' '}
+              Kod şu hedefe gönderildi:{' '}
               <strong>{method === 'sms' ? toE164TR(phoneDigits) : normalizeEmail(email)}</strong>
             </p>
             <div className="form-group">
-              <label>Dogrulama Kodu</label>
+              <label>Doğrulama Kodu</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -318,7 +318,7 @@ function LoginOtp() {
               onClick={verify}
               disabled={loadingVerify}
             >
-              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula / Giris Yap'}
+              {loadingVerify ? 'Doğrulanıyor...' : 'Doğrula / Giriş Yap'}
             </button>
             <button
               type="button"
@@ -326,10 +326,10 @@ function LoginOtp() {
               onClick={resend}
               disabled={resendSeconds > 0 || loadingSend}
             >
-              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+              {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
             </button>
             <button type="button" className="link-btn" onClick={goBackToEntry}>
-              {method === 'sms' ? 'Numarayi duzenle' : 'E-postayi duzenle'}
+              {method === 'sms' ? 'Numarayı düzenle' : 'E-postayı düzenle'}
             </button>
           </>
         )}
@@ -341,8 +341,8 @@ function LoginOtp() {
       {modalOpen && (
         <div className="otp-modal-overlay">
           <div className="otp-modal">
-            <h3>Hesap Olustur</h3>
-            <p className="muted">Hesap olusturmak ister misin?</p>
+            <h3>Hesap Oluştur</h3>
+            <p className="muted">Hesap oluşturmak ister misin?</p>
             <div className="form-group">
               <label>Ad Soyad</label>
               <input
@@ -353,12 +353,12 @@ function LoginOtp() {
               />
             </div>
             <div className="form-group">
-              <label>Sifre</label>
+              <label>Şifre</label>
               <input
                 type="password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="Sifre"
+                placeholder="Şifre"
               />
             </div>
             <div className="modal-actions">
@@ -368,7 +368,7 @@ function LoginOtp() {
                 onClick={() => setModalOpen(false)}
                 disabled={loadingSignup}
               >
-                Hayir
+                Hayır
               </button>
               <button
                 type="button"
@@ -376,7 +376,7 @@ function LoginOtp() {
                 onClick={completeSignup}
                 disabled={loadingSignup}
               >
-                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Olustur'}
+                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Oluştur'}
               </button>
             </div>
           </div>

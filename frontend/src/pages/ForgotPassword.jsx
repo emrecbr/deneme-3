@@ -37,11 +37,11 @@ function ForgotPassword() {
     try {
       setLoading(true);
       await api.post('/auth/password/forgot', { method: 'email', email: normalizedEmail });
-      setInfo('Eger hesap varsa dogrulama kodu gonderildi.');
+      setInfo('Eğer hesap varsa doğrulama kodu gönderildi.');
       setSent(true);
       navigate(`/reset-password?email=${encodeURIComponent(normalizedEmail)}`);
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError?.message || 'Talimatlar gonderilemedi.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Talimatlar gönderilemedi.');
     } finally {
       setLoading(false);
     }
@@ -51,11 +51,11 @@ function ForgotPassword() {
     <div className="page auth-page">
       <div className="card auth-card">
         <div className="auth-logo">Talepet</div>
-        <h1 className="auth-title">Sifremi Unuttum</h1>
-        <p className="auth-subtitle">E-posta adresine sifre sifirlama kodu gonder.</p>
+        <h1 className="auth-title">Şifremi Unuttum</h1>
+        <p className="auth-subtitle">E-posta adresine şifre sıfırlama kodu gönder.</p>
         <p className="muted small">
-          Google veya Apple ile giris yaptiysan sifren saglayicidadir. Istersen uygulama sifresi
-          olusturabilirsin.
+          Google veya Apple ile giriş yaptıysan şifren sağlayıcıdadır. İstersen uygulama şifresi
+          oluşturabilirsin.
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -76,12 +76,12 @@ function ForgotPassword() {
           {info ? <div className="auth-alert">{info}</div> : null}
 
           <button type="submit" className="primary-btn" disabled={!canSend}>
-            {loading ? 'Gonderiliyor...' : sent ? 'Kodu Tekrar Gonder' : 'Kod Gonder'}
+            {loading ? 'Gönderiliyor...' : sent ? 'Kodu Tekrar Gönder' : 'Kod Gönder'}
           </button>
         </form>
 
         <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/login')}>
-          Giris ekranina don
+          Giriş ekranına dön
         </button>
       </div>
     </div>

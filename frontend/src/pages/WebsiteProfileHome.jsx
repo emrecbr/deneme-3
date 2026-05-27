@@ -67,24 +67,24 @@ function WebsiteProfileHome() {
   const quickActions = useMemo(
     () => [
       {
-        label: 'Hesabini Duzenle',
+        label: 'Hesabını Düzenle',
         to: WEBSITE_PROFILE_ACCOUNT_PATH,
-        helper: 'Bilgiler, guvenlik ve odeme alani'
+        helper: 'Bilgiler, güvenlik ve ödeme alanı'
       },
       {
-        label: 'Paketler ve Uyelik',
+        label: 'Paketler ve Üyelik',
         to: WEBSITE_PACKAGES_PATH,
-        helper: 'Tek pricing sistemi, dijital haklar ve compliance aciklamalari'
+        helper: 'Tek pricing sistemi, dijital haklar ve compliance açıklamaları'
       },
       {
-        label: 'Takiplerini Ac',
+        label: 'Takiplerini Aç',
         to: WEBSITE_PROFILE_ALERTS_PATH,
-        helper: 'Kategori, sehir ve anahtar kelime takipleri'
+        helper: 'Kategori, şehir ve anahtar kelime takipleri'
       },
       {
-        label: 'Mesajlarini Ac',
+        label: 'Mesajlarını Aç',
         to: WEBSITE_PROFILE_MESSAGES_PATH,
-        helper: 'Sohbet giris noktasi'
+        helper: 'Sohbet giriş noktası'
       }
     ],
     []
@@ -95,7 +95,7 @@ function WebsiteProfileHome() {
       {
         label: 'Toplam Talep',
         value: loading ? '-' : summary.requests,
-        note: loading ? 'Veriler yukleniyor' : summary.requests ? 'Olusturdugun talepler' : 'Henuz talep olusturmadin'
+        note: loading ? 'Veriler yükleniyor' : summary.requests ? 'Oluşturduğun talepler' : 'Henüz talep oluşturmadın'
       },
       {
         label: 'Bekleyen Talep',
@@ -103,24 +103,24 @@ function WebsiteProfileHome() {
         note: loading
           ? 'Durum kontrol ediliyor'
           : summary.pendingRequests
-            ? 'Onay veya islem bekleyen kayitlar'
-            : 'Bekleyen talep gorunmuyor'
+            ? 'Onay veya işlem bekleyen kayıtlar'
+            : 'Bekleyen talep görünmüyor'
       },
       {
         label: 'Mesajlar',
         value: loading ? '-' : summary.chats,
-        note: loading ? 'Sohbetler aliniyor' : summary.chats ? 'Aktif sohbetlerin' : 'Henuz aktif sohbet yok'
+        note: loading ? 'Sohbetler alınıyor' : summary.chats ? 'Aktif sohbetlerin' : 'Henüz aktif sohbet yok'
       },
       {
         label: 'Favoriler',
         value: loading ? '-' : summary.favorites,
-        note: loading ? 'Favoriler aliniyor' : summary.favorites ? 'Kaydettigin talepler' : 'Henuz favori eklemedin'
+        note: loading ? 'Favoriler alınıyor' : summary.favorites ? 'Kaydettiğin talepler' : 'Henüz favori eklemedin'
       },
       {
         label: 'Kalan hak',
         value: listingQuota ? `${listingQuota.remaining}/${listingQuota.limit}` : '-',
         note: listingQuota
-          ? `Son ${listingQuota.windowDays} gun • Yenilenme ${formatListingQuotaResetDate(listingQuota.resetAt)}`
+          ? `Son ${listingQuota.windowDays} gün • Yenilenme ${formatListingQuotaResetDate(listingQuota.resetAt)}`
           : 'Kota bilgisi hesaplanıyor'
       }
     ],
@@ -130,8 +130,8 @@ function WebsiteProfileHome() {
   const statusItems = useMemo(
     () => [
       { label: 'Hesap tipi', value: user?.isPremium ? 'Premium' : 'Standart' },
-      { label: 'Bildirim odagi', value: summary.pendingRequests ? 'Bekleyen taleplerin var' : 'Genel takip' },
-      { label: 'Mesaj akisi', value: summary.chats ? `${summary.chats} aktif sohbet` : 'Yeni mesaj bekleniyor' }
+      { label: 'Bildirim odağı', value: summary.pendingRequests ? 'Bekleyen taleplerin var' : 'Genel takip' },
+      { label: 'Mesaj akışı', value: summary.chats ? `${summary.chats} aktif sohbet` : 'Yeni mesaj bekleniyor' }
     ],
     [summary, user]
   );
@@ -140,11 +140,11 @@ function WebsiteProfileHome() {
     <div className="website-profile-home">
       <section className="website-profile-home__intro card">
         <div>
-          <p className="landing-eyebrow">Website profil girisi</p>
-          <h2>{user?.name || 'Talepet kullanicisi'}</h2>
+          <p className="landing-eyebrow">Web sitesi profil girişi</p>
+          <h2>{user?.name || 'Talepet kullanıcısı'}</h2>
           <p>
-            Profil alani artik website yuzeyi icinde modul modul ilerliyor. Hesap, paketler, takipler ve gunluk
-            aksiyonlar ayni shell icinde daha net bir bilgi mimarisiyle aciliyor.
+            Profil alanı artık web sitesi yüzeyi içinde modül modül ilerliyor. Hesap, paketler, takipler ve günlük
+            aksiyonlar aynı shell içinde daha net bir bilgi mimarisiyle açılıyor.
           </p>
         </div>
       </section>
@@ -161,7 +161,7 @@ function WebsiteProfileHome() {
 
       {error ? (
         <section className="card ux-error-state website-profile-state-card">
-          <strong>Profil ozeti alinamadi</strong>
+          <strong>Profil özeti alınamadı</strong>
           <p>{error}</p>
         </section>
       ) : null}
@@ -169,8 +169,8 @@ function WebsiteProfileHome() {
       <section className="website-profile-home__grid">
         <div className="card website-profile-home__panel">
           <div className="website-profile-home__panel-head">
-            <h3>Ucretsiz Ilan Hakkin</h3>
-            <span>Website ve app create akisinda ayni kota gorunurlugu kullanilir</span>
+            <h3>Ücretsiz İlan Hakkın</h3>
+            <span>Web sitesi ve uygulama oluşturma akışında aynı kota görünürlüğü kullanılır</span>
           </div>
 
           {listingQuota ? (
@@ -180,12 +180,12 @@ function WebsiteProfileHome() {
                 <span>{listingQuota.remaining}/{listingQuota.limit}</span>
               </div>
               <div className="website-profile-home__module-item">
-                <strong>Kullanilan</strong>
+                <strong>Kullanılan</strong>
                 <span>{listingQuota.used ?? '-'}</span>
               </div>
               <div className="website-profile-home__module-item">
                 <strong>Pencere</strong>
-                <span>Son {listingQuota.windowDays} gun</span>
+                <span>Son {listingQuota.windowDays} gün</span>
               </div>
               <div className="website-profile-home__module-item">
                 <strong>Yenilenme</strong>
@@ -195,15 +195,15 @@ function WebsiteProfileHome() {
           ) : (
             <div className="website-profile-home__module-item">
               <strong>Kota bilgisi</strong>
-              <span>Hesaplaniyor</span>
+              <span>Hesaplanıyor</span>
             </div>
           )}
         </div>
 
         <div className="card website-profile-home__panel">
           <div className="website-profile-home__panel-head">
-            <h3>Hizli Aksiyonlar</h3>
-            <span>En cok kullanilan profile gecisler</span>
+            <h3>Hızlı Aksiyonlar</h3>
+            <span>En çok kullanılan profile geçişler</span>
           </div>
 
           <div className="website-profile-home__quick-list">
@@ -219,7 +219,7 @@ function WebsiteProfileHome() {
         <div className="card website-profile-home__panel">
           <div className="website-profile-home__panel-head">
             <h3>Aktif Durumlar</h3>
-            <span>Hesabinin guncel ozeti</span>
+            <span>Hesabının güncel özeti</span>
           </div>
 
           <div className="website-profile-home__module-list">
@@ -234,8 +234,8 @@ function WebsiteProfileHome() {
 
         <div className="card website-profile-home__panel">
           <div className="website-profile-home__panel-head">
-            <h3>Modul Haritasi</h3>
-            <span>Website profil alaninda erisebilecegin sayfalar</span>
+            <h3>Modül Haritası</h3>
+            <span>Web sitesi profil alanında erişebileceğin sayfalar</span>
           </div>
 
           <div className="website-profile-home__module-list">
@@ -250,18 +250,18 @@ function WebsiteProfileHome() {
 
         <div className="card website-profile-home__panel">
           <div className="website-profile-home__panel-head">
-            <h3>Bir Sonraki Adim</h3>
-            <span>Gunluk kullanim icin onerilen girisler</span>
+            <h3>Bir Sonraki Adım</h3>
+            <span>Günlük kullanım için önerilen girişler</span>
           </div>
 
           <div className="website-profile-home__quick-list">
             <Link to={WEBSITE_PROFILE_REQUESTS_PATH} className="website-profile-home__quick-link">
-              <strong>Taleplerini gozden gecir</strong>
-              <span>Yayindaki ve bekleyen taleplerini tek yerden yonet.</span>
+              <strong>Taleplerini gözden geçir</strong>
+              <span>Yayındaki ve bekleyen taleplerini tek yerden yönet.</span>
             </Link>
             <Link to={WEBSITE_PROFILE_FAVORITES_PATH} className="website-profile-home__quick-link">
-              <strong>Favorilerini duzenle</strong>
-              <span>Kaydettigin RFQ kayitlarini temizle veya tekrar incele.</span>
+              <strong>Favorilerini düzenle</strong>
+              <span>Kaydettiğin RFQ kayıtlarını temizle veya tekrar incele.</span>
             </Link>
           </div>
         </div>

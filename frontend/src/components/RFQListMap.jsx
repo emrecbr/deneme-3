@@ -159,7 +159,7 @@ export default function RFQListMap({
     (title, subTitle, isPremium, isNew, isActive, isFeatured, categoryLabel) =>
       L.divIcon({
         className: 'custom-marker',
-        html: `<div class="marker-badge ${isPremium ? 'premium-marker' : ''} ${isNew ? 'new-rfq-marker' : ''} ${isDarkMode ? 'dark-marker' : ''} ${!isActive ? 'inactive-marker' : ''}"><span class="marker-glyph" aria-hidden="true">${buildRfqMarkerIconSvg(categoryLabel)}</span><span class="marker-copy"><span class="marker-title">${escapeHtml(isFeatured ? `One Cikan ${title}` : title)}</span><span class="marker-sub">${escapeHtml(subTitle)}</span></span></div>`,
+        html: `<div class="marker-badge ${isPremium ? 'premium-marker' : ''} ${isNew ? 'new-rfq-marker' : ''} ${isDarkMode ? 'dark-marker' : ''} ${!isActive ? 'inactive-marker' : ''}"><span class="marker-glyph" aria-hidden="true">${buildRfqMarkerIconSvg(categoryLabel)}</span><span class="marker-copy"><span class="marker-title">${escapeHtml(isFeatured ? `Öne Çıkan ${title}` : title)}</span><span class="marker-sub">${escapeHtml(subTitle)}</span></span></div>`,
         iconSize: [176, 52],
         iconAnchor: [88, 52]
       }),

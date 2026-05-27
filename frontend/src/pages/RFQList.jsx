@@ -626,7 +626,7 @@ function RFQList({ surfaceVariant = 'app' }) {
           setRfqs(cached.items);
           setPage(cached.lastPage || 1);
           setHasMore(Boolean(cached.hasMore));
-          setError('Canli veri alinamadi. Son onbellek gosteriliyor.');
+          setError('Canlı veri alınamadı. Son önbellek gösteriliyor.');
         } else {
           setError(fetchError.response?.data?.message || 'Talepler yuklenemedi.');
           setHasMore(false);
@@ -713,7 +713,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       } catch (_error) {
         if (!cancelled) {
           setCityPickerOptions([]);
-          setCityPickerError('Sehir listesi yuklenemedi. Lutfen tekrar dene.');
+          setCityPickerError('Şehir listesi yüklenemedi. Lütfen tekrar dene.');
         }
       } finally {
         if (!cancelled) {
@@ -3105,21 +3105,21 @@ function RFQList({ surfaceVariant = 'app' }) {
             <p className="landing-eyebrow">Website kesif alani</p>
             <h2>Bulundugunuz bolgede acik talepleri web deneyimiyle tarayin.</h2>
             <p>
-              Kategori, sehir ve alt filtreleri kullanarak aktif RFQ akisini daha genis kartlar ve masaustu
+              Kategori, şehir ve alt filtreleri kullanarak aktif RFQ akışını daha geniş kartlar ve masaüstü
               odakli bir kesif ritmiyle inceleyin.
             </p>
             <div className="rfq-web-intro__actions">
               <button type="button" className="secondary-btn" onClick={handleSelectCity}>
-                Sehir Sec
+                Şehir Seç
               </button>
               <span className="rfq-web-intro__selected-city">
-                {selectedCity?.name ? `Secili: ${selectedCity.name}` : 'Tum sehirlerdeki ilanlari goruyorsun'}
+                {selectedCity?.name ? `Seçili: ${selectedCity.name}` : 'Tüm şehirlerdeki ilanları görüyorsun'}
               </span>
             </div>
           </div>
           <div className="rfq-web-intro__stats">
             <div className="rfq-web-intro__stat">
-              <span>Aktif sehir</span>
+              <span>Aktif şehir</span>
               <strong>{effectiveSelectedCityLabel}</strong>
             </div>
             <div className="rfq-web-intro__stat">
@@ -3128,7 +3128,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             </div>
             <div className="rfq-web-intro__stat">
               <span>Kapsam</span>
-              <strong>{effectiveSelectedKm >= maxRadiusKm ? 'Sehir geneli' : `${effectiveSelectedKm} km`}</strong>
+              <strong>{effectiveSelectedKm >= maxRadiusKm ? 'Şehir geneli' : `${effectiveSelectedKm} km`}</strong>
             </div>
           </div>
         </section>
@@ -3254,7 +3254,7 @@ function RFQList({ surfaceVariant = 'app' }) {
 
           {effectiveListIsEmpty && !nearbyLoading ? (
             <EmptyStateCard
-              title={effectiveHasCityFilter ? 'Bu sehirde ilan bulunamadi' : uiTexts.emptyCityTitle}
+              title={effectiveHasCityFilter ? 'Bu şehirde ilan bulunamadı' : uiTexts.emptyCityTitle}
               description={
                 effectiveHasCityFilter
                   ? `${effectiveSelectedCityLabel} • ${effectiveSelectedKm >= maxRadiusKm ? 'Şehir geneli' : `${effectiveSelectedKm} km`} için henüz ilan bulunamadı.`
@@ -3300,41 +3300,41 @@ function RFQList({ surfaceVariant = 'app' }) {
           <div className="rfq-city-picker-modal" onClick={(event) => event.stopPropagation()}>
             <div className="rfq-city-picker-modal__header">
               <div>
-                <p className="landing-eyebrow">Website sehir secimi</p>
-                <h3>Sehir Sec</h3>
+                <p className="landing-eyebrow">Web sitesi şehir seçimi</p>
+                <h3>Şehir Seç</h3>
               </div>
               <button
                 type="button"
                 className="mini-clear-btn"
                 onClick={() => setIsCityPickerOpen(false)}
-                aria-label="Sehir secim modalini kapat"
+                aria-label="Şehir seçim modalını kapat"
               >
                 ×
               </button>
             </div>
             <p className="rfq-city-picker-modal__copy">
-              Sectigin sehir localStorage&apos;a kaydedilir ve ilan listesi bu sehri baz alarak yeniden yuklenir.
+              Seçtiğin şehir localStorage&apos;a kaydedilir ve ilan listesi bu şehri baz alarak yeniden yüklenir.
             </p>
             <input
               type="text"
               className="city-search-input rfq-city-picker-modal__input"
-              placeholder="Sehir ara..."
+              placeholder="Şehir ara..."
               value={cityPickerQuery}
               onChange={(event) => setCityPickerQuery(event.target.value)}
               autoFocus
             />
             <div className="rfq-city-picker-modal__actions">
               <button type="button" className="secondary-btn" onClick={() => handleWebsiteCitySelect(null)}>
-                Tum sehirler
+                Tüm şehirler
               </button>
             </div>
             <div className="rfq-city-picker-modal__list">
-              {cityPickerLoading ? <div className="rfq-city-picker-modal__state">Sehirler yukleniyor...</div> : null}
+              {cityPickerLoading ? <div className="rfq-city-picker-modal__state">Şehirler yükleniyor...</div> : null}
               {!cityPickerLoading && cityPickerError ? (
                 <div className="rfq-city-picker-modal__state rfq-city-picker-modal__state--error">{cityPickerError}</div>
               ) : null}
               {!cityPickerLoading && !cityPickerError && cityPickerOptions.length === 0 ? (
-                <div className="rfq-city-picker-modal__state">Aramana uygun sehir bulunamadi.</div>
+                <div className="rfq-city-picker-modal__state">Aramana uygun şehir bulunamadı.</div>
               ) : null}
               {!cityPickerLoading && !cityPickerError
                 ? cityPickerOptions.map((city) => {

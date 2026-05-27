@@ -67,7 +67,7 @@ function EmailVerify() {
       return;
     }
     if (!isValidEmail(em)) {
-      setError('E-posta formati gecersiz.');
+      setError('E-posta formatı geçersiz.');
       return;
     }
     setLoadingSend(true);
@@ -75,9 +75,9 @@ function EmailVerify() {
       await api.post('/auth/otp/send', { channel: 'email', email: em });
       setStep(2);
       setResendSeconds(60);
-      setInfo('Kod gonderildi.');
+      setInfo('Kod gönderildi.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSend(false);
     }
@@ -87,11 +87,11 @@ function EmailVerify() {
     resetMessages();
     const em = normalizeEmail(email);
     if (!isValidEmail(em)) {
-      setError('Gecerli bir e-posta gir.');
+      setError('Geçerli bir e-posta gir.');
       return;
     }
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Kod 6 haneli olmali.');
+      setError('Kod 6 haneli olmalı.');
       return;
     }
     setLoadingVerify(true);
@@ -116,9 +116,9 @@ function EmailVerify() {
         return;
       }
 
-      setInfo(data?.message || 'Dogrulandi.');
+      setInfo(data?.message || 'Doğrulandı.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingVerify(false);
     }
@@ -131,11 +131,11 @@ function EmailVerify() {
       return;
     }
     if (!signupPassword) {
-      setError('Sifre zorunlu.');
+      setError('Şifre zorunlu.');
       return;
     }
     if (!signupToken) {
-      setError('Signup token bulunamadi.');
+      setError('Signup token bulunamadı.');
       return;
     }
     setLoadingSignup(true);
@@ -152,10 +152,10 @@ function EmailVerify() {
         completeAuthRedirect();
         return;
       }
-      setInfo(data?.message || 'Kayit tamamlandi.');
+      setInfo(data?.message || 'Kayıt tamamlandı.');
       setModalOpen(false);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Baglanti hatasi');
+      setError(err?.response?.data?.message || err?.message || 'Bağlantı hatası');
     } finally {
       setLoadingSignup(false);
     }
@@ -171,8 +171,8 @@ function EmailVerify() {
   return (
     <div className="otp-page">
       <div className="card otp-card">
-        <h2>Email Dogrulama</h2>
-        <p className="muted">E-posta adresin ile giris yap.</p>
+        <h2>E-posta Doğrulama</h2>
+        <p className="muted">E-posta adresin ile giriş yap.</p>
 
         {step === 1 && (
           <>
@@ -193,7 +193,7 @@ function EmailVerify() {
               onClick={send}
               disabled={loadingSend}
             >
-              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+              {loadingSend ? 'Gönderiliyor...' : 'Kod Gönder'}
             </button>
           </>
         )}
@@ -201,10 +201,10 @@ function EmailVerify() {
         {step === 2 && (
           <>
             <p className="muted small">
-              Kod su e-postaya gonderildi: <strong>{normalizeEmail(email)}</strong>
+              Kod şu e-postaya gönderildi: <strong>{normalizeEmail(email)}</strong>
             </p>
             <div className="form-group">
-              <label>Dogrulama Kodu</label>
+              <label>Doğrulama Kodu</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -221,7 +221,7 @@ function EmailVerify() {
               onClick={verify}
               disabled={loadingVerify}
             >
-              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula'}
+              {loadingVerify ? 'Doğrulanıyor...' : 'Doğrula'}
             </button>
             <button
               type="button"
@@ -229,10 +229,10 @@ function EmailVerify() {
               onClick={resend}
               disabled={resendSeconds > 0 || loadingSend}
             >
-              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+              {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
             </button>
             <button type="button" className="link-btn" onClick={goBackToEmailEntry}>
-              E-postayi duzenle
+              E-postayı düzenle
             </button>
           </>
         )}
@@ -244,8 +244,8 @@ function EmailVerify() {
       {modalOpen && (
         <div className="otp-modal-overlay">
           <div className="otp-modal">
-            <h3>Hesap Olustur</h3>
-            <p className="muted">Bu e-posta kayitli degil. Yeni hesap olusturmak ister misin?</p>
+            <h3>Hesap Oluştur</h3>
+            <p className="muted">Bu e-posta kayıtlı değil. Yeni hesap oluşturmak ister misin?</p>
             <div className="form-group">
               <label>Ad Soyad</label>
               <input
@@ -256,13 +256,13 @@ function EmailVerify() {
               />
             </div>
             <div className="form-group">
-              <label>Sifre</label>
+              <label>Şifre</label>
               <input
                 type="password"
                 autoComplete="new-password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="Sifre"
+                placeholder="Şifre"
               />
             </div>
             <div className="modal-actions">
@@ -272,7 +272,7 @@ function EmailVerify() {
                 onClick={() => setModalOpen(false)}
                 disabled={loadingSignup}
               >
-                Hayir
+                Hayır
               </button>
               <button
                 type="button"
@@ -280,7 +280,7 @@ function EmailVerify() {
                 onClick={completeSignup}
                 disabled={loadingSignup}
               >
-                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Olustur'}
+                {loadingSignup ? 'Kaydediliyor...' : 'Hesap Oluştur'}
               </button>
             </div>
           </div>

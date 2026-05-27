@@ -63,9 +63,9 @@ function ResetPassword() {
       });
       const data = response?.data;
       setResetSessionToken(data?.resetSessionToken || '');
-      setInfo('Dogrulama basarili. Yeni sifreni belirle.');
+      setInfo('Doğrulama başarılı. Yeni şifreni belirle.');
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError?.message || 'Dogrulama basarisiz.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Doğrulama başarısız.');
     } finally {
       setVerifying(false);
     }
@@ -77,17 +77,17 @@ function ResetPassword() {
 
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
-      setError('Gecerli bir e-posta gir.');
+      setError('Geçerli bir e-posta gir.');
       return;
     }
 
     try {
       setResending(true);
       await api.post('/auth/password/forgot', { method: 'email', email: normalizedEmail });
-      setInfo('Eger hesap varsa dogrulama kodu gonderildi.');
+      setInfo('Eğer hesap varsa doğrulama kodu gönderildi.');
       setCooldownLeft(60);
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError?.message || 'Kod gonderilemedi.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Kod gönderilemedi.');
     } finally {
       setResending(false);
     }
@@ -99,19 +99,19 @@ function ResetPassword() {
     setInfo('');
 
     if (!resetSessionToken) {
-      setError('Dogrulama gerekiyor.');
+      setError('Doğrulama gerekiyor.');
       return;
     }
     if (!newPassword || !confirmPassword) {
-      setError('Sifre alanlari zorunlu.');
+      setError('Şifre alanları zorunlu.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('Sifreler eslesmiyor.');
+      setError('Şifreler eşleşmiyor.');
       return;
     }
     if (!passwordPolicy(newPassword)) {
-      setError('Sifre en az 8 karakter olmali.');
+      setError('Şifre en az 8 karakter olmalı.');
       return;
     }
 
@@ -121,10 +121,10 @@ function ResetPassword() {
         resetSessionToken,
         newPassword
       });
-      setInfo('Sifre guncellendi.');
+      setInfo('Şifre güncellendi.');
       setTimeout(() => navigate('/login'), 1200);
     } catch (requestError) {
-      setError(requestError?.response?.data?.message || requestError?.message || 'Sifre guncellenemedi.');
+      setError(requestError?.response?.data?.message || requestError?.message || 'Şifre güncellenemedi.');
     } finally {
       setSaving(false);
     }
@@ -134,8 +134,8 @@ function ResetPassword() {
     <div className="page auth-page">
       <div className="card auth-card">
         <div className="auth-logo">Talepet</div>
-        <h1 className="auth-title">Sifre Sifirla</h1>
-        <p className="auth-subtitle">Kodunu dogrula ve yeni sifre olustur.</p>
+        <h1 className="auth-title">Şifre Sıfırla</h1>
+        <p className="auth-subtitle">Kodunu doğrula ve yeni şifre oluştur.</p>
 
         <form className="auth-form" onSubmit={handleVerify}>
           <div className="auth-field">
@@ -162,7 +162,7 @@ function ResetPassword() {
           </div>
           <div className="auth-footer-links">
             <button type="submit" className="secondary-btn" disabled={verifying}>
-              {verifying ? 'Dogrulaniyor...' : 'Kodu Dogrula'}
+              {verifying ? 'Doğrulanıyor...' : 'Kodu Doğrula'}
             </button>
             <button
               type="button"
@@ -170,7 +170,7 @@ function ResetPassword() {
               onClick={handleResend}
               disabled={resending || cooldownLeft > 0}
             >
-              {cooldownLeft > 0 ? `Tekrar gonder (${cooldownLeft}s)` : resending ? 'Gonderiliyor...' : 'Kodu tekrar gonder'}
+              {cooldownLeft > 0 ? `Tekrar gönder (${cooldownLeft}s)` : resending ? 'Gönderiliyor...' : 'Kodu tekrar gönder'}
             </button>
           </div>
         </form>
@@ -178,27 +178,27 @@ function ResetPassword() {
         {resetSessionToken ? (
           <form className="auth-form" onSubmit={handleReset}>
             <div className="auth-field">
-              <label>Yeni Sifre</label>
+              <label>Yeni Şifre</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="Yeni sifre"
+                placeholder="Yeni şifre"
                 autoComplete="new-password"
               />
             </div>
             <div className="auth-field">
-              <label>Yeni Sifre (Tekrar)</label>
+              <label>Yeni Şifre (Tekrar)</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Yeni sifre tekrar"
+                placeholder="Yeni şifre tekrar"
                 autoComplete="new-password"
               />
             </div>
             <button type="submit" className="primary-btn" disabled={saving}>
-              {saving ? 'Kaydediliyor...' : 'Sifreyi Guncelle'}
+              {saving ? 'Kaydediliyor...' : 'Şifreyi Güncelle'}
             </button>
           </form>
         ) : null}
@@ -207,7 +207,7 @@ function ResetPassword() {
         {info ? <div className="auth-alert">{info}</div> : null}
 
         <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/login')}>
-          Giris ekranina don
+          Giriş ekranına dön
         </button>
       </div>
     </div>

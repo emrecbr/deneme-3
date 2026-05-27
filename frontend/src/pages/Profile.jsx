@@ -104,7 +104,7 @@ function Profile() {
     return date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
   };
 
-  const displayName = user?.name || user?.email || 'Kullanici';
+  const displayName = user?.name || user?.email || 'Kullanıcı';
   const avatarLetter = displayName.trim().charAt(0).toUpperCase() || '?';
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
@@ -267,7 +267,7 @@ function Profile() {
                     navigate('/profile/account', { state: { openPassword: true } });
                   }}
                 >
-                  <span>Sifre</span>
+                  <span>Şifre</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>
@@ -398,12 +398,12 @@ function Profile() {
                   className="profile-sub-item danger"
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (window.confirm('Cikis yapmak istiyor musun?')) {
+                    if (window.confirm('Çıkış yapmak istiyor musun?')) {
                       logout({ redirect: true });
                     }
                   }}
                 >
-                  <span>Cikis Yap</span>
+                  <span>Çıkış Yap</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>
@@ -552,4 +552,3 @@ function Profile() {
 }
 
 export default Profile;
-

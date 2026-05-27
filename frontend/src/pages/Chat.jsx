@@ -129,7 +129,7 @@ function Chat() {
       setContent('');
       setError('');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Mesaj gonderilemedi.');
+      setError(requestError.response?.data?.message || 'Mesaj gönderilemedi.');
     } finally {
       setSending(false);
     }
@@ -166,7 +166,7 @@ function Chat() {
       setChat(detailResponse.data?.data || null);
       setError('');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Teklif gonderilemedi.');
+      setError(requestError.response?.data?.message || 'Teklif gönderilemedi.');
     } finally {
       setOfferSubmitting(false);
     }
@@ -334,7 +334,7 @@ function Chat() {
             disabled={sending}
           />
           <button type="submit" className="primary-btn" disabled={sending}>
-            {sending ? '...' : 'Gonder'}
+            {sending ? '...' : 'Gönder'}
           </button>
         </form>
       </section>

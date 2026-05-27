@@ -31,7 +31,7 @@ function PremiumReturn() {
       }
       if (attempts >= 12) {
         setStatus('timeout');
-        setMessage('Odeme dogrulanamadi, birazdan tekrar dene.');
+        setMessage('Ödeme doğrulanamadı, birazdan tekrar dene.');
         return;
       }
       try {
@@ -54,7 +54,7 @@ function PremiumReturn() {
           await checkAuth();
           if (active) {
             setStatus('success');
-            setMessage('Odeme basarili.');
+            setMessage('Ödeme başarılı.');
             if (responsePlanCode === 'payment_method_setup' && responseConsent === null) {
               setSavePromptOpen(true);
             } else {
@@ -73,7 +73,7 @@ function PremiumReturn() {
         if (paymentStatus === 'failed') {
           if (active) {
             setStatus('error');
-            setMessage('Odeme basarisiz.');
+            setMessage('Ödeme başarısız.');
           }
           return;
         }
@@ -139,9 +139,9 @@ function PremiumReturn() {
     <div className="page premium-return">
       <section className="card">
         <h1>Premium Durumu</h1>
-        {status === 'checking' ? <p>{message || 'Odeme kontrol ediliyor...'}</p> : null}
-        {status === 'success' ? <p>{message || 'Odemen alindi.'}</p> : null}
-        {status === 'error' ? <p>{message || 'Odeme dogrulanamadi. Daha sonra tekrar dene.'}</p> : null}
+        {status === 'checking' ? <p>{message || 'Ödeme kontrol ediliyor...'}</p> : null}
+        {status === 'success' ? <p>{message || 'Ödemen alındı.'}</p> : null}
+        {status === 'error' ? <p>{message || 'Ödeme doğrulanamadı. Daha sonra tekrar dene.'}</p> : null}
         {status === 'timeout' ? (
           <>
             <p>{message}</p>
@@ -174,7 +174,7 @@ function PremiumReturn() {
       >
         <div className="payment-sheet-body" data-rb-no-drag="true">
           <div className="account-muted">
-            Bu karti sonraki odemeler icin kaydetmek ister misin?
+            Bu kartı sonraki ödemeler için kaydetmek ister misin?
           </div>
           <div className="payment-actions">
             <button

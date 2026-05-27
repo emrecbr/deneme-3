@@ -4,8 +4,8 @@ import { buildSurfaceHref, WEB_HOME_PATH } from '../config/surfaces';
 
 function WebAppShell({
   children,
-  title = 'Talepet Kesif',
-  description = 'Tarayicida ilanlari inceleyin, kategorileri gezin ve talep akisini tek bir web urun cercevesinde yonetin.'
+  title = 'Talepet Keşif',
+  description = 'Tarayıcıda ilanları inceleyin, kategorileri gezin ve talep akışını tek bir web ürün çerçevesinde yönetin.'
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,7 +13,7 @@ function WebAppShell({
 
   const locationLabel = selectedDistrict?.name && selectedCity?.name
     ? `${selectedCity.name} / ${selectedDistrict.name}`
-    : selectedCity?.name || 'Tum sehirler';
+    : selectedCity?.name || 'Tüm şehirler';
 
   const shortcuts = [
     { label: 'Kesfet', to: '/app', match: ['/app', '/'] },
@@ -27,7 +27,7 @@ function WebAppShell({
         <div className="web-app-shell__brand">
           <span className="web-app-shell__eyebrow">Browser Web App</span>
           <h1>Talepet</h1>
-          <p>Browser icinde gercek urun deneyimi.</p>
+          <p>Tarayıcı içinde gerçek ürün deneyimi.</p>
         </div>
 
         <div className="web-app-shell__actions">
@@ -39,33 +39,33 @@ function WebAppShell({
             className="web-app-shell__primary"
             onClick={() => navigate(user ? '/create' : '/login')}
           >
-            {user ? 'Talep Olustur' : 'Giris Yap'}
+            {user ? 'Talep Oluştur' : 'Giriş Yap'}
           </button>
         </div>
       </header>
 
       <section className="web-app-shell__hero">
         <div>
-          <p className="web-app-shell__hero-tag">Kesif, kategori ve teklif akisi</p>
+          <p className="web-app-shell__hero-tag">Keşif, kategori ve teklif akışı</p>
           <h2>{title}</h2>
           <p className="web-app-shell__hero-copy">{description}</p>
         </div>
 
         <div className="web-app-shell__meta-grid">
           <div className="web-app-shell__meta-card">
-            <span className="web-app-shell__meta-label">Konum baglami</span>
+            <span className="web-app-shell__meta-label">Konum bağlamı</span>
             <strong>{locationLabel}</strong>
-            <small>Sehir ve ilce secimine gore listeleme akisi korunur.</small>
+            <small>Şehir ve ilçe seçimine göre listeleme akışı korunur.</small>
           </div>
           <div className="web-app-shell__meta-card">
-            <span className="web-app-shell__meta-label">Ilk ekran</span>
+            <span className="web-app-shell__meta-label">İlk ekran</span>
             <strong>RFQ listeleme</strong>
-            <small>Mevcut backend ve filtreleme mantigi reuse edilir.</small>
+            <small>Mevcut backend ve filtreleme mantığı korunur.</small>
           </div>
           <div className="web-app-shell__meta-card">
-            <span className="web-app-shell__meta-label">Hazir giris noktasi</span>
+            <span className="web-app-shell__meta-label">Hazır giriş noktası</span>
             <strong>Kategoriler ve profil</strong>
-            <small>Web urun omurgasinin sonraki fazlari icin hazir.</small>
+            <small>Web ürün omurgasının sonraki fazları için hazır.</small>
           </div>
         </div>
       </section>

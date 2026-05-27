@@ -25,93 +25,93 @@ const FALLBACK_PUBLIC_PLANS = [
   {
     id: 'listing_extra_public',
     key: 'listing_extra',
-    title: 'Ek Ilan Hakki',
+    title: 'Ek İlan Hakkı',
     badgeLabel: 'Esnek',
-    shortDescription: 'Ucretsiz ilan hakkin doldugunda hesabina ek ilan hakki tanimlar.',
-    longDescription: 'Bu paket fiziksel urun degil, platform ici dijital yayin hakkidir.',
+    shortDescription: 'Ücretsiz ilan hakkın dolduğunda hesabına ek ilan hakkı tanımlar.',
+    longDescription: 'Bu paket fiziksel ürün değil, platform içi dijital yayın hakkıdır.',
     billingModes: ['one_time'],
     currency: 'TRY',
     monthlyPrice: 99,
     yearlyPrice: 0,
     entitlements: {
       digitalServiceLabel: 'Dijital hizmet paketi',
-      listingRights: '+1 ek ilan hakki',
+      listingRights: '+1 ek ilan hakkı',
       featuredDurationDays: { monthly: 0, yearly: 0 },
       premiumBadgeIncluded: false,
-      visibilityBoostLabel: 'Ek yayin hakki saglar',
-      offerPriorityLabel: 'Dahil degil',
+      visibilityBoostLabel: 'Ek yayın hakkı sağlar',
+      offerPriorityLabel: 'Dahil değil',
       durationLabels: {
         monthly: 'Tek seferlik hak aktivasyonu',
         yearly: 'Tek seferlik hak aktivasyonu'
       }
     },
     disclaimer:
-      'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'
+      'Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme aracılığı yapmaz.'
   },
   {
     id: 'featured_listing',
     key: 'featured_listing',
-    title: 'One Cikarma Paketi',
-    badgeLabel: 'One Cikan',
-    shortDescription: 'Secilen talebin daha dikkat cekici gorunmesini saglar.',
-    longDescription: 'One cikarilan paket dijital gorunurluk hizmetidir.',
+    title: 'Öne Çıkarma Paketi',
+    badgeLabel: 'Öne Çıkan',
+    shortDescription: 'Seçilen talebin daha dikkat çekici görünmesini sağlar.',
+    longDescription: 'Öne çıkarılan paket dijital görünürlük hizmetidir.',
     billingModes: ['monthly', 'yearly'],
     currency: 'TRY',
     monthlyPrice: 149,
     yearlyPrice: 1490,
     entitlements: {
       digitalServiceLabel: 'Dijital hizmet paketi',
-      listingRights: 'Standart ilan haklarin korunur',
+      listingRights: 'Standart ilan hakların korunur',
       featuredDurationDays: { monthly: 7, yearly: 30 },
       premiumBadgeIncluded: false,
-      visibilityBoostLabel: 'Secilen ilani daha yuksek gorunur kilar',
-      offerPriorityLabel: 'Talebin daha hizli fark edilmesine yardimci olur',
+      visibilityBoostLabel: 'Seçilen ilanı daha yüksek görünür kılar',
+      offerPriorityLabel: 'Talebin daha hızlı fark edilmesine yardımcı olur',
       durationLabels: {
-        monthly: '7 gun one cikarma etkisi',
-        yearly: '30 gun one cikarma etkisi'
+        monthly: '7 gün öne çıkarma etkisi',
+        yearly: '30 gün öne çıkarma etkisi'
       }
     },
     disclaimer:
-      'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'
+      'Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme aracılığı yapmaz.'
   },
   {
     id: 'premium_listing',
     key: 'premium_listing',
     title: 'Premium Paket',
-    badgeLabel: 'Populer',
-    shortDescription: 'Premium hesap rozeti ve daha fazla profil gorunurlugu saglar.',
-    longDescription: 'Premium paket platform ici dijital hesap ve gorunurluk hizmetidir.',
+    badgeLabel: 'Popüler',
+    shortDescription: 'Premium hesap rozeti ve daha fazla profil görünürlüğü sağlar.',
+    longDescription: 'Premium paket platform içi dijital hesap ve görünürlük hizmetidir.',
     billingModes: ['monthly', 'yearly'],
     currency: 'TRY',
     monthlyPrice: 249,
     yearlyPrice: 2490,
     entitlements: {
       digitalServiceLabel: 'Dijital hizmet paketi',
-      listingRights: 'Standart ilan haklarin korunur',
+      listingRights: 'Standart ilan hakların korunur',
       featuredDurationDays: { monthly: 0, yearly: 0 },
       premiumBadgeIncluded: true,
-      visibilityBoostLabel: 'Premium rozet ve premium hesap ayrismasi',
+      visibilityBoostLabel: 'Premium rozet ve premium hesap ayrışması',
       offerPriorityLabel: 'Premium hesap sinyali',
       durationLabels: {
-        monthly: '30 gun premium hesap aktivasyonu',
-        yearly: '365 gun premium hesap aktivasyonu'
+        monthly: '30 gün premium hesap aktivasyonu',
+        yearly: '365 gün premium hesap aktivasyonu'
       }
     },
     disclaimer:
-      'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'
+      'Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme aracılığı yapmaz.'
   }
 ];
 
 const getBillingSummary = (plan) => {
   const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
   if (modes.includes('monthly') && modes.includes('yearly')) {
-    return `${formatMoney(plan.monthlyPrice, plan.currency)} / ay - ${formatMoney(plan.yearlyPrice, plan.currency)} / yil`;
+    return `${formatMoney(plan.monthlyPrice, plan.currency)} / ay - ${formatMoney(plan.yearlyPrice, plan.currency)} / yıl`;
   }
   if (modes.includes('monthly')) {
     return `${formatMoney(plan.monthlyPrice, plan.currency)} / ay`;
   }
   if (modes.includes('yearly')) {
-    return `${formatMoney(plan.yearlyPrice, plan.currency)} / yil`;
+    return `${formatMoney(plan.yearlyPrice, plan.currency)} / yıl`;
   }
   return formatMoney(plan.monthlyPrice || plan.yearlyPrice, plan.currency);
 };
@@ -119,13 +119,13 @@ const getBillingSummary = (plan) => {
 const getPlanTypeLabel = (plan) => {
   const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
   if (modes.includes('monthly') && modes.includes('yearly')) {
-    return 'Aylik ve yillik';
+    return 'Aylık ve yıllık';
   }
   if (modes.includes('monthly')) {
-    return 'Aylik';
+    return 'Aylık';
   }
   if (modes.includes('yearly')) {
-    return 'Yillik';
+    return 'Yıllık';
   }
   return 'Tek seferlik';
 };
@@ -134,13 +134,13 @@ const getDurationSummary = (plan) => {
   const durationLabels = plan.entitlements?.durationLabels || {};
   const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
   if (modes.includes('monthly') && modes.includes('yearly')) {
-    return `${durationLabels.monthly || '30 gun'} / ${durationLabels.yearly || '365 gun'}`;
+    return `${durationLabels.monthly || '30 gün'} / ${durationLabels.yearly || '365 gün'}`;
   }
   if (modes.includes('monthly')) {
-    return durationLabels.monthly || '30 gun';
+    return durationLabels.monthly || '30 gün';
   }
   if (modes.includes('yearly')) {
-    return durationLabels.yearly || '365 gun';
+    return durationLabels.yearly || '365 gün';
   }
   return durationLabels.monthly || durationLabels.yearly || 'Tek seferlik';
 };
@@ -152,43 +152,43 @@ const getFeaturedDurationSummary = (plan) => {
     return 'Yok';
   }
   if (modes.includes('monthly') && modes.includes('yearly')) {
-    return `${durations.monthly || 0} gun / ${durations.yearly || 0} gun`;
+    return `${durations.monthly || 0} gün / ${durations.yearly || 0} gün`;
   }
   if (modes.includes('monthly')) {
-    return `${durations.monthly || 0} gun`;
+    return `${durations.monthly || 0} gün`;
   }
   if (modes.includes('yearly')) {
-    return `${durations.yearly || 0} gun`;
+    return `${durations.yearly || 0} gün`;
   }
-  return `${durations.monthly || durations.yearly || 0} gun`;
+  return `${durations.monthly || durations.yearly || 0} gün`;
 };
 
 const getActionLabel = (planKey) => {
   if (planKey === 'listing_extra') {
-    return 'Ek Ilan Hakkini Baslat';
+    return 'Ek İlan Hakkını Başlat';
   }
   if (planKey === 'featured_listing') {
-    return 'One Cikarma Paketini Aktiflestir';
+    return 'Öne Çıkarma Paketini Aktifleştir';
   }
-  return 'Premium Paketini Aktiflestir';
+  return 'Premium Paketini Aktifleştir';
 };
 
 const COMPLIANCE_POINTS = [
   {
-    title: 'Premium uyelik',
-    body: 'Talepet premium uyelik paketleriyle profil rozeti, gorunurluk avantaji ve uyelik haklari satar.'
+    title: 'Premium üyelik',
+    body: 'Talepet premium üyelik paketleriyle profil rozeti, görünürlük avantajı ve üyelik hakları satar.'
   },
   {
-    title: 'Dijital gorunurluk',
-    body: 'One cikarma ve premium rozet gibi hizmetler yalnizca platform ici dijital gorunurluk hakkidir.'
+    title: 'Dijital görünürlük',
+    body: 'Öne çıkarma ve premium rozet gibi hizmetler yalnızca platform içi dijital görünürlük hakkıdır.'
   },
   {
-    title: 'Ilan haklari',
-    body: 'Ek ilan kredileri fiziksel urun degil, platform icinde yeni talep yayini acma hakkidir.'
+    title: 'İlan hakları',
+    body: 'Ek ilan kredileri fiziksel ürün değil, platform içinde yeni talep yayını açma hakkıdır.'
   },
   {
-    title: 'Kullanicilar arasi odeme yok',
-    body: 'Talepet kullanicilar arasinda odeme araciligi yapmaz, escrow sunmaz ve komisyonla para toplamaz.'
+    title: 'Kullanıcılar arası ödeme yok',
+    body: 'Talepet kullanıcılar arasında ödeme aracılığı yapmaz, escrow sunmaz ve komisyonla para toplamaz.'
   }
 ];
 
@@ -198,7 +198,7 @@ function PricingPage() {
   const marketingOnlySurface = isWebSurfaceHost();
   const [plans, setPlans] = useState(FALLBACK_PUBLIC_PLANS);
   const [notice, setNotice] = useState(
-    'Talepet yalnizca dijital gorunurluk, premium hak ve ilan paketleri satar.'
+    'Talepet yalnızca dijital görünürlük, premium hak ve ilan paketleri satar.'
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -232,7 +232,7 @@ function PricingPage() {
           return;
         }
         setPlans(FALLBACK_PUBLIC_PLANS);
-        setError('Guncel dijital hizmet paketleri alinamadi. Varsayilan aciklama gosteriliyor.');
+        setError('Güncel dijital hizmet paketleri alınamadı. Varsayılan açıklama gösteriliyor.');
       } finally {
         if (active) {
           setLoading(false);
@@ -290,7 +290,7 @@ function PricingPage() {
       }
     } catch (requestError) {
       const message =
-        requestError.response?.data?.message || 'Dijital paket baslatilamadi. Lutfen tekrar dene.';
+        requestError.response?.data?.message || 'Dijital paket başlatılamadı. Lütfen tekrar dene.';
       setError(message);
     } finally {
       setProcessing('');
@@ -306,8 +306,8 @@ function PricingPage() {
           <p className="public-eyebrow">{PRICING_PAGE_CONTENT.hero.eyebrow}</p>
           <h1>Talepet Premium Hizmet Paketleri</h1>
           <p className="public-lead">
-            Talepet kullanicilar arasinda odeme araciligi yapmaz. Platform yalnizca dijital
-            gorunurluk, premium listeleme ve uyelik hizmetleri sunar.
+            Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Platform yalnızca dijital
+            görünürlük, premium listeleme ve üyelik hizmetleri sunar.
           </p>
           <div className="pricing-page-highlights">
             {PRICING_PAGE_CONTENT.highlights.map((item) => (
@@ -320,12 +320,12 @@ function PricingPage() {
         </div>
         <aside className="pricing-page-hero__panel">
           <span className="pricing-page-hero__panel-badge">Dijital hizmet modeli</span>
-          <h2>Reviewer icin net urun ozeti</h2>
+          <h2>Reviewer için net ürün özeti</h2>
           <ul className="pricing-page-hero__panel-list">
-            <li>Talepet fiziksel urun satmaz.</li>
-            <li>Talepet kullanicilar arasinda odeme toplamaz.</li>
-            <li>Gelir modeli premium uyelik ve gorunurluk paketleridir.</li>
-            <li>Ek ilan ve one cikarma haklari dijital platform hakkidir.</li>
+            <li>Talepet fiziksel ürün satmaz.</li>
+            <li>Talepet kullanıcılar arasında ödeme toplamaz.</li>
+            <li>Gelir modeli premium üyelik ve görünürlük paketleridir.</li>
+            <li>Ek ilan ve öne çıkarma hakları dijital platform hakkıdır.</li>
           </ul>
         </aside>
       </section>
@@ -343,18 +343,18 @@ function PricingPage() {
         <div className="pricing-page-card-grid-head">
           <div>
             <p className="public-eyebrow">Dijital hizmet paketleri</p>
-            <h2>Paket farklari ve kullanici haklari</h2>
+            <h2>Paket farkları ve kullanıcı hakları</h2>
             <p>
-              Ne satildigi, hangi hakkin ucretli oldugu ve premium paketlerin ne sagladigi bu
-              alanda acikca listelenir.
+              Ne satıldığı, hangi hakkın ücretli olduğu ve premium paketlerin ne sağladığı bu
+              alanda açıkça listelenir.
             </p>
           </div>
-          <div className="pricing-page-badges" aria-label="Odeme gostergeleri">
+          <div className="pricing-page-badges" aria-label="Ödeme göstergeleri">
             <img src={visaBadge} alt="Visa" className="public-payment-badge" />
             <img src={mastercardBadge} alt="MasterCard" className="public-payment-badge" />
             <img
               src={iyzicoBadge}
-              alt="iyzico ile ode"
+              alt="iyzico ile öde"
               className="public-payment-badge public-payment-badge-wide"
             />
           </div>
@@ -363,15 +363,15 @@ function PricingPage() {
         <div className="pricing-page-service-note">{notice}</div>
         {!marketingOnlySurface && !PREMIUM_PURCHASES_ENABLED ? (
           <div className="website-profile-state-card">
-            <strong>Yakinda aktif</strong>
+            <strong>Yakında aktif</strong>
             <p>
-              Premium paket satin alma yakinda aktif olacak. App tarafinda paket kartlari
-              inceleme amacli gorunur; odeme henuz baslatilmaz.
+              Premium paket satın alma yakında aktif olacak. Uygulama tarafında paket kartları
+              inceleme amaçlı görünür; ödeme henüz başlatılmaz.
             </p>
           </div>
         ) : null}
 
-        {loading ? <div className="website-profile-state-card">Paketler yukleniyor...</div> : null}
+        {loading ? <div className="website-profile-state-card">Paketler yükleniyor...</div> : null}
         {!loading && error ? (
           <div className="website-profile-state-card">
             <p>{error}</p>
@@ -403,11 +403,11 @@ function PricingPage() {
 
               <dl className="pricing-plan-card__facts">
                 <div>
-                  <dt>Kac ilan hakki</dt>
+                  <dt>Kaç ilan hakkı</dt>
                   <dd>{plan.entitlements?.listingRights || 'Belirtilmedi'}</dd>
                 </div>
                 <div>
-                  <dt>One cikarilma suresi</dt>
+                  <dt>Öne çıkarılma süresi</dt>
                   <dd>{getFeaturedDurationSummary(plan)}</dd>
                 </div>
                 <div>
@@ -415,12 +415,12 @@ function PricingPage() {
                   <dd>{plan.entitlements?.premiumBadgeIncluded ? 'Var' : 'Yok'}</dd>
                 </div>
                 <div>
-                  <dt>Daha fazla gorunurluk</dt>
+                  <dt>Daha fazla görünürlük</dt>
                   <dd>{plan.entitlements?.visibilityBoostLabel || 'Belirtilmedi'}</dd>
                 </div>
                 <div>
-                  <dt>Teklif onceligi</dt>
-                  <dd>{plan.entitlements?.offerPriorityLabel || 'Dahil degil'}</dd>
+                  <dt>Teklif önceliği</dt>
+                  <dd>{plan.entitlements?.offerPriorityLabel || 'Dahil değil'}</dd>
                 </div>
                 <div>
                   <dt>Plan tipi</dt>
@@ -434,7 +434,7 @@ function PricingPage() {
 
               <div className="pricing-plan-card__service-note">
                 {plan.disclaimer ||
-                  'Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme araciligi yapmaz.'}
+                  'Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme aracılığı yapmaz.'}
               </div>
               <button
                 type="button"
@@ -445,7 +445,7 @@ function PricingPage() {
                 {marketingOnlySurface
                   ? 'Uygulamaya Git'
                   : processing === resolveCheckoutPlanCode(plan)
-                    ? 'Yonlendiriliyor...'
+                    ? 'Yönlendiriliyor...'
                     : getActionLabel(plan.key)}
               </button>
             </article>
@@ -456,10 +456,10 @@ function PricingPage() {
       <section className="public-page-card pricing-page-compliance">
         <div className="pricing-page-compliance__intro">
           <p className="public-eyebrow">Gelir modeli</p>
-          <h2>Talepet Nasil Gelir Elde Eder?</h2>
+          <h2>Talepet Nasıl Gelir Elde Eder?</h2>
           <p>
-            Talepet kullanicilar arasinda odeme yapilan bir pazar yeri degildir. Platform gelirini
-            premium uyelik, dijital gorunurluk, one cikarma haklari ve ek ilan kredilerinden elde
+            Talepet kullanıcılar arasında ödeme yapılan bir pazar yeri değildir. Platform gelirini
+            premium üyelik, dijital görünürlük, öne çıkarma hakları ve ek ilan kredilerinden elde
             eder.
           </p>
         </div>
@@ -475,12 +475,12 @@ function PricingPage() {
 
       <section className="public-page-card pricing-page-legal">
         <div className="pricing-page-legal__copy">
-          <p className="public-eyebrow">Guven ve hukuki gorunurluk</p>
-          <h2>Kurumsal ve yasal sayfalar tek tikla ulasilabilir durumda.</h2>
+          <p className="public-eyebrow">Güven ve hukuki görünürlük</p>
+          <h2>Kurumsal ve yasal sayfalar tek tıkla ulaşılabilir durumda.</h2>
           <p>
-            Talepet fiziksel urun magazasi degil; platform ici premium gorunurluk, one cikarma ve
-            ek ilan hakki gibi dijital hizmetler sunar. Talepet kullanicilar arasinda odeme
-            araciligi yapmaz.
+            Talepet fiziksel ürün mağazası değil; platform içi premium görünürlük, öne çıkarma ve
+            ek ilan hakkı gibi dijital hizmetler sunar. Talepet kullanıcılar arasında ödeme
+            aracılığı yapmaz.
           </p>
         </div>
 

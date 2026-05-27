@@ -80,7 +80,7 @@ function OfferSheet({
   };
 
   const title = mode === 'edit' ? 'Teklifi Duzenle' : 'Teklif Ver';
-  const primaryLabel = mode === 'edit' ? 'Kaydet' : 'Teklifi Gonder';
+  const primaryLabel = mode === 'edit' ? 'Kaydet' : 'Teklifi Gönder';
   const isValid = priceValue > 0;
 
   return (
@@ -132,7 +132,7 @@ function OfferSheet({
         <div className="offer-sheet-footer">
           <div className="offer-sheet-actions">
             <button type="submit" className="primary-btn" disabled={submitting || !isValid}>
-              {submitting ? 'Gonderiliyor...' : primaryLabel}
+              {submitting ? 'Gönderiliyor...' : primaryLabel}
             </button>
             <button type="button" className="secondary-btn" onClick={onClose} disabled={submitting}>
               Vazgec

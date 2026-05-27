@@ -579,7 +579,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         reason: 'geolocation_unsupported'
       });
       if (!silent) {
-        setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
+        setLocationError('Konum alınamadı. Şehir ve ilçeyi manuel seçebilirsiniz.');
       }
       return;
     }
@@ -696,7 +696,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 reason: 'reverse_geocode_missing_city',
                 fallback: 'nearest_city'
               });
-              setLocationHint('Konumuna en yakin sehir secildi. Ilceyi istersen manuel netlestirebilirsin.');
+              setLocationHint('Konumuna en yakın şehir seçildi. İlçeyi istersen manuel netleştirebilirsin.');
             }
           }
 
@@ -777,14 +777,14 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 city: cityName,
                 hasCity: true
               });
-              setLocationHint('Sehir bulundu. Ilceyi manuel secerek devam edebilirsin.');
+              setLocationHint('Şehir bulundu. İlçeyi manuel seçerek devam edebilirsin.');
             }
           } else if (!silent) {
             trackRFQCreateEvent('rfq_location_manual_fallback', {
               reason: 'city_missing',
               fallback: 'manual_city'
             });
-            setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
+            setLocationError('Konum alınamadı. Şehir ve ilçeyi manuel seçebilirsiniz.');
           }
         } catch (_error) {
           const nearestCity = await resolveNearestCity();
@@ -810,15 +810,15 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               fallback: 'nearest_city',
               city: nearestCity.name
             });
-            setLocationHint('Konum bulundu. En yakin sehir secildi, ilceyi manuel tamamlayabilirsin.');
+            setLocationHint('Konum bulundu. En yakın şehir seçildi, ilçeyi manuel tamamlayabilirsin.');
             if (!silent) {
-              setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
+              setLocationError('Konum alınamadı. Şehir ve ilçeyi manuel seçebilirsiniz.');
             }
           } else if (!silent) {
             trackRFQCreateEvent('rfq_location_detect_failed', {
               reason: 'reverse_geocode_failed'
             });
-            setLocationError('Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.');
+            setLocationError('Konum alınamadı. Şehir ve ilçeyi manuel seçebilirsiniz.');
           }
         } finally {
           setLocating(false);
@@ -835,8 +835,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         if (!silent) {
           setLocationError(
             error?.code === 1
-              ? 'Konum izni verilmedi. Sehir ve ilceyi manuel secebilirsiniz.'
-              : 'Konum alinamadi. Sehir ve ilceyi manuel secebilirsiniz.'
+              ? 'Konum izni verilmedi. Şehir ve ilçeyi manuel seçebilirsiniz.'
+              : 'Konum alınamadı. Şehir ve ilçeyi manuel seçebilirsiniz.'
           );
         }
         setLocating(false);
@@ -931,7 +931,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     });
     if (!selectedLocation && Number.isFinite(selectedCity?.lat) && Number.isFinite(selectedCity?.lng)) {
       setSelectedLocation({ lat: selectedCity.lat, lng: selectedCity.lng });
-      setLocationHint('Sehir konumu bulundu. Ilceyi secerek devam edebilirsin.');
+      setLocationHint('Şehir konumu bulundu. İlçeyi seçerek devam edebilirsin.');
     }
     setDistrictQuery('');
     setNeighborhoodQuery('');
@@ -1517,11 +1517,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         {isWebSurface ? (
           <div className="rfq-create-hero">
             <div className="rfq-create-hero__copy">
-              <p className="landing-eyebrow">Website talep olusturma</p>
-              <h1>{isEdit ? 'Talebini website uzerinden duzenle' : 'Yeni talebini web akisi ile hazirla'}</h1>
+              <p className="landing-eyebrow">Web sitesi talep oluşturma</p>
+              <h1>{isEdit ? 'Talebini web sitesi üzerinden düzenle' : 'Yeni talebini web akışı ile hazırla'}</h1>
               <p>
-                Kategori, ihtiyac detaylari ve konum bilgisini daha genis bir form alaninda tamamla. App hostuna
-                gecmeden once talebini website uzerinden netlestirebilirsin.
+                Kategori, ihtiyaç detayları ve konum bilgisini daha geniş bir form alanında tamamla. Uygulama hostuna
+                geçmeden önce talebini web sitesi üzerinden netleştirebilirsin.
               </p>
             </div>
             <div className="rfq-create-hero__aside">
@@ -2022,7 +2022,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   </button>
                 </div>
                 <small className="input-helper">
-                  Konum bulunursa sehir ve ilce otomatik dolar. Sorun olursa manuel secim yapabilirsin.
+                  Konum bulunursa şehir ve ilçe otomatik dolar. Sorun olursa manuel seçim yapabilirsin.
                 </small>
                 {locationHint ? <div className="rfq-sub">{locationHint}</div> : null}
                 {locationError ? <div className="error">{locationError}</div> : null}

@@ -29,15 +29,15 @@ const isRetryableRequestError = (error) =>
 const getSocialAuthErrorMessage = (provider, reason) => {
   const providerLabel = provider === 'apple' ? 'Apple' : 'Google';
   if (String(reason || '').startsWith('provider_access_denied')) {
-    return `${providerLabel} ile giris iptal edildi.`;
+    return `${providerLabel} ile giriş iptal edildi.`;
   }
   if (reason === 'invalid_state') {
-    return `${providerLabel} oturumu suresi doldu. Lutfen tekrar dene.`;
+    return `${providerLabel} oturumu süresi doldu. Lütfen tekrar dene.`;
   }
   if (reason === 'missing_email' || reason === 'email_not_verified') {
-    return `${providerLabel} hesabinda dogrulanmis e-posta bulunamadi.`;
+    return `${providerLabel} hesabında doğrulanmış e-posta bulunamadı.`;
   }
-  return `${providerLabel} ile giris tamamlanamadi. Lutfen tekrar dene.`;
+  return `${providerLabel} ile giriş tamamlanamadı. Lütfen tekrar dene.`;
 };
 
 function Login({ embedded = false }) {
@@ -146,7 +146,7 @@ function Login({ embedded = false }) {
           if (found === true) {
             setShowSignupPrompt(false);
             if (sheetMode === 'register') {
-              setError('Bu hesap zaten var. Giris yap.');
+              setError('Bu hesap zaten var. Giriş yap.');
               setSheetMode('login');
             }
           } else if (found === false) {
@@ -242,7 +242,7 @@ function Login({ embedded = false }) {
         if (precheckResult.status === 'resolved') {
           nextExists = precheckResult.exists;
         } else {
-          setNotice('On kontrol alinamadi, giris denendi.');
+          setNotice('Ön kontrol alınamadı, giriş denendi.');
         }
       }
 
@@ -256,7 +256,7 @@ function Login({ embedded = false }) {
       }
 
       if (nextExists === true && !password.trim()) {
-        setError('Sifre zorunlu');
+        setError('Şifre zorunlu');
         return;
       }
 
@@ -286,23 +286,23 @@ function Login({ embedded = false }) {
       if (import.meta.env.DEV) {
         console.info('LOGIN_END', { status: 'failed' });
       }
-      setError(data?.message || 'Giris basarisiz');
+      setError(data?.message || 'Giriş başarısız');
     } catch (otpError) {
       if (import.meta.env.DEV) {
         console.info('LOGIN_END', { status: 'error', message: otpError?.message || otpError });
       }
       const status = otpError?.response?.status;
       if (!otpError?.response) {
-        setError('Baglanti yok');
+        setError('Bağlantı yok');
       } else if (status === 401) {
-        setError('Sifre hatali');
+        setError('Şifre hatalı');
         setShowForgotLink(true);
       } else if (status === 429) {
-        setError('Cok fazla deneme');
+        setError('Çok fazla deneme');
       } else if (status >= 500) {
-        setError('Sunucu hatasi, tekrar dene');
+        setError('Sunucu hatası, tekrar dene');
       } else {
-        setError(otpError?.response?.data?.message || otpError?.message || 'Giris basarisiz');
+        setError(otpError?.response?.data?.message || otpError?.message || 'Giriş başarısız');
       }
     } finally {
       setLoading(false);
@@ -342,8 +342,8 @@ function Login({ embedded = false }) {
       if (!wakeResult.ok) {
         setError(
           wakeResult.timedOut
-            ? 'Sosyal giris su anda yanit vermiyor. Lutfen tekrar dene.'
-            : 'Sunucu mesgul, tekrar deneyin.'
+            ? 'Sosyal giriş şu anda yanıt vermiyor. Lütfen tekrar dene.'
+            : 'Sunucu meşgul, tekrar deneyin.'
         );
         return;
       }
@@ -351,7 +351,7 @@ function Login({ embedded = false }) {
       redirected = true;
       window.location.href = buildProviderAuthUrl(provider);
     } catch (providerError) {
-      setError(providerError?.message || 'Sosyal giris baslatilamadi.');
+      setError(providerError?.message || 'Sosyal giriş başlatılamadı.');
     } finally {
       if (!redirected) {
         setProviderLoading('');
@@ -368,9 +368,9 @@ function Login({ embedded = false }) {
 
   const renderAuthForm = () => (
     <>
-      {exists === true ? <p className="muted small">Hesabin bulundu. Sifreni gir.</p> : null}
+      {exists === true ? <p className="muted small">Hesabın bulundu. Şifreni gir.</p> : null}
       {exists === false ? (
-        <p className="muted small">Bu hesap yok. Bu bilgilerle kayit olmak ister misin?</p>
+        <p className="muted small">Bu hesap yok. Bu bilgilerle kayıt olmak ister misin?</p>
       ) : null}
 
       <form onSubmit={handleSubmit} className="auth-form" data-rb-no-drag="true">
@@ -392,13 +392,13 @@ function Login({ embedded = false }) {
 
         {showSignupPrompt && exists === false ? (
           <div className="auth-alert">
-            Bu hesap bulunamadi. Bu bilgilerle kayit olmak ister misin?
+            Bu hesap bulunamadı. Bu bilgilerle kayıt olmak ister misin?
             <div className="auth-footer-links">
               <button type="button" className="link-btn" onClick={handlePrecheckSignup}>
-                Evet, Kayit Ol
+                Evet, Kayıt Ol
               </button>
               <button type="button" className="link-btn" onClick={() => setShowSignupPrompt(false)}>
-                Vazgec
+                Vazgeç
               </button>
             </div>
           </div>
@@ -406,7 +406,7 @@ function Login({ embedded = false }) {
 
         {exists === true ? (
           <div className="auth-field">
-            <label htmlFor="password">Sifre</label>
+            <label htmlFor="password">Şifre</label>
             <div className="auth-input-wrap">
               <input
                 id="password"
@@ -414,17 +414,17 @@ function Login({ embedded = false }) {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Sifren"
+                placeholder="Şifren"
                 autoComplete="current-password"
                 enterKeyHint="done"
               />
               <button
                 type="button"
                 className="auth-toggle"
-                aria-label="Sifreyi goster veya gizle"
+                aria-label="Şifreyi göster veya gizle"
                 onClick={() => setShowPassword((prev) => !prev)}
               >
-                {showPassword ? 'Gizle' : 'Goster'}
+                {showPassword ? 'Gizle' : 'Göster'}
               </button>
             </div>
           </div>
@@ -434,7 +434,7 @@ function Login({ embedded = false }) {
         {error ? <div className="auth-alert">{error}</div> : null}
         {showForgotLink ? (
           <button type="button" className="link-btn auth-forgot" onClick={() => navigate('/forgot-password')}>
-            Sifremi unuttum
+            Şifremi unuttum
           </button>
         ) : null}
 
@@ -444,11 +444,11 @@ function Login({ embedded = false }) {
           disabled={loading || (exists === true && !password.trim())}
         >
           {loading
-            ? 'Isleniyor...'
+            ? 'İşleniyor...'
             : exists === true
-              ? 'Giris Yap'
+              ? 'Giriş Yap'
               : exists === false
-                ? 'Kayit Ol'
+                ? 'Kayıt Ol'
                 : 'Devam Et'}
         </button>
       </form>
@@ -458,15 +458,15 @@ function Login({ embedded = false }) {
   const renderExistingSessionCard = () => (
     <div className="website-auth-inline-card">
       <div className="website-auth-inline-head">
-        <h2>Oturumunuz acik</h2>
+        <h2>Oturumunuz açık</h2>
         <p>
-          {user?.name || user?.email || 'Talepet hesabin'} ile zaten giris yapmissin. Website
-          icinde kaldigin yerden devam edebilir veya farkli bir hesapla yeniden giris yapabilirsin.
+          {user?.name || user?.email || 'Talepet hesabın'} ile zaten giriş yapmışsın. Web sitesi
+          içinde kaldığın yerden devam edebilir veya farklı bir hesapla yeniden giriş yapabilirsin.
         </p>
       </div>
 
       <div className="auth-alert">
-        Aktif hesap: <strong>{user?.name || user?.email || 'Talepet kullanicisi'}</strong>
+        Aktif hesap: <strong>{user?.name || user?.email || 'Talepet kullanıcısı'}</strong>
       </div>
 
       <div className="auth-actions auth-actions-inline">
@@ -474,10 +474,10 @@ function Login({ embedded = false }) {
           Profile Git
         </button>
         <button type="button" className="secondary-btn" onClick={() => navigate('/', { replace: true })}>
-          Ana Sayfaya Don
+          Ana Sayfaya Dön
         </button>
         <button type="button" className="link-btn" onClick={handleLogoutForRelogin}>
-          Cikis Yap ve Farkli Hesapla Giris Yap
+          Çıkış Yap ve Farklı Hesapla Giriş Yap
         </button>
       </div>
     </div>
@@ -487,11 +487,11 @@ function Login({ embedded = false }) {
     return (
       <div className="website-auth-inline-card">
         <div className="website-auth-inline-head">
-          <h2>{sheetMode === 'login' ? 'Hesabina giris yap' : 'Yeni hesap olustur'}</h2>
+          <h2>{sheetMode === 'login' ? 'Hesabına giriş yap' : 'Yeni hesap oluştur'}</h2>
           <p>
             {sheetMode === 'login'
-              ? 'Talep, teklif ve profil akisina website uzerinden giris yaparak devam et.'
-              : 'Kayit adimini website yuzeyi icinde tamamla, uygulamaya gecis zamanini sen belirle.'}
+              ? 'Talep, teklif ve profil akışına web sitesi üzerinden giriş yaparak devam et.'
+              : 'Kayıt adımını web sitesi yüzeyi içinde tamamla, uygulamaya geçiş zamanını sen belirle.'}
           </p>
         </div>
 
@@ -503,7 +503,7 @@ function Login({ embedded = false }) {
             onClick={() => handleProviderLogin('google')}
             disabled={providerBusy}
           >
-            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
+            {providerLoading === 'google' ? 'Google hazırlanıyor...' : 'Google ile devam et'}
           </button>
           <button
             type="button"
@@ -524,7 +524,7 @@ function Login({ embedded = false }) {
               </svg>
             </span>
             <span className="social-text">
-              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+              {providerLoading === 'apple' ? 'Apple hazırlanıyor...' : 'Apple ile devam et'}
             </span>
           </button>
         </div>
@@ -539,10 +539,10 @@ function Login({ embedded = false }) {
           <>
             <div className="auth-actions auth-actions-inline">
               <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
-                Giris Yap
+                Giriş Yap
               </button>
               <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
-                Kayit Ol
+                Kayıt Ol
               </button>
             </div>
 
@@ -553,7 +553,7 @@ function Login({ embedded = false }) {
         <div className="auth-footer">
           <span>Hesabin yok mu?</span>
           <button type="button" className="link-btn" onClick={() => navigate('/register')}>
-            Kayit Ol
+            Kayıt Ol
           </button>
         </div>
       </div>
@@ -569,11 +569,11 @@ function Login({ embedded = false }) {
 
           <div className="website-auth-inline-card">
             <div className="website-auth-inline-head">
-              <h2>{sheetMode === 'login' ? 'Hesabina giris yap' : 'Yeni hesap olustur'}</h2>
+              <h2>{sheetMode === 'login' ? 'Hesabına giriş yap' : 'Yeni hesap oluştur'}</h2>
               <p>
                 {sheetMode === 'login'
-                  ? 'Talep, teklif ve profil akisina website uzerinden giris yaparak devam et.'
-                  : 'Kayit adimini website yuzeyi icinde tamamla, uygulamaya gecis zamanini sen belirle.'}
+                  ? 'Talep, teklif ve profil akışına web sitesi üzerinden giriş yaparak devam et.'
+                  : 'Kayıt adımını web sitesi yüzeyi içinde tamamla, uygulamaya geçiş zamanını sen belirle.'}
               </p>
             </div>
 
@@ -585,7 +585,7 @@ function Login({ embedded = false }) {
                 onClick={() => handleProviderLogin('google')}
                 disabled={providerBusy}
               >
-                {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
+                {providerLoading === 'google' ? 'Google hazırlanıyor...' : 'Google ile devam et'}
               </button>
               <button
                 type="button"
@@ -606,7 +606,7 @@ function Login({ embedded = false }) {
                   </svg>
                 </span>
                 <span className="social-text">
-                  {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+                  {providerLoading === 'apple' ? 'Apple hazırlanıyor...' : 'Apple ile devam et'}
                 </span>
               </button>
             </div>
@@ -616,8 +616,8 @@ function Login({ embedded = false }) {
             </div>
 
             <div className="auth-alert">
-              Talepet kullanicilar arasinda odeme araciligi yapmaz. Premium ve paket odemeleri
-              yalnizca dijital platform hizmetleri icindir.
+              Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Premium ve paket ödemeleri
+              yalnızca dijital platform hizmetleri içindir.
               <div className="auth-footer-links">
                 <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="link-btn">
                   Nasil Calisir
@@ -634,10 +634,10 @@ function Login({ embedded = false }) {
               <>
                 <div className="auth-actions auth-actions-inline">
                   <button type="button" className="primary-btn is-active" onClick={() => navigate('/login')}>
-                    Giris Yap
+                    Giriş Yap
                   </button>
                   <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
-                    Kayit Ol
+                    Kayıt Ol
                   </button>
                 </div>
 
@@ -646,9 +646,9 @@ function Login({ embedded = false }) {
             )}
 
             <div className="auth-footer">
-              <span>Hesabin yok mu?</span>
+              <span>Hesabın yok mu?</span>
               <button type="button" className="link-btn" onClick={() => navigate('/register')}>
-                Kayit Ol
+                Kayıt Ol
               </button>
             </div>
           </div>
@@ -661,17 +661,17 @@ function Login({ embedded = false }) {
     <div className="page auth-page">
       <div className="card auth-card">
         <h1 className="auth-title">Talepet</h1>
-        <p className="auth-subtitle">Giris yap veya yeni hesap olustur.</p>
+        <p className="auth-subtitle">Giriş yap veya yeni hesap oluştur.</p>
 
         <div className="auth-social">
-          <div className="muted small">Hizli devam et</div>
+          <div className="muted small">Hızlı devam et</div>
           <button
             type="button"
             className="social-btn google"
             onClick={() => handleProviderLogin('google')}
             disabled={providerBusy}
           >
-            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
+            {providerLoading === 'google' ? 'Google hazırlanıyor...' : 'Google ile devam et'}
           </button>
           <button
             type="button"
@@ -692,17 +692,17 @@ function Login({ embedded = false }) {
               </svg>
             </span>
             <span className="social-text">
-              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+              {providerLoading === 'apple' ? 'Apple hazırlanıyor...' : 'Apple ile devam et'}
             </span>
           </button>
         </div>
 
         <div className="auth-actions">
           <button type="button" className="primary-btn" onClick={() => openSheet('login')}>
-            Giris Yap
+            Giriş Yap
           </button>
           <button type="button" className="secondary-btn" onClick={() => openSheet('register')}>
-            Kayit Ol
+            Kayıt Ol
           </button>
         </div>
       </div>
@@ -710,7 +710,7 @@ function Login({ embedded = false }) {
       <ReusableBottomSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        title={sheetMode === 'login' ? 'Giris Yap' : 'Kayit Ol'}
+        title={sheetMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
         contentClassName="auth-sheet"
         headerRight={
           <button type="button" className="offer-sheet-close" onClick={() => setSheetOpen(false)} aria-label="Kapat">

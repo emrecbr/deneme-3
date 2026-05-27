@@ -65,7 +65,7 @@ function OtpVerify({ onVerified }) {
         return 'E-posta zorunlu.';
       }
       if (!EMAIL_REGEX.test(email.trim())) {
-        return 'E-posta formati gecersiz.';
+        return 'E-posta formatı geçersiz.';
       }
       return '';
     }
@@ -92,9 +92,9 @@ function OtpVerify({ onVerified }) {
       await api.post('/auth/otp/send', payload);
       setStep(2);
       setResendSeconds(60);
-      setSuccess('Kod gonderildi.');
+      setSuccess('Kod gönderildi.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Kod gonderilemedi.');
+      setError(err?.response?.data?.message || err?.message || 'Kod gönderilemedi.');
     } finally {
       setLoadingSend(false);
     }
@@ -103,7 +103,7 @@ function OtpVerify({ onVerified }) {
   const verifyOtp = async () => {
     resetMessages();
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Kod 6 haneli olmali.');
+      setError('Kod 6 haneli olmalı.');
       return;
     }
     setLoadingVerify(true);
@@ -121,14 +121,14 @@ function OtpVerify({ onVerified }) {
         await login(data.token);
       }
 
-      setSuccess('Dogrulama basarili.');
+      setSuccess('Doğrulama başarılı.');
       if (typeof onVerified === 'function') {
         onVerified();
       } else {
         completeAuthRedirect();
       }
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Dogrulama basarisiz.');
+      setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {
       setLoadingVerify(false);
     }
@@ -144,8 +144,8 @@ function OtpVerify({ onVerified }) {
   return (
     <div className="otp-page">
       <div className="card otp-card">
-        <h2>OTP Dogrulama</h2>
-        <p className="muted">E-posta veya telefon ile dogrulama yap.</p>
+        <h2>OTP Doğrulama</h2>
+        <p className="muted">E-posta veya telefon ile doğrulama yap.</p>
 
         <div className="otp-channel">
           <button
@@ -208,7 +208,7 @@ function OtpVerify({ onVerified }) {
               onClick={sendOtp}
               disabled={loadingSend}
             >
-              {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+              {loadingSend ? 'Gönderiliyor...' : 'Kod Gönder'}
             </button>
           </>
         )}
@@ -216,11 +216,11 @@ function OtpVerify({ onVerified }) {
         {step === 2 && (
           <>
             <p className="muted small">
-              Kod suraya gonderildi: <strong>{targetLabel}</strong>
+              Kod şuraya gönderildi: <strong>{targetLabel}</strong>
             </p>
 
             <div className="form-group">
-              <label>Dogrulama Kodu</label>
+              <label>Doğrulama Kodu</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -238,7 +238,7 @@ function OtpVerify({ onVerified }) {
               onClick={verifyOtp}
               disabled={loadingVerify}
             >
-              {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula'}
+              {loadingVerify ? 'Doğrulanıyor...' : 'Doğrula'}
             </button>
 
             <button
@@ -247,11 +247,11 @@ function OtpVerify({ onVerified }) {
               onClick={resendOtp}
               disabled={resendSeconds > 0 || loadingSend}
             >
-              {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+              {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
             </button>
 
             <button type="button" className="link-btn" onClick={goBackToTargetEntry}>
-              Bilgiyi duzenle
+              Bilgiyi düzenle
             </button>
           </>
         )}

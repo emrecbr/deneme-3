@@ -152,11 +152,11 @@ function LandingPage() {
 
         <section className="landing-section" id="nasil-calisir" aria-labelledby="how-it-works-title">
           <div className="landing-section-heading">
-            <p className="landing-eyebrow">Talepet nasil calisir</p>
-            <h2 id="how-it-works-title">Talebini olustur, ilgili teklifleri uygulamada karsilastir.</h2>
+            <p className="landing-eyebrow">Talepet nasıl çalışır</p>
+            <h2 id="how-it-works-title">Talebini oluştur, ilgili teklifleri uygulamada karşılaştır.</h2>
             <p>
-              Kullanici ihtiyacini kategori, konum ve aciklama bilgileriyle uygulamada olusturur. Talepet bu
-              bilgileri daha ilgili tekliflerin gelmesine yardimci olacak sekilde duzenli bir akis haline getirir.
+              Kullanıcı ihtiyacını kategori, konum ve açıklama bilgileriyle uygulamada oluşturur. Talepet bu
+              bilgileri daha ilgili tekliflerin gelmesine yardımcı olacak şekilde düzenli bir akış haline getirir.
             </p>
           </div>
 
@@ -173,11 +173,11 @@ function LandingPage() {
 
         <section className="landing-section landing-section-soft" id="kategoriler" aria-labelledby="categories-title">
           <div className="landing-section-heading">
-            <p className="landing-eyebrow">Populer kategoriler</p>
-            <h2 id="categories-title">Farkli ihtiyaclar icin tek ve anlasilir talep mantigi.</h2>
+            <p className="landing-eyebrow">Popüler kategoriler</p>
+            <h2 id="categories-title">Farklı ihtiyaçlar için tek ve anlaşılır talep mantığı.</h2>
             <p>
-              Hizmet, urun, otomobil ve uzmanlik ihtiyaclari ayni temel deneyim icinde toplanir. Kullanici
-              ihtiyacini netlestirir, hizmet verenler de daha dogru baglamla teklif sunar.
+              Hizmet, ürün, otomobil ve uzmanlık ihtiyaçları aynı temel deneyim içinde toplanır. Kullanıcı
+              ihtiyacını netleştirir, hizmet verenler de daha doğru bağlamla teklif sunar.
             </p>
           </div>
 
@@ -202,7 +202,7 @@ function LandingPage() {
           <div className="landing-discovery-layout">
             <article className="landing-discovery-card landing-discovery-card--categories">
               <div className="landing-discovery-head">
-                <h3>Kategori secimi</h3>
+                <h3>Kategori seçimi</h3>
                 <p>{LANDING_CONTENT.publicDiscovery.categoriesIntro}</p>
               </div>
 
@@ -218,7 +218,7 @@ function LandingPage() {
 
             <article className="landing-discovery-card landing-discovery-card--cities">
               <div className="landing-discovery-head">
-                <h3>Sehir / ilce baglami</h3>
+                <h3>Şehir / ilçe bağlamı</h3>
                 <p>{LANDING_CONTENT.publicDiscovery.cityIntro}</p>
               </div>
 
@@ -235,7 +235,7 @@ function LandingPage() {
 
           <div className="landing-discovery-cta-row">
             <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-primary-button">
-              Uygulamaya Gec
+              Uygulamaya Geç
             </a>
           </div>
         </section>
@@ -249,11 +249,11 @@ function LandingPage() {
 
           <div className="landing-location-layout">
             <div className="landing-location-card">
-              <div className="landing-location-badge">Yerel eslesme</div>
-              <h3>Konum bilgisi, daha isabetli teklif almanin ana parcalarindan biridir.</h3>
+              <div className="landing-location-badge">Yerel eşleşme</div>
+              <h3>Konum bilgisi, daha isabetli teklif almanın ana parçalarından biridir.</h3>
               <p>
-                Talep detayinin lokasyonla birlikte verilmesi, kullanicinin daha uygun hizmet verenlere
-                ulasmasini ve gelen teklifleri daha kolay degerlendirmesini saglar.
+                Talep detayının lokasyonla birlikte verilmesi, kullanıcının daha uygun hizmet verenlere
+                ulaşmasını ve gelen teklifleri daha kolay değerlendirmesini sağlar.
               </p>
             </div>
 
@@ -278,11 +278,11 @@ function LandingPage() {
 
         <section className="landing-section landing-section-soft" id="rfq-preview" aria-labelledby="rfq-preview-title">
           <div className="landing-section-heading">
-            <p className="landing-eyebrow">Talep ornekleri</p>
-            <h2 id="rfq-preview-title">Farkli ihtiyaclar tek bir talep akisinda toplanir.</h2>
+            <p className="landing-eyebrow">Talep örnekleri</p>
+            <h2 id="rfq-preview-title">Farklı ihtiyaçlar tek bir talep akışında toplanır.</h2>
             <p>
-              Talepet, kullanicinin ihtiyacini daha net anlatmasina ve gelen teklifleri daha duzenli
-              karsilastirmasina yardimci olur.
+              Talepet, kullanıcının ihtiyacını daha net anlatmasına ve gelen teklifleri daha düzenli
+              karşılaştırmasına yardımcı olur.
             </p>
           </div>
 
@@ -299,11 +299,11 @@ function LandingPage() {
 
         <section className="landing-section landing-section-soft" id="guven" aria-labelledby="trust-title">
           <div className="landing-section-heading">
-            <p className="landing-eyebrow">Guven ve kolaylik</p>
-            <h2 id="trust-title">Daha duzenli talep, daha net teklif, daha kolay takip.</h2>
+            <p className="landing-eyebrow">Güven ve kolaylık</p>
+            <h2 id="trust-title">Daha düzenli talep, daha net teklif, daha kolay takip.</h2>
             <p>
-              Talepet kullanicinin ihtiyacini parcalara bolmeden tek akista toplar. Kategori, konum,
-              aciklama ve teklif takibi ayni uygulama deneyiminde birlesir.
+              Talepet kullanıcının ihtiyacını parçalara bölmeden tek akışta toplar. Kategori, konum,
+              açıklama ve teklif takibi aynı uygulama deneyiminde birleşir.
             </p>
           </div>
 

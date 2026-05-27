@@ -19,6 +19,11 @@
   --tlp-radius-pill: 999px;
   --tlp-blur: blur(22px) saturate(180%);
   --tlp-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --tlp-font-family: "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+  --tlp-font-heading: 700;
+  --tlp-font-body: 400;
+  --tlp-font-body-strong: 500;
+  --tlp-font-control: 600;
   --primary: var(--tlp-primary);
   --bg: var(--tlp-bg);
   --surface: var(--tlp-surface);
@@ -61,7 +66,10 @@
 
 body {
   margin: 0;
-  font-family: Inter, sans-serif;
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   background:
     radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.75), transparent 32%),
     linear-gradient(180deg, var(--tlp-bg-soft) 0%, var(--tlp-bg) 100%);
@@ -206,6 +214,39 @@ body.native-capacitor .app-header {
   background: rgba(239, 68, 68, 0.12);
   color: var(--tlp-danger);
   border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+.tlp-heading {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-heading);
+  letter-spacing: 0;
+  color: var(--tlp-text);
+}
+
+.tlp-body {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-body);
+  letter-spacing: 0;
+  color: var(--tlp-text);
+}
+
+.tlp-caption {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-body-strong);
+  letter-spacing: 0;
+  color: var(--tlp-muted);
+}
+
+.tlp-type-chip {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-control);
+  letter-spacing: 0;
+}
+
+.tlp-type-button {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-control);
+  letter-spacing: 0;
 }
 
 body.native-capacitor .app-content {
@@ -7138,7 +7179,7 @@ body.dark-mode .profile-legal-payment-text {
 .premium-plan-card,
 .premium-cta-card,
 .premium-subscription-box {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+  font-family: var(--tlp-font-family);
   font-weight: 400;
 }
 
@@ -13202,6 +13243,47 @@ html:not([data-surface="admin"]) .premium-page:not(.premium-page--web) {
     radial-gradient(circle at 20% 6%, rgba(255, 255, 255, 0.54), transparent 30%),
     radial-gradient(circle at 88% 18%, rgba(52, 120, 246, 0.08), transparent 28%),
     linear-gradient(180deg, rgba(248, 246, 242, 0.94), rgba(245, 241, 234, 0.82));
+}
+
+html:not([data-surface="admin"]) .app-layout,
+html:not([data-surface="admin"]) .app-content,
+html:not([data-surface="admin"]) .sheet-content,
+html:not([data-surface="admin"]) .create-sheet-content,
+html:not([data-surface="admin"]) .auth-page {
+  font-family: var(--tlp-font-family);
+}
+
+html:not([data-surface="admin"]) h1,
+html:not([data-surface="admin"]) h2,
+html:not([data-surface="admin"]) h3,
+html:not([data-surface="admin"]) .auth-title,
+html:not([data-surface="admin"]) .rfq-discovery-card__title,
+html:not([data-surface="admin"]) .profile-card-header h2 {
+  font-family: var(--tlp-font-family);
+  font-weight: var(--tlp-font-heading);
+  letter-spacing: 0;
+}
+
+html:not([data-surface="admin"]) p,
+html:not([data-surface="admin"]) .auth-subtitle,
+html:not([data-surface="admin"]) .refresh-text,
+html:not([data-surface="admin"]) .rfq-discovery-card__description {
+  font-family: var(--tlp-font-family);
+  letter-spacing: 0;
+}
+
+html:not([data-surface="admin"]) button,
+html:not([data-surface="admin"]) input,
+html:not([data-surface="admin"]) select,
+html:not([data-surface="admin"]) textarea,
+html:not([data-surface="admin"]) .badge,
+html:not([data-surface="admin"]) .status-badge,
+html:not([data-surface="admin"]) .header-filter-pill,
+html:not([data-surface="admin"]) .city-filter-badge,
+html:not([data-surface="admin"]) .advanced-sort-btn,
+html:not([data-surface="admin"]) .advanced-sort-option {
+  font-family: var(--tlp-font-family);
+  letter-spacing: 0;
 }
 
 html:not([data-surface="admin"]) .card,

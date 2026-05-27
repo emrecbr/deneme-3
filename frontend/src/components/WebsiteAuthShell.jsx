@@ -3,16 +3,16 @@ import PublicFooter from './PublicFooter';
 import { APP_HOME_PATH, WEBSITE_LOGIN_PATH, WEBSITE_REGISTER_PATH, buildSurfaceHref } from '../config/surfaces';
 
 function WebsiteAuthShell({
-  eyebrow = 'Talepet hesabi',
-  title = 'Talepet hesabina website icinden devam et',
-  description = 'Website baglaminda giris yapabilir, kayit olabilir ve uygulamaya gecis zamanini kontrollu sekilde belirleyebilirsin.',
+  eyebrow = 'Talepet hesabı',
+  title = 'Talepet hesabına web sitesi içinden devam et',
+  description = 'Web sitesi bağlamında giriş yapabilir, kayıt olabilir ve uygulamaya geçiş zamanını kontrollü şekilde belirleyebilirsin.',
   children
 }) {
   const location = useLocation();
   const registerRoute = location.pathname === WEBSITE_REGISTER_PATH;
   const secondaryCta = registerRoute
-    ? { to: WEBSITE_LOGIN_PATH, label: 'Giris Yap' }
-    : { to: WEBSITE_REGISTER_PATH, label: 'Kayit Ol' };
+    ? { to: WEBSITE_LOGIN_PATH, label: 'Giriş Yap' }
+    : { to: WEBSITE_REGISTER_PATH, label: 'Kayıt Ol' };
 
   return (
     <div className="website-auth-shell">
@@ -23,7 +23,7 @@ function WebsiteAuthShell({
 
         <div className="landing-topbar-actions">
           <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-secondary-button">
-            Uygulamayi Ac
+            Uygulamayı Aç
           </a>
         </div>
       </header>
@@ -35,36 +35,36 @@ function WebsiteAuthShell({
           <p>{description}</p>
 
           <div className="website-auth-badges">
-            <span className="website-auth-badge">Sehir ve ilce odakli</span>
+            <span className="website-auth-badge">Şehir ve ilçe odaklı</span>
             <span className="website-auth-badge">Moderasyon destekli</span>
-            <span className="website-auth-badge">Teklif akisi hazir</span>
+            <span className="website-auth-badge">Teklif akışı hazır</span>
           </div>
 
           <div className="website-auth-points">
             <div className="website-auth-point">
               <strong>Website onboarding</strong>
-              <span>Kayit ve giris adimlari website dilini korur, gereksiz app sicrama olmaz.</span>
+              <span>Kayıt ve giriş adımları web sitesi dilini korur, gereksiz uygulama sıçraması olmaz.</span>
             </div>
             <div className="website-auth-point">
-              <strong>Ayni auth altyapisi</strong>
-              <span>E-posta, telefon, OTP ve social auth mevcut backend akislariyla calisir.</span>
+              <strong>Aynı auth altyapısı</strong>
+              <span>E-posta, telefon, OTP ve sosyal auth mevcut backend akışlarıyla çalışır.</span>
             </div>
             <div className="website-auth-point">
-              <strong>Kontrollu gecis</strong>
-              <span>Urun kullanimi gerektiginde app tarafina gecis bilincli ve host-aware yapilir.</span>
+              <strong>Kontrollü geçiş</strong>
+              <span>Ürün kullanımı gerektiğinde uygulama tarafına geçiş bilinçli ve host-aware yapılır.</span>
             </div>
           </div>
 
           <div className="website-auth-side-card">
             <div>
-              <p className="website-auth-side-eyebrow">Talepet ile neler yaparsin?</p>
-              <h2>{registerRoute ? 'Dakikalar icinde hesap ac, teklif almaya hazir ol.' : 'Talep, teklif ve profil akisina ayni hesaptan devam et.'}</h2>
+              <p className="website-auth-side-eyebrow">Talepet ile neler yaparsın?</p>
+              <h2>{registerRoute ? 'Dakikalar içinde hesap aç, teklif almaya hazır ol.' : 'Talep, teklif ve profil akışına aynı hesaptan devam et.'}</h2>
             </div>
 
             <ul className="website-auth-side-list">
-              <li>Kategori bazli talep olustur ve dogru kisilere ulas.</li>
-              <li>Sehir ve ilceye gore daha isabetli eslesmeler gor.</li>
-              <li>Moderasyon ve premium gorunurluk katmanlariyla daha guvenli ilerle.</li>
+              <li>Kategori bazlı talep oluştur ve doğru kişilere ulaş.</li>
+              <li>Şehir ve ilçeye göre daha isabetli eşleşmeler gör.</li>
+              <li>Moderasyon ve premium görünürlük katmanlarıyla daha güvenli ilerle.</li>
             </ul>
 
             <div className="website-auth-side-actions">
@@ -72,7 +72,7 @@ function WebsiteAuthShell({
                 {secondaryCta.label}
               </a>
               <a href={buildSurfaceHref('app', APP_HOME_PATH)} className="landing-link-button">
-                Uygulamayi Ac
+                Uygulamayı Aç
               </a>
             </div>
           </div>

@@ -29,11 +29,11 @@ function Categories({ surfaceVariant = 'app' }) {
     <div className={`categories-page ${isWebSurface ? 'categories-page--web' : ''}`}>
       {isWebSurface ? (
         <section className="categories-page__hero">
-          <p className="landing-eyebrow">Kategori kesfi</p>
-          <h1>Talebinize uygun kategoriyi website icinden secin.</h1>
+          <p className="landing-eyebrow">Kategori keşfi</p>
+          <h1>Talebinize uygun kategoriyi web sitesi içinden seçin.</h1>
           <p>
-            Esya, hizmet, otomobil ve is arayan segmentlerinde ilerleyebilir; ihtiyacinizi netlestirdikten
-            sonra urun akisina kontrollu sekilde gecis yapabilirsiniz.
+            Eşya, hizmet, otomobil ve iş arayan segmentlerinde ilerleyebilir; ihtiyacınızı netleştirdikten
+            sonra ürün akışına kontrollü şekilde geçiş yapabilirsiniz.
           </p>
         </section>
       ) : null}

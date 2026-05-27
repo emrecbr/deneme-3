@@ -889,7 +889,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
         setIsOfferSheetOpen(true);
         return;
       }
-      setFormError(responseData.message || 'Teklif gonderilemedi.');
+      setFormError(responseData.message || 'Teklif gönderilemedi.');
     } finally {
       setSubmitting(false);
     }
@@ -961,7 +961,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
       setCounterForm({ price: '', note: '' });
       await fetchRFQ();
     } catch (requestError) {
-      setActionError(requestError.response?.data?.message || 'Karsi teklif gonderilemedi.');
+      setActionError(requestError.response?.data?.message || 'Karşı teklif gönderilemedi.');
     } finally {
       setProcessingOfferId(null);
     }
@@ -1097,7 +1097,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
       await api.post(`/chats/${activeChatId}/message`, { content: trimmed });
       setChatInput('');
     } catch (requestError) {
-      setActionError(requestError.response?.data?.message || 'Mesaj gonderilemedi.');
+      setActionError(requestError.response?.data?.message || 'Mesaj gönderilemedi.');
     }
   };
 
@@ -1149,7 +1149,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
       if (payload?.remainingCredits != null) {
         setCurrentUser((prev) => (prev ? { ...prev, featuredCredits: payload.remainingCredits } : prev));
       }
-      setChatToast('Ilan öne çıkarıldı (7 gün).');
+      setChatToast('İlan öne çıkarıldı (7 gün).');
       window.setTimeout(() => setChatToast(''), 3000);
     } catch (requestError) {
       const code = requestError.response?.data?.code;
@@ -1291,7 +1291,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 <span>Talep Başlığı</span>
                 <div className="detail-title-row">
                   <h1>{rfq.title}</h1>
-                  {isAwarded ? <span className="badge done">Talep Tamamlandi</span> : null}
+                  {isAwarded ? <span className="badge done">Talep Tamamlandı</span> : null}
                   {isOwner && rfq.status === 'open' ? (
                     <button type="button" className="secondary-btn" onClick={() => setIsEditOpen(true)}>
                       Duzenle
@@ -1323,16 +1323,16 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 {featuredCredits <= 0 && !featuredActive ? (
                   <button type="button" className="primary-btn" onClick={handlePurchaseFeatured}>
                     {PREMIUM_PURCHASES_ENABLED
-                      ? 'One Cikarma Paketini Aktiflestir'
-                      : 'One Cikarma Yakinda'}
+                      ? 'Öne Çıkarma Paketini Aktifleştir'
+                      : 'Öne Çıkarma Yakında'}
                   </button>
                 ) : null}
               </div>
             ) : null}
             {false ? (
               <div className="rfq-sub">
-                Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
-                araciligi yapmaz.
+                Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme
+                aracılığı yapmaz.
               </div>
             ) : null}
             <div className="rfq-detail-owner">
@@ -1505,7 +1505,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 <section className={`card fade-in ${isWebSurface ? 'rfq-detail-card--web' : ''}`} style={{ animationDelay: '50ms' }}>
                   <h2>Teklifim</h2>
                   {offerError ? <div className="error">{offerError}</div> : null}
-                  {offerLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
+                  {offerLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
                   {supplierOffer ? (
                     <div
                       className="offer-card offer-card-editable"
@@ -1577,14 +1577,14 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                 {featuredCredits <= 0 && !featuredActive ? (
                   <button type="button" className="primary-btn" onClick={handlePurchaseFeatured}>
                     {PREMIUM_PURCHASES_ENABLED
-                      ? 'One Cikarma Paketini Aktiflestir'
-                      : 'One Cikarma Yakinda'}
+                      ? 'Öne Çıkarma Paketini Aktifleştir'
+                      : 'Öne Çıkarma Yakında'}
                   </button>
                 ) : null}
               </div>
               <div className="rfq-sub">
-                Bu odeme dijital platform hizmeti icindir. Talepet kullanicilar arasinda odeme
-                araciligi yapmaz.
+                Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme
+                aracılığı yapmaz.
               </div>
             </section>
           ) : null}
@@ -1641,7 +1641,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                       Kapat
                     </button>
                   </div>
-                  {chatLoading ? <div className="refresh-text">Yukleniyor...</div> : null}
+                  {chatLoading ? <div className="refresh-text">Yükleniyor...</div> : null}
                   <div className="chat-list" ref={chatListRef}>
                     {chatMessages.map((item) => {
                       const senderId = item?.sender?._id || item?.sender;
@@ -1665,7 +1665,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                       maxLength={2000}
                     />
                     <button type="submit" className="primary-btn">
-                      Gonder
+                      Gönder
                     </button>
                   </form>
                 </section>
@@ -1927,7 +1927,7 @@ function RFQDetail({ surfaceVariant = 'app' }) {
                     rows={3}
                   />
                   <button type="submit" className="primary-btn offer-submit-btn" disabled={processingOfferId === counterOfferId}>
-                    {processingOfferId === counterOfferId ? 'Gonderiliyor...' : 'Gonder'}
+                    {processingOfferId === counterOfferId ? 'Gönderiliyor...' : 'Gönder'}
                   </button>
                 </form>
               </div>

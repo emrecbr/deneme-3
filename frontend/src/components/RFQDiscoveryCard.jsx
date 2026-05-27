@@ -20,7 +20,7 @@ export default function RFQDiscoveryCard({
   className = '',
   variant = 'feed'
 }) {
-  const premiumLabel = isFeatured ? 'One Cikan' : isPremium ? 'Premium' : '';
+  const premiumLabel = isFeatured ? 'Öne Çıkan' : isPremium ? 'Premium' : '';
 
   return (
     <div
@@ -94,7 +94,7 @@ export default function RFQDiscoveryCard({
         ) : null}
       </div>
 
-      <p className="rfq-discovery-card__description">{description || 'Detaya gecerek talebin tum kapsamini inceleyebilirsin.'}</p>
+      <p className="rfq-discovery-card__description">{description || 'Detaya geçerek talebin tüm kapsamını inceleyebilirsin.'}</p>
     </div>
   );
 }

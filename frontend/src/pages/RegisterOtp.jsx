@@ -92,9 +92,9 @@ function RegisterOtp({ embedded = false }) {
       await api.post('/auth/register/otp/send', { method: 'email', email: email.trim() });
       setStep(2);
       setResendSeconds(60);
-      setSuccess('Kod gonderildi.');
+      setSuccess('Kod gönderildi.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Kod gonderilemedi.');
+      setError(err?.response?.data?.message || err?.message || 'Kod gönderilemedi.');
     } finally {
       setLoadingSend(false);
     }
@@ -112,7 +112,7 @@ function RegisterOtp({ embedded = false }) {
       return;
     }
     if (!password) {
-      setError('Sifre zorunlu.');
+      setError('Şifre zorunlu.');
       return;
     }
 
@@ -131,10 +131,10 @@ function RegisterOtp({ embedded = false }) {
         await login(data.token);
       }
 
-      setSuccess('Kayit tamamlandi.');
+      setSuccess('Kayıt tamamlandı.');
       completeAuthRedirect();
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Dogrulama basarisiz.');
+      setError(err?.response?.data?.message || err?.message || 'Doğrulama başarısız.');
     } finally {
       setLoadingVerify(false);
     }
@@ -178,35 +178,35 @@ function RegisterOtp({ embedded = false }) {
     <div className={`card otp-card ${webSurface && !embedded ? 'otp-card--website' : ''}`}>
       <div className="auth-header">
         <div className="website-auth-inline-head website-auth-inline-head--compact">
-          <h2>Kayit Ol</h2>
+          <h2>Kayıt Ol</h2>
           <p>
-            Website icinde hesap olustur, teklif almaya ve uygun oldugunda urun alanina gecmeye
-            hazir ol.
+            Web sitesi içinde hesap oluştur, teklif almaya ve uygun olduğunda ürün alanına geçmeye
+            hazır ol.
           </p>
         </div>
         <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-          Giris Yap&apos;a don
+          Giriş Yap&apos;a dön
         </button>
       </div>
 
       <p className="muted">
-        E-posta ile kayit dogrulamasi yap. Ayni backend auth, OTP ve social auth altyapisi burada
-        da calisir.
+        E-posta ile kayıt doğrulaması yap. Aynı backend auth, OTP ve sosyal auth altyapısı burada
+        da çalışır.
       </p>
 
       {webSurface ? (
         <div className="website-auth-register-benefits">
           <div className="website-auth-register-benefit">
-            <strong>Talep olustur</strong>
-            <span>Kategori ve konuma gore isabetli talep akisina hizli basla.</span>
+            <strong>Talep oluştur</strong>
+            <span>Kategori ve konuma göre isabetli talep akışına hızlı başla.</span>
           </div>
           <div className="website-auth-register-benefit">
-            <strong>Teklifleri yonet</strong>
-            <span>Gelen teklifleri ve profil gecmisini tek hesap uzerinden takip et.</span>
+            <strong>Teklifleri yönet</strong>
+            <span>Gelen teklifleri ve profil geçmişini tek hesap üzerinden takip et.</span>
           </div>
           <div className="website-auth-register-benefit">
-            <strong>Guven katmani</strong>
-            <span>Moderasyon, dogrulama ve premium gorunurluk imkanlarini kullan.</span>
+            <strong>Güven katmanı</strong>
+            <span>Moderasyon, doğrulama ve premium görünürlük imkanlarını kullan.</span>
           </div>
         </div>
       ) : null}
@@ -219,7 +219,7 @@ function RegisterOtp({ embedded = false }) {
           onClick={() => handleProviderLogin('google')}
           disabled={Boolean(providerLoading)}
         >
-          {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
+          {providerLoading === 'google' ? 'Google hazırlanıyor...' : 'Google ile devam et'}
         </button>
         <button
           type="button"
@@ -240,7 +240,7 @@ function RegisterOtp({ embedded = false }) {
             </svg>
           </span>
           <span className="social-text">
-            {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+            {providerLoading === 'apple' ? 'Apple hazırlanıyor...' : 'Apple ile devam et'}
           </span>
         </button>
       </div>
@@ -264,17 +264,17 @@ function RegisterOtp({ embedded = false }) {
           </div>
 
           <button type="button" className="primary-btn" onClick={sendOtp} disabled={loadingSend}>
-            {loadingSend ? 'Gonderiliyor...' : 'Kod Gonder'}
+            {loadingSend ? 'Gönderiliyor...' : 'Kod Gönder'}
           </button>
         </>
       ) : (
         <>
           <p className="muted small">
-            Kod suraya gonderildi: <strong>{targetLabel}</strong>
+            Kod şuraya gönderildi: <strong>{targetLabel}</strong>
           </p>
 
           <div className="form-group">
-            <label>Dogrulama Kodu</label>
+            <label>Doğrulama Kodu</label>
             <input
               type="text"
               inputMode="numeric"
@@ -297,18 +297,18 @@ function RegisterOtp({ embedded = false }) {
           </div>
 
           <div className="form-group">
-            <label>Sifre</label>
+            <label>Şifre</label>
             <input
               type="password"
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Sifre"
+              placeholder="Şifre"
             />
           </div>
 
           <button type="button" className="primary-btn" onClick={verifyOtp} disabled={loadingVerify}>
-            {loadingVerify ? 'Dogrulaniyor...' : 'Dogrula ve Kayit Ol'}
+            {loadingVerify ? 'Doğrulanıyor...' : 'Doğrula ve Kayıt Ol'}
           </button>
 
           <button
@@ -317,7 +317,7 @@ function RegisterOtp({ embedded = false }) {
             onClick={resendOtp}
             disabled={resendSeconds > 0 || loadingSend}
           >
-            {resendSeconds > 0 ? `Tekrar gonder (${resendSeconds}s)` : 'Kodu tekrar gonder'}
+            {resendSeconds > 0 ? `Tekrar gönder (${resendSeconds}s)` : 'Kodu tekrar gönder'}
           </button>
 
           <button type="button" className="link-btn" onClick={goBackToEmailEntry}>
@@ -332,7 +332,7 @@ function RegisterOtp({ embedded = false }) {
       <div className="auth-footer">
         <span>Zaten hesabin var mi?</span>
         <button type="button" className="link-btn" onClick={() => navigate('/login')}>
-          Giris Yap
+          Giriş Yap
         </button>
       </div>
     </div>

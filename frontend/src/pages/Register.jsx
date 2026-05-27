@@ -112,7 +112,7 @@ function Register() {
             onClick={() => handleProviderLogin('google')}
             disabled={Boolean(providerLoading)}
           >
-            {providerLoading === 'google' ? 'Google hazirlaniyor...' : 'Google ile devam et'}
+            {providerLoading === 'google' ? 'Google hazırlanıyor...' : 'Google ile devam et'}
           </button>
           <button
             type="button"
@@ -133,7 +133,7 @@ function Register() {
               </svg>
             </span>
             <span className="social-text">
-              {providerLoading === 'apple' ? 'Apple hazirlaniyor...' : 'Apple ile devam et'}
+              {providerLoading === 'apple' ? 'Apple hazırlanıyor...' : 'Apple ile devam et'}
             </span>
           </button>
         </div>
@@ -143,8 +143,8 @@ function Register() {
         </div>
 
         <div className="auth-alert">
-          Talepet kullanicilar arasinda odeme araciligi yapmaz. Premium ve paket odemeleri
-          yalnizca dijital platform hizmetleri icindir.
+          Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Premium ve paket ödemeleri
+          yalnızca dijital platform hizmetleri içindir.
           <div className="auth-footer-links">
             <a href={buildSurfaceHref('web', WEBSITE_HOW_IT_WORKS_PATH)} className="link-btn">
               Nasil Calisir
