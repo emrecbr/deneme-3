@@ -1,33 +1,53 @@
 :root {
-  --primary: #2563eb;
-  --bg: #fff4e7;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-2: rgba(255, 250, 244, 0.86);
-  --border: rgba(96, 79, 63, 0.1);
-  --text: #111827;
-  --muted: #6b7280;
-  --accent: #2563eb;
-  --accent-2: #7c3aed;
+  --tlp-bg: #f5f1ea;
+  --tlp-bg-soft: #f8f6f2;
+  --tlp-surface: rgba(255, 255, 255, 0.72);
+  --tlp-surface-strong: rgba(255, 255, 255, 0.86);
+  --tlp-glass: rgba(255, 255, 255, 0.68);
+  --tlp-text: #111827;
+  --tlp-muted: #6b7280;
+  --tlp-primary: #3478f6;
+  --tlp-premium: #7c5cff;
+  --tlp-success: #22c55e;
+  --tlp-warning: #f59e0b;
+  --tlp-danger: #ef4444;
+  --tlp-border: rgba(255, 255, 255, 0.55);
+  --tlp-field-border: rgba(17, 24, 39, 0.08);
+  --tlp-shadow: rgba(15, 23, 42, 0.1);
+  --tlp-shadow-soft: rgba(15, 23, 42, 0.06);
+  --tlp-radius-card: 28px;
+  --tlp-radius-pill: 999px;
+  --tlp-blur: blur(22px) saturate(180%);
+  --tlp-inset: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --primary: var(--tlp-primary);
+  --bg: var(--tlp-bg);
+  --surface: var(--tlp-surface);
+  --surface-2: var(--tlp-surface-strong);
+  --border: var(--tlp-field-border);
+  --text: var(--tlp-text);
+  --muted: var(--tlp-muted);
+  --accent: var(--tlp-primary);
+  --accent-2: var(--tlp-premium);
   --on-accent: #ffffff;
-  --danger: #dc2626;
-  --success: #16a34a;
-  --card-shadow: 0 20px 52px rgba(78, 52, 28, 0.12), 0 8px 20px rgba(15, 23, 42, 0.06);
+  --danger: var(--tlp-danger);
+  --success: var(--tlp-success);
+  --card-shadow: 0 14px 38px var(--tlp-shadow), 0 8px 20px var(--tlp-shadow-soft);
   --app-bg: var(--bg);
   --app-text: var(--text);
   --app-muted: var(--muted);
   --app-border: var(--border);
-  --app-card: rgba(255, 255, 255, 0.74);
-  --app-card-border: rgba(255, 255, 255, 0.62);
-  --app-input: rgba(255, 255, 255, 0.72);
+  --app-card: var(--tlp-surface);
+  --app-card-border: var(--tlp-border);
+  --app-input: var(--tlp-surface);
   --navBg: rgba(255, 255, 255, 0.78);
-  --navBorder: rgba(255, 255, 255, 0.58);
-  --sheet-bg: rgba(255, 255, 255, 0.84);
-  --liquid-glass: rgba(255, 255, 255, 0.74);
-  --liquid-glass-strong: rgba(255, 255, 255, 0.88);
-  --liquid-glass-soft: rgba(255, 250, 244, 0.68);
-  --liquid-border: rgba(255, 255, 255, 0.62);
-  --liquid-shadow: 0 22px 58px rgba(78, 52, 28, 0.12), 0 8px 20px rgba(15, 23, 42, 0.06);
-  --liquid-inset: inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  --navBorder: var(--tlp-border);
+  --sheet-bg: var(--tlp-surface-strong);
+  --liquid-glass: var(--tlp-glass);
+  --liquid-glass-strong: var(--tlp-surface-strong);
+  --liquid-glass-soft: rgba(255, 255, 255, 0.58);
+  --liquid-border: var(--tlp-border);
+  --liquid-shadow: 0 14px 38px var(--tlp-shadow), 0 8px 20px var(--tlp-shadow-soft);
+  --liquid-inset: var(--tlp-inset);
   --navDockBottom: 14px;
   --navHeight: 66px;
   --fabSize: 58px;
@@ -43,10 +63,9 @@ body {
   margin: 0;
   font-family: Inter, sans-serif;
   background:
-    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.78), transparent 30%),
-    radial-gradient(circle at 82% 12%, rgba(124, 58, 237, 0.08), transparent 28%),
-    linear-gradient(180deg, #fff4e7 0%, #fff8ef 42%, #f9efe3 100%);
-  color: var(--text);
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.75), transparent 32%),
+    linear-gradient(180deg, var(--tlp-bg-soft) 0%, var(--tlp-bg) 100%);
+  color: var(--tlp-text);
 }
 
 body.dark-mode {
@@ -70,9 +89,8 @@ body.dark-mode {
   margin: 0 auto;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 22% 4%, rgba(255, 255, 255, 0.7), transparent 26%),
-    radial-gradient(circle at 88% 18%, rgba(37, 99, 235, 0.08), transparent 24%),
-    linear-gradient(180deg, #fff4e7 0%, #fff8ef 46%, #f8edde 100%);
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.75), transparent 32%),
+    linear-gradient(180deg, var(--tlp-bg-soft) 0%, var(--tlp-bg) 100%);
   overflow-x: clip;
 }
 
@@ -104,11 +122,11 @@ body.dark-mode .app-layout {
   align-items: center;
   gap: 8px;
   padding: 0 16px;
-  background: rgba(255, 248, 239, 0.72);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.62);
-  box-shadow: 0 12px 34px rgba(78, 52, 28, 0.08), var(--liquid-inset);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  background: var(--tlp-glass);
+  border-bottom: 1px solid var(--tlp-border);
+  box-shadow: 0 14px 38px var(--tlp-shadow), var(--tlp-inset);
+  backdrop-filter: var(--tlp-blur);
+  -webkit-backdrop-filter: var(--tlp-blur);
   z-index: 20;
 }
 
@@ -128,6 +146,66 @@ body.native-capacitor .app-header {
   padding-top: var(--nativeTopInset);
   padding-bottom: 8px;
   align-items: center;
+}
+
+.tlp-app-bg {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.75), transparent 32%),
+    linear-gradient(180deg, var(--tlp-bg-soft) 0%, var(--tlp-bg) 100%);
+  color: var(--tlp-text);
+}
+
+.tlp-glass-surface {
+  background: var(--tlp-surface);
+  backdrop-filter: var(--tlp-blur);
+  -webkit-backdrop-filter: var(--tlp-blur);
+  border: 1px solid var(--tlp-border);
+  box-shadow: 0 14px 38px var(--tlp-shadow), var(--tlp-inset);
+}
+
+.tlp-card {
+  border-radius: var(--tlp-radius-card);
+  background: var(--tlp-surface-strong);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.tlp-chip {
+  border-radius: var(--tlp-radius-pill);
+  background: var(--tlp-surface);
+  border: 1px solid var(--tlp-field-border);
+  box-shadow: 0 8px 20px var(--tlp-shadow-soft);
+}
+
+.tlp-primary-button {
+  border-radius: var(--tlp-radius-pill);
+  background: linear-gradient(135deg, var(--tlp-primary), var(--tlp-premium));
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(52, 120, 246, 0.28);
+}
+
+.tlp-status-premium {
+  background: rgba(124, 92, 255, 0.12);
+  color: var(--tlp-premium);
+  border: 1px solid rgba(124, 92, 255, 0.22);
+}
+
+.tlp-status-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--tlp-success);
+  border: 1px solid rgba(34, 197, 94, 0.22);
+}
+
+.tlp-status-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--tlp-warning);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.tlp-status-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--tlp-danger);
+  border: 1px solid rgba(239, 68, 68, 0.22);
 }
 
 body.native-capacitor .app-content {
@@ -13282,8 +13360,8 @@ html:not([data-surface="admin"]) .pricing-page-shell,
 html:not([data-surface="admin"]) .premium-page:not(.premium-page--web) {
   background:
     radial-gradient(circle at 20% 6%, rgba(255, 255, 255, 0.54), transparent 30%),
-    radial-gradient(circle at 88% 18%, rgba(37, 99, 235, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(255, 244, 231, 0.92), rgba(255, 249, 240, 0.78));
+    radial-gradient(circle at 88% 18%, rgba(52, 120, 246, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(248, 246, 242, 0.94), rgba(245, 241, 234, 0.82));
 }
 
 html:not([data-surface="admin"]) .card,
@@ -13313,11 +13391,11 @@ html:not([data-surface="admin"]) .create-sheet-content,
 html:not([data-surface="admin"]) .report-sheet,
 html:not([data-surface="admin"]) .payment-sheet,
 html:not([data-surface="admin"]) .notif-sheet {
-  background: var(--liquid-glass);
-  border: 1px solid var(--liquid-border);
-  box-shadow: var(--liquid-shadow), var(--liquid-inset);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  background: var(--tlp-surface);
+  border: 1px solid var(--tlp-border);
+  box-shadow: var(--liquid-shadow), var(--tlp-inset);
+  backdrop-filter: var(--tlp-blur);
+  -webkit-backdrop-filter: var(--tlp-blur);
 }
 
 html:not([data-surface="admin"]) .rfq-card,
@@ -13325,13 +13403,13 @@ html:not([data-surface="admin"]) .profile-big-card,
 html:not([data-surface="admin"]) .profile-hero-card,
 html:not([data-surface="admin"]) .premium-plan-card,
 html:not([data-surface="admin"]) .premium-membership-hero {
-  border-radius: 28px;
+  border-radius: var(--tlp-radius-card);
 }
 
 html:not([data-surface="admin"]) .rfq-discovery-card {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(255, 250, 244, 0.2)),
-    radial-gradient(circle at 86% 8%, rgba(124, 58, 237, 0.08), transparent 32%);
+    radial-gradient(circle at 86% 8%, rgba(124, 92, 255, 0.08), transparent 32%);
 }
 
 html:not([data-surface="admin"]) .rfq-discovery-card__topline .rfq-discovery-card__category {
@@ -13357,9 +13435,9 @@ html:not([data-surface="admin"]) .card-state-badge,
 html:not([data-surface="admin"]) .premium-plan-badge,
 html:not([data-surface="admin"]) .premium-plan-accent,
 html:not([data-surface="admin"]) .trust-badge {
-  background: rgba(255, 255, 255, 0.64);
-  border: 1px solid rgba(255, 255, 255, 0.64);
-  box-shadow: 0 10px 24px rgba(78, 52, 28, 0.08), var(--liquid-inset);
+  background: var(--tlp-surface);
+  border: 1px solid var(--tlp-border);
+  box-shadow: 0 8px 20px var(--tlp-shadow-soft), var(--tlp-inset);
   backdrop-filter: blur(16px) saturate(170%);
   -webkit-backdrop-filter: blur(16px) saturate(170%);
 }
@@ -13369,11 +13447,11 @@ html:not([data-surface="admin"]) .premium-filter-sheet,
 html:not([data-surface="admin"]) .premium-search-sheet,
 html:not([data-surface="admin"]) .alerts-sheet,
 html:not([data-surface="admin"]) .category-selector-modal {
-  background: rgba(255, 255, 255, 0.84);
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  box-shadow: 0 24px 60px rgba(78, 52, 28, 0.16), var(--liquid-inset);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: var(--tlp-surface-strong);
+  border: 1px solid var(--tlp-border);
+  box-shadow: 0 14px 38px var(--tlp-shadow), var(--tlp-inset);
+  backdrop-filter: var(--tlp-blur);
+  -webkit-backdrop-filter: var(--tlp-blur);
 }
 
 html:not([data-surface="admin"]) .advanced-sort-btn,
@@ -13381,31 +13459,31 @@ html:not([data-surface="admin"]) .header-filter-pill,
 html:not([data-surface="admin"]) .city-filter-badge,
 html:not([data-surface="admin"]) .home-filter-btn,
 html:not([data-surface="admin"]) .cats-title-btn {
-  color: #111827;
+  color: var(--tlp-text);
 }
 
 html:not([data-surface="admin"]) .advanced-sort-option.is-active,
 html:not([data-surface="admin"]) .nav-item.active,
 html:not([data-surface="admin"]) .profile-sub-item:hover {
-  background: rgba(37, 99, 235, 0.12);
-  border-color: rgba(37, 99, 235, 0.2);
+  background: rgba(52, 120, 246, 0.12);
+  border-color: rgba(52, 120, 246, 0.2);
 }
 
 html:not([data-surface="admin"]) .primary-btn,
 html:not([data-surface="admin"]) .premium-plan-action,
 html:not([data-surface="admin"]) .sheet-apply-header,
 html:not([data-surface="admin"]) .premium-sheet-apply-btn {
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.24);
+  background: linear-gradient(135deg, var(--tlp-primary), var(--tlp-premium));
+  box-shadow: 0 12px 28px rgba(52, 120, 246, 0.28);
 }
 
 html:not([data-surface="admin"]) input,
 html:not([data-surface="admin"]) select,
 html:not([data-surface="admin"]) textarea,
 html:not([data-surface="admin"]) .city-search-input {
-  background: rgba(255, 255, 255, 0.66);
-  border-color: rgba(255, 255, 255, 0.66);
-  box-shadow: var(--liquid-inset);
+  background: var(--tlp-glass);
+  border-color: var(--tlp-border);
+  box-shadow: var(--tlp-inset);
 }
 
 html:not([data-surface="admin"]) .skeleton,
@@ -13419,22 +13497,22 @@ html:not([data-surface="admin"]) .skeleton-line {
 html:not([data-surface="admin"]) .badge.open,
 html:not([data-surface="admin"]) .status-badge--info,
 html:not([data-surface="admin"]) .premium-mini-badge {
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.12);
-  border-color: rgba(37, 99, 235, 0.18);
+  color: var(--tlp-primary);
+  background: rgba(52, 120, 246, 0.12);
+  border-color: rgba(52, 120, 246, 0.18);
 }
 
 html:not([data-surface="admin"]) .badge.done,
 html:not([data-surface="admin"]) .status-badge--success {
-  color: #047857;
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.18);
+  color: var(--tlp-success);
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.22);
 }
 
 html:not([data-surface="admin"]) .status-badge--warning,
 html:not([data-surface="admin"]) .deadline-badge {
-  color: #92400e;
-  background: rgba(245, 158, 11, 0.16);
+  color: var(--tlp-warning);
+  background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.22);
 }
 
