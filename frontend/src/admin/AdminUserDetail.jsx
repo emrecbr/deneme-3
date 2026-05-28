@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/adminApi';
-import { useAuth } from '../context/AuthContext';
+import { useAdminAuth } from '../context/AdminAuthContext';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -34,7 +34,8 @@ const initialGrantForm = {
 export default function AdminUserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
+  const { admin: currentAdmin } = useAdminAuth();
+  const canGrantEntitlements = currentAdmin?.role === 'admin';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
@@ -131,7 +132,7 @@ export default function AdminUserDetail() {
   };
 
   const deleteUser = async () => {
-    if (currentUser?.role !== 'admin') return;
+    if (!canGrantEntitlements) return;
     const confirmDelete = window.confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz? Bu işlem kullanıcıyı pasife alır.');
     if (!confirmDelete) return;
     setActionMessage('');
@@ -230,10 +231,10 @@ export default function AdminUserDetail() {
 
         <div className="admin-action-row">
           <button type="button" className="admin-btn" onClick={updateStatus}>Durumu Güncelle</button>
-          <button type="button" className="admin-btn" onClick={updateRole} disabled={currentUser?.role !== 'admin'}>
+          <button type="button" className="admin-btn" onClick={updateRole} disabled={!canGrantEntitlements}>
             Rolü Güncelle
           </button>
-          <button type="button" className="admin-btn" onClick={deleteUser} disabled={currentUser?.role !== 'admin'}>
+          <button type="button" className="admin-btn" onClick={deleteUser} disabled={!canGrantEntitlements}>
             Kullanıcıyı Sil
           </button>
           {actionMessage ? <span className="admin-muted">{actionMessage}</span> : null}
@@ -292,7 +293,7 @@ export default function AdminUserDetail() {
               onChange={(event) =>
                 setGrantForm((prev) => ({ ...prev, entitlementType: event.target.value }))
               }
-              disabled={currentUser?.role !== 'admin'}
+              disabled={!canGrantEntitlements || grantSaving}
             >
               <option value="premium">Premium üyelik</option>
               <option value="featured_listing">Öne çıkarma hakkı</option>
@@ -309,7 +310,7 @@ export default function AdminUserDetail() {
                 onChange={(event) =>
                   setGrantForm((prev) => ({ ...prev, durationDays: event.target.value }))
                 }
-                disabled={currentUser?.role !== 'admin'}
+                disabled={!canGrantEntitlements || grantSaving}
               />
             </label>
           ) : (
@@ -323,7 +324,7 @@ export default function AdminUserDetail() {
                 onChange={(event) =>
                   setGrantForm((prev) => ({ ...prev, quantity: event.target.value }))
                 }
-                disabled={currentUser?.role !== 'admin'}
+                disabled={!canGrantEntitlements || grantSaving}
               />
             </label>
           )}
@@ -336,7 +337,7 @@ export default function AdminUserDetail() {
               onChange={(event) =>
                 setGrantForm((prev) => ({ ...prev, expiresAt: event.target.value }))
               }
-              disabled={currentUser?.role !== 'admin'}
+              disabled={!canGrantEntitlements || grantSaving}
             />
           </label>
           <label>
@@ -346,7 +347,7 @@ export default function AdminUserDetail() {
               value={grantForm.note}
               onChange={(event) => setGrantForm((prev) => ({ ...prev, note: event.target.value }))}
               placeholder="Kısa açıklama"
-              disabled={currentUser?.role !== 'admin'}
+              disabled={!canGrantEntitlements || grantSaving}
             />
           </label>
         </div>
@@ -355,7 +356,7 @@ export default function AdminUserDetail() {
             type="button"
             className="admin-btn"
             onClick={grantEntitlement}
-            disabled={currentUser?.role !== 'admin' || grantSaving}
+            disabled={!canGrantEntitlements || grantSaving}
           >
             {grantSaving ? 'Kaydediliyor...' : 'Hakkı Tanımla'}
           </button>
