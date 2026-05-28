@@ -33,27 +33,32 @@ const JOBSEEKER_WORK_TYPES = [
 const PUBLISHING_RIGHT_LABELS = {
   premium: {
     title: 'Premium Talep',
-    description: 'Bu talep, premium görünürlük hakkın kullanılarak yayınlanacak.',
+    description: 'Bu talep, hesabındaki premium hakkın kullanılarak daha görünür yayınlanacak.',
+    remainingLabel: 'Kalan premium hakkı',
     button: 'Premium Talep Yayınla'
   },
   featured_listing: {
     title: 'Öne Çıkarılmış Talep',
-    description: 'Bu talep, öne çıkarma hakkın kullanılarak daha görünür yayınlanacak.',
+    description: 'Bu talep, öne çıkarma hakkın kullanılarak daha fazla kullanıcıya gösterilecek.',
+    remainingLabel: 'Kalan öne çıkarma hakkı',
     button: 'Öne Çıkarılmış Talep Yayınla'
   },
   paid_listing: {
     title: 'Ekstra İlan Hakkı',
     description: 'Bu talep, satın aldığın ilan hakkından düşülerek yayınlanacak.',
+    remainingLabel: 'Kalan ekstra ilan hakkı',
     button: 'Talep Yayınla'
   },
   free_listing: {
     title: 'Ücretsiz Standart İlan',
     description: 'Bu talep ücretsiz ilan hakkından düşülerek yayınlanacak.',
+    remainingLabel: 'Kalan ücretsiz ilan hakkı',
     button: 'Standart Talep Yayınla'
   },
   standard: {
     title: 'Standart Talep Yayını',
-    description: 'Bu talep normal akışta yayınlanacak.',
+    description: 'Bu talep standart görünürlükle yayınlanacak.',
+    remainingLabel: 'Premium veya öne çıkarma hakkın bulunmuyor.',
     helper: 'Premium görünürlük istersen paketler alanından hak satın alabilirsin.',
     button: 'Standart Talep Yayınla'
   }
@@ -67,6 +72,21 @@ const resolveBestPublishingRight = (summary) => {
     (right) => right?.available
   );
   return fromRights || summary?.selected || { key: 'standard', available: true, remaining: 1 };
+};
+
+const resolvePublishingRightRemaining = (key, counts = {}) => {
+  switch (key) {
+    case 'premium':
+      return Number(counts.premium || 0);
+    case 'featured_listing':
+      return Number(counts.featured || 0);
+    case 'paid_listing':
+      return Number(counts.paidListing || 0);
+    case 'free_listing':
+      return Number(counts.freeListing || 0);
+    default:
+      return null;
+  }
 };
 
 const EMPTY_JOBSEEKER_META = {
@@ -248,6 +268,10 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const selectedPublishingCopy =
     PUBLISHING_RIGHT_LABELS[selectedPublishingRight?.key] || PUBLISHING_RIGHT_LABELS.standard;
   const publishingCounts = publishingRights?.counts || {};
+  const selectedPublishingRemaining = resolvePublishingRightRemaining(
+    selectedPublishingRight?.key,
+    publishingCounts
+  );
   const hasUnsavedChanges = useMemo(() => {
     return Boolean(
       form.title ||
@@ -2131,7 +2155,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
               <div className="publish-option-card is-selected publish-option-card--selected-right">
                 <div className="publish-option-card__header">
                   <span className="publish-option-kicker">Seçili Yayın Türü</span>
-                  <span className="publish-option-kicker">Otomatik seçildi</span>
+                  {selectedPublishingRight?.key !== 'standard' ? (
+                    <span className="publish-option-kicker publish-option-kicker--active">Otomatik seçildi</span>
+                  ) : null}
                 </div>
                 {publishingRightsLoading ? (
                   <p>Yayın hakların kontrol ediliyor...</p>
@@ -2139,6 +2165,11 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                   <>
                     <strong>{selectedPublishingCopy.title}</strong>
                     <p>{selectedPublishingCopy.description}</p>
+                    <div className="publish-selected-right-detail">
+                      {selectedPublishingRemaining == null
+                        ? selectedPublishingCopy.remainingLabel
+                        : `${selectedPublishingCopy.remainingLabel}: ${selectedPublishingRemaining}`}
+                    </div>
                     {selectedPublishingCopy.helper ? <p>{selectedPublishingCopy.helper}</p> : null}
                   </>
                 )}
