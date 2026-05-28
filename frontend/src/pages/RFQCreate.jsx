@@ -1326,6 +1326,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         const created = response.data?.data || response.data;
         const createdId = created?._id || created?.id;
         debugInfo('RFQ_CREATE_OK', { id: createdId });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('talepet:rfq-created', { detail: { rfq: created || null } }));
+        }
         logFlowEvent({ step: 4, event: 'step_complete' });
         completionTrackedRef.current = true;
         trackRFQCreateEvent('rfq_create_success', {

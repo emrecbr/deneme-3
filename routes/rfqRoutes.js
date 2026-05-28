@@ -501,7 +501,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       city: selectedCity._id,
       name: new RegExp(`^${escapeRegex(resolvedLocationData.district)}$`, 'i')
     })
-      .select('_id name')
+      .select('_id name center')
       .lean();
     if (!districtDoc?._id) {
       return res.status(400).json({
@@ -542,6 +542,16 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
 
     const listingExpiryDays = await getListingExpiryDays();
     const computedExpiresAt = computeExpiresAt(new Date(), listingExpiryDays);
+    const districtCenterCoords = Array.isArray(districtDoc.center?.coordinates) ? districtDoc.center.coordinates : null;
+    const districtCenterLocation =
+      districtCenterCoords &&
+      districtCenterCoords.length === 2 &&
+      isValidLngLat(Number(districtCenterCoords[0]), Number(districtCenterCoords[1]))
+        ? {
+            type: 'Point',
+            coordinates: [Number(districtCenterCoords[0]), Number(districtCenterCoords[1])]
+          }
+        : null;
     const cityCenterCoords = Array.isArray(selectedCity.center?.coordinates) ? selectedCity.center.coordinates : null;
     const cityCenterLocation =
       cityCenterCoords &&
@@ -552,7 +562,7 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
             coordinates: [Number(cityCenterCoords[0]), Number(cityCenterCoords[1])]
           }
         : null;
-    const finalLocation = resolvedLocation || cityCenterLocation || undefined;
+    const finalLocation = resolvedLocation || districtCenterLocation || cityCenterLocation || undefined;
     const isExpiredOnCreate = parsedDeadline.getTime() <= Date.now();
 
     const rfq = await RFQ.create({

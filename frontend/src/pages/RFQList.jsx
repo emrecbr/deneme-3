@@ -1195,6 +1195,21 @@ function RFQList({ surfaceVariant = 'app' }) {
   }, [fetchNearby, pathname, filters]);
 
   useEffect(() => {
+    const handleRFQCreated = (event) => {
+      const created = event?.detail?.rfq;
+      if (created?._id) {
+        setRfqs((prev) => mergeUniqueRFQs([created], prev));
+        setNearbyRFQs((prev) => mergeUniqueRFQs([created], prev));
+      }
+      fetchRFQs({ nextPage: 1, replace: true, isRefresh: true });
+      fetchNearby();
+    };
+
+    window.addEventListener('talepet:rfq-created', handleRFQCreated);
+    return () => window.removeEventListener('talepet:rfq-created', handleRFQCreated);
+  }, [fetchNearby, fetchRFQs, mergeUniqueRFQs]);
+
+  useEffect(() => {
     const payload = {
       selectedCity: filters.city || '',
       selectedKm: Number(filters.radius) || 0
@@ -2186,12 +2201,35 @@ function RFQList({ surfaceVariant = 'app' }) {
     return quickFilteredRFQs.filter((item) => {
       const coords = getRFQCoords(item);
       if (!coords) {
-        return false;
+        const selectedCity = String(appliedFilters.city || '').trim().toLowerCase();
+        if (!selectedCity) {
+          return false;
+        }
+        const itemCity = String(getCityName(item) || '').trim().toLowerCase();
+        if (itemCity !== selectedCity) {
+          return false;
+        }
+        const selectedDistrict = String(appliedFilters.district || '').trim().toLowerCase();
+        if (!selectedDistrict) {
+          return true;
+        }
+        return String(getDistrictName(item) || '').trim().toLowerCase() === selectedDistrict;
       }
       const distance = getDistanceKm(mapRadiusCenter, coords);
       return typeof distance === 'number' && distance <= mapRadiusKm;
     });
-  }, [getRFQCoords, hasRadiusCenter, isMapCityWide, mapRadiusCenter, mapRadiusKm, quickFilteredRFQs]);
+  }, [
+    appliedFilters.city,
+    appliedFilters.district,
+    getCityName,
+    getDistrictName,
+    getRFQCoords,
+    hasRadiusCenter,
+    isMapCityWide,
+    mapRadiusCenter,
+    mapRadiusKm,
+    quickFilteredRFQs
+  ]);
 
   const canonicalFilteredRFQs = useMemo(() => {
     if (!mapAreaFilterActive || !mapAreaFilterIds) {
