@@ -9,7 +9,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { debugError, debugInfo, debugWarn } from '../utils/debugLog';
 import { getGeoPointErrorMessage, haversineKm, normalizeGeoPointInput, reverseGeocode } from '../utils/geo';
-import { isListingQuotaExhausted, normalizeListingQuotaSnapshot } from '../utils/listingQuota';
 import { trackAnalyticsEvent } from '../utils/analytics';
 
 const CategorySelector = lazy(() => import('../components/CategorySelector'));
@@ -30,6 +29,45 @@ const JOBSEEKER_WORK_TYPES = [
   { value: 'freelance', label: 'Freelance' },
   { value: 'other', label: 'Diğer' }
 ];
+
+const PUBLISHING_RIGHT_LABELS = {
+  premium: {
+    title: 'Premium Talep',
+    description: 'Bu talep, premium görünürlük hakkın kullanılarak yayınlanacak.',
+    button: 'Premium Talep Yayınla'
+  },
+  featured_listing: {
+    title: 'Öne Çıkarılmış Talep',
+    description: 'Bu talep, öne çıkarma hakkın kullanılarak daha görünür yayınlanacak.',
+    button: 'Öne Çıkarılmış Talep Yayınla'
+  },
+  paid_listing: {
+    title: 'Ekstra İlan Hakkı',
+    description: 'Bu talep, satın aldığın ilan hakkından düşülerek yayınlanacak.',
+    button: 'Talep Yayınla'
+  },
+  free_listing: {
+    title: 'Ücretsiz Standart İlan',
+    description: 'Bu talep ücretsiz ilan hakkından düşülerek yayınlanacak.',
+    button: 'Standart Talep Yayınla'
+  },
+  standard: {
+    title: 'Standart Talep Yayını',
+    description: 'Bu talep normal akışta yayınlanacak.',
+    helper: 'Premium görünürlük istersen paketler alanından hak satın alabilirsin.',
+    button: 'Standart Talep Yayınla'
+  }
+};
+
+const PUBLISHING_RIGHT_PRIORITY = ['premium', 'featured_listing', 'paid_listing', 'free_listing', 'standard'];
+
+const resolveBestPublishingRight = (summary) => {
+  const rights = Array.isArray(summary?.rights) ? summary.rights : [];
+  const fromRights = PUBLISHING_RIGHT_PRIORITY.map((key) => rights.find((right) => right.key === key)).find(
+    (right) => right?.available
+  );
+  return fromRights || summary?.selected || { key: 'standard', available: true, remaining: 1 };
+};
 
 const EMPTY_JOBSEEKER_META = {
   workTypes: [],
@@ -174,7 +212,8 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const [carBrandSheetOpen, setCarBrandSheetOpen] = useState(false);
   const [carModelSheetOpen, setCarModelSheetOpen] = useState(false);
   const [carVariantSheetOpen, setCarVariantSheetOpen] = useState(false);
-  const [quotaInfo, setQuotaInfo] = useState(null);
+  const [publishingRights, setPublishingRights] = useState(null);
+  const [publishingRightsLoading, setPublishingRightsLoading] = useState(false);
   const [jobseekerMeta, setJobseekerMeta] = useState(EMPTY_JOBSEEKER_META);
   const stepRef = useRef(1);
   const hasUnsavedChangesRef = useRef(false);
@@ -202,6 +241,13 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
   const featuredYearlyCode = featuredPlan?.metadata?.planCodes?.yearly || 'featured_yearly';
   const premiumModes = premiumPlan?.billingModes || ['monthly', 'yearly'];
   const featuredModes = featuredPlan?.billingModes || ['monthly', 'yearly'];
+  const selectedPublishingRight = useMemo(
+    () => resolveBestPublishingRight(publishingRights),
+    [publishingRights]
+  );
+  const selectedPublishingCopy =
+    PUBLISHING_RIGHT_LABELS[selectedPublishingRight?.key] || PUBLISHING_RIGHT_LABELS.standard;
+  const publishingCounts = publishingRights?.counts || {};
   const hasUnsavedChanges = useMemo(() => {
     return Boolean(
       form.title ||
@@ -385,6 +431,31 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     };
     loadPlans();
   }, []);
+
+  useEffect(() => {
+    if (isEdit || step !== 4) return;
+    let active = true;
+    const loadPublishingRights = async () => {
+      setPublishingRightsLoading(true);
+      try {
+        const response = await api.get('/me/publishing-rights', buildProtectedRequestConfig());
+        if (!active) return;
+        setPublishingRights(response.data?.data || null);
+      } catch (_error) {
+        if (active) {
+          setPublishingRights(null);
+        }
+      } finally {
+        if (active) {
+          setPublishingRightsLoading(false);
+        }
+      }
+    };
+    loadPublishingRights();
+    return () => {
+      active = false;
+    };
+  }, [isEdit, step]);
 
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
@@ -1087,16 +1158,6 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
     setError('');
     setStepError('');
-    if (!isEdit && isListingQuotaExhausted(quotaInfo)) {
-      const quotaMessage = 'Son 30 günde ücretsiz ilan hakkın doldu. Yeni ilan vermek için paket gerekecek.';
-      trackRFQCreateEvent('rfq_create_submit_failed', {
-        step: 4,
-        reason: 'listing_quota_exhausted'
-      });
-      setError(quotaMessage);
-      showToast(quotaMessage);
-      return;
-    }
     debugInfo('RFQ_CREATE_START');
     trackRFQCreateEvent('rfq_create_submit', {
       step: 4,
@@ -1170,6 +1231,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
           isJobseekerSegment ? (jobseekerMeta.workStartDate || jobseekerMeta.availabilityDate) : form.deadline
         );
         formData.append('isAuction', String(Boolean(form.isAuction)));
+        formData.append('publishingRight', selectedPublishingRight?.key || 'standard');
         if (!form.deadline) {
           const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
           formData.append('expiresAt', expiresAt);
@@ -1301,7 +1363,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
         setError(message || 'Ücretsiz ilan hakkınız doldu.');
         showToast(message || 'Ücretsiz ilan hakkınız doldu.');
         if (submitError?.response?.data?.data) {
-          setQuotaInfo(normalizeListingQuotaSnapshot(submitError.response.data.data));
+          setPublishingRights(submitError.response.data.data);
         }
       } else if (status === 422 && code === 'MODERATION_REVIEW') {
         setError(message || 'İçeriğiniz incelemeye alındı.');
@@ -1499,7 +1561,7 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
     }
   };
 
-  const quotaBlocked = !isEdit && isListingQuotaExhausted(quotaInfo);
+  const quotaBlocked = false;
 
   const isJobseekerStep2 = !isWebSurface && step === 2 && isJobseekerSegment;
 
@@ -2066,16 +2128,27 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
 
           {step === 4 ? (
             <>
-              <div className="publish-option-grid">
-                <div className="publish-option-card is-selected">
-                  <span className="publish-option-kicker">Standart</span>
-                  <strong>Standart talep yayını</strong>
-                  <p>Talebini normal akışta yayınla ve uygun teklifleri uygulama içinde takip et.</p>
+              <div className="publish-option-card is-selected publish-option-card--selected-right">
+                <div className="publish-option-card__header">
+                  <span className="publish-option-kicker">Seçili Yayın Türü</span>
+                  <span className="publish-option-kicker">Otomatik seçildi</span>
                 </div>
-                <div className="publish-option-card">
-                  <span className="publish-option-kicker">Premium</span>
-                  <strong>Premium talep görünürlüğü</strong>
-                  <p>Talebini öne çıkarmak için premium görünürlük seçeneklerini paketler alanından yönetebilirsin.</p>
+                {publishingRightsLoading ? (
+                  <p>Yayın hakların kontrol ediliyor...</p>
+                ) : (
+                  <>
+                    <strong>{selectedPublishingCopy.title}</strong>
+                    <p>{selectedPublishingCopy.description}</p>
+                    {selectedPublishingCopy.helper ? <p>{selectedPublishingCopy.helper}</p> : null}
+                  </>
+                )}
+                <div className="publish-right-summary">
+                  <span>Premium: {Number(publishingCounts.premium || 0)}</span>
+                  <span>Öne çıkarma: {Number(publishingCounts.featured || 0)}</span>
+                  <span>Ücretsiz ilan: {Number(publishingCounts.freeListing || 0)}</span>
+                  <span>Ekstra ilan: {Number(publishingCounts.paidListing || 0)}</span>
+                </div>
+                {selectedPublishingRight?.key === 'standard' ? (
                   <button
                     type="button"
                     className="secondary-btn"
@@ -2087,9 +2160,9 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                       navigate('/paketler');
                     }}
                   >
-                    Premium seçenekleri
+                    Premium Seçenekleri
                   </button>
-                </div>
+                ) : null}
               </div>
 
               <div className="wizard-actions wizard-actions-split sticky-footer">
@@ -2099,15 +2172,17 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
                 <button
                   type="submit"
                   className="primary-btn"
-                  disabled={loading || quotaBlocked}
+                  disabled={loading || publishingRightsLoading || quotaBlocked}
                 >
                   {loading
                     ? 'Gönderiliyor...'
+                    : publishingRightsLoading
+                      ? 'Haklar kontrol ediliyor...'
                     : quotaBlocked
                       ? 'Yayınlanamıyor'
                       : isEdit
                         ? 'Kaydet'
-                        : 'Standart Talep Yayınla'}
+                        : selectedPublishingCopy.button}
                 </button>
               </div>
             </>

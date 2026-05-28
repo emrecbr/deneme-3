@@ -3,6 +3,7 @@ import { adminRoleMiddleware, requireAdminOnly } from '../middleware/adminRoleMi
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import {
   getMyListingQuotaSummary,
+  getMyPublishingRightsSummary,
   getMySubscriptionSummary,
   listAdminEntitlementUsers,
   getPublicHowItWorks,
@@ -23,5 +24,6 @@ router.get('/public/plans', listPublicMonetizationPlans);
 router.get('/public/how-it-works', getPublicHowItWorks);
 router.get('/me/subscription', authMiddleware, getMySubscriptionSummary);
 router.get('/me/listing-quota', authMiddleware, getMyListingQuotaSummary);
+router.get('/me/publishing-rights', authMiddleware, getMyPublishingRightsSummary);
 
 export default router;

@@ -11,14 +11,18 @@ import RFQ from '../models/RFQ.js';
 import Chat from '../models/Chat.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
-import AdminAuditLog from '../models/AdminAuditLog.js';
 import { getRecommendedRfqsForDetail } from '../src/services/rfqRecommendationService.js';
 import { emitToRoom } from '../config/socket.js';
 import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListingExpiryDays, isRfqExpired, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
-import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
 import { checkModeration } from '../src/utils/moderation.js';
 import { triggerMatchingAlertsForRfq } from '../src/services/alertSubscriptionService.js';
 import { consumeFeaturedEntitlement } from '../src/services/entitlementService.js';
+import {
+  PUBLISHING_RIGHTS,
+  consumePublishingRight,
+  logPublishingRightUsage,
+  revertPublishingRightConsumption
+} from '../src/services/publishingRightsService.js';
 
 const rfqRoutes = Router();
 const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
@@ -255,7 +259,7 @@ const resolveCategoryQueryFilter = async (value) => {
 };
 
 rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, next) => {
-  let quotaConsumption = null;
+  let publishingConsumption = null;
   try {
     if (!req.user?.id) {
       return res.status(401).json({
@@ -283,7 +287,8 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       neighborhood,
       street,
       productDetails,
-      segmentMetadata
+      segmentMetadata,
+      publishingRight
     } = req.body;
 
     if (!cleanText(title) || !cleanText(description)) {
@@ -477,21 +482,19 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       });
     }
 
-    const quotaSettings = await getListingQuotaSettings();
-    const quotaResult = await consumeListingQuota({ userId: req.user.id, settings: quotaSettings });
-    if (!quotaResult.ok) {
-      const currentUser = await User.findById(req.user.id).select(
-        'listingQuotaWindowStart listingQuotaWindowEnd listingQuotaUsedFree paidListingCredits'
-      );
-      const snapshot = getListingQuotaSnapshot(currentUser, quotaSettings);
-      return res.status(402).json({
+    const publishingResult = await consumePublishingRight({
+      userId: req.user.id,
+      requestedRight: publishingRight
+    });
+    if (!publishingResult.ok) {
+      return res.status(publishingResult.status || 400).json({
         success: false,
-        code: 'LISTING_QUOTA_REACHED',
-        message: 'Bu dönem için ücretsiz ilan hakkınız doldu. Ek ilan için ödeme yapmanız gerekiyor.',
-        data: snapshot
+        code: publishingResult.code || 'PUBLISHING_RIGHT_UNAVAILABLE',
+        message: publishingResult.message || 'Seçilen yayın hakkı kullanılamıyor.',
+        data: publishingResult.data || null
       });
     }
-    quotaConsumption = quotaResult;
+    publishingConsumption = publishingResult;
 
     const imagePaths = req.files?.map((file) => `/uploads/${file.filename}`) || [];
     const districtDoc = await District.findOne({
@@ -592,7 +595,18 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       segmentMetadata: segmentMetadataPayload || {},
       buyer: req.user.id,
       status: isExpiredOnCreate ? 'expired' : 'open',
-      images: imagePaths
+      images: imagePaths,
+      publishingRight: publishingConsumption.right || PUBLISHING_RIGHTS.STANDARD,
+      isPremium: publishingConsumption.right === PUBLISHING_RIGHTS.PREMIUM,
+      isFeatured: publishingConsumption.right === PUBLISHING_RIGHTS.FEATURED,
+      featuredUntil:
+        publishingConsumption.right === PUBLISHING_RIGHTS.FEATURED
+          ? publishingConsumption.featureUntil
+          : undefined,
+      featuredBy:
+        publishingConsumption.right === PUBLISHING_RIGHTS.FEATURED
+          ? req.user.id
+          : undefined
     });
 
     const populatedRFQ = await RFQ.findById(rfq._id)
@@ -625,37 +639,13 @@ rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, 
       }, 0);
     }
 
-    if (quotaConsumption?.mode === 'paid') {
-      try {
-        await AdminAuditLog.create({
-          adminId: null,
-          role: 'system',
-          action: 'listing_paid_create_success',
-          meta: { userId: req.user.id, rfqId: rfq._id }
-        });
-      } catch (_error) {
-        // ignore audit
-      }
-    }
+    await logPublishingRightUsage({ userId: req.user.id, rfqId: rfq._id, consumption: publishingConsumption });
   } catch (error) {
-    if (quotaConsumption?.mode) {
-      await revertListingQuota({
+    if (publishingConsumption) {
+      await revertPublishingRightConsumption({
         userId: req.user?.id,
-        mode: quotaConsumption.mode,
-        windowStarted: quotaConsumption.windowStarted
+        consumption: publishingConsumption
       });
-      if (quotaConsumption.mode === 'paid') {
-        try {
-          await AdminAuditLog.create({
-            adminId: null,
-            role: 'system',
-            action: 'listing_paid_create_failed',
-            meta: { userId: req.user?.id }
-          });
-        } catch (_error) {
-          // ignore audit
-        }
-      }
     }
     console.error('RFQ CREATE ERROR:', error?.message || error);
     console.error(error?.stack);

@@ -186,6 +186,16 @@ const rfqSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    isPremium: {
+      type: Boolean,
+      default: false
+    },
+    publishingRight: {
+      type: String,
+      enum: ['premium', 'featured_listing', 'paid_listing', 'free_listing', 'standard'],
+      default: 'standard',
+      index: true
+    },
     isFeatured: {
       type: Boolean,
       default: false

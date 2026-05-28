@@ -4,6 +4,7 @@ import Payment from '../models/Payment.js';
 import Subscription from '../models/Subscription.js';
 import User from '../models/User.js';
 import UserEntitlement from '../models/UserEntitlement.js';
+import { getPublishingRightsSummary } from '../src/services/publishingRightsService.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
 
 const DEFAULT_PLANS = [
@@ -610,6 +611,21 @@ export const getMyListingQuotaSummary = async (req, res, next) => {
         notice:
           'Kalan ilan hakki ve ek ilan kredileri dijital platform hakki olarak hesabina tanimlanir.'
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getMyPublishingRightsSummary = async (req, res, next) => {
+  try {
+    const summary = await getPublishingRightsSummary(req.user?.id);
+    if (!summary) {
+      return res.status(404).json({ success: false, message: 'Kullanici bulunamadi.' });
+    }
+    return res.status(200).json({
+      success: true,
+      data: summary
     });
   } catch (error) {
     return next(error);

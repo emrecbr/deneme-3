@@ -64,7 +64,7 @@ const logQuotaAction = async (action, meta = {}) => {
   }
 };
 
-export const consumeListingQuota = async ({ userId, settings }) => {
+export const consumeListingQuota = async ({ userId, settings, preferredMode = null }) => {
   const now = new Date();
   const config = settings || (await getListingQuotaSettings());
   const maxFree = Number(config.maxFree || DEFAULT_SETTINGS.maxFree);
@@ -92,7 +92,7 @@ export const consumeListingQuota = async ({ userId, settings }) => {
   }
 
   const usedFree = Number(user.listingQuotaUsedFree || 0);
-  if (usedFree < maxFree) {
+  if ((!preferredMode || preferredMode === 'free') && usedFree < maxFree) {
     user.listingQuotaUsedFree = usedFree + 1;
     await user.save();
     return {
@@ -106,7 +106,7 @@ export const consumeListingQuota = async ({ userId, settings }) => {
     };
   }
 
-  if (config.extraEnabled && Number(user.paidListingCredits || 0) > 0) {
+  if ((!preferredMode || preferredMode === 'paid') && config.extraEnabled && Number(user.paidListingCredits || 0) > 0) {
     user.paidListingCredits = Math.max(Number(user.paidListingCredits || 0) - 1, 0);
     await user.save();
     return {
@@ -116,6 +116,28 @@ export const consumeListingQuota = async ({ userId, settings }) => {
       windowStart: user.listingQuotaWindowStart,
       windowEnd: user.listingQuotaWindowEnd,
       remainingFree: 0,
+      paidListingCredits: Number(user.paidListingCredits || 0)
+    };
+  }
+
+  if (preferredMode === 'free') {
+    return {
+      ok: false,
+      reason: 'free_listing_unavailable',
+      windowStart: user.listingQuotaWindowStart,
+      windowEnd: user.listingQuotaWindowEnd,
+      remainingFree: 0,
+      paidListingCredits: Number(user.paidListingCredits || 0)
+    };
+  }
+
+  if (preferredMode === 'paid') {
+    return {
+      ok: false,
+      reason: 'paid_listing_unavailable',
+      windowStart: user.listingQuotaWindowStart,
+      windowEnd: user.listingQuotaWindowEnd,
+      remainingFree: Math.max(maxFree - Number(user.listingQuotaUsedFree || 0), 0),
       paidListingCredits: Number(user.paidListingCredits || 0)
     };
   }

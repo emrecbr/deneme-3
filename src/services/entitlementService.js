@@ -64,6 +64,24 @@ export const consumeFeaturedEntitlement = async (userId, quantity = 1) => {
   }
 };
 
+export const revertFeaturedEntitlement = async (userId, quantity = 1) => {
+  const amount = Math.max(Number.parseInt(quantity, 10) || 1, 1);
+  const candidates = await UserEntitlement.find({
+    userId,
+    entitlementType: 'featured_listing',
+    usedQuantity: { $gt: 0 }
+  }).sort({ updatedAt: -1, createdAt: -1 });
+
+  let remaining = amount;
+  for (const entitlement of candidates) {
+    if (remaining <= 0) break;
+    const revertAmount = Math.min(Number(entitlement.usedQuantity || 0), remaining);
+    entitlement.usedQuantity = Math.max(Number(entitlement.usedQuantity || 0) - revertAmount, 0);
+    await entitlement.save();
+    remaining -= revertAmount;
+  }
+};
+
 export const getUserEntitlementsSummary = async (userId) => {
   const history = await UserEntitlement.find({ userId })
     .sort({ createdAt: -1 })
