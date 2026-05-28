@@ -1,5 +1,6 @@
 import User from '../../models/User.js';
 import AdminAuditLog from '../../models/AdminAuditLog.js';
+import UserEntitlement from '../../models/UserEntitlement.js';
 import {
   consumeListingQuota,
   getListingQuotaSettings,
@@ -22,10 +23,61 @@ export const PUBLISHING_RIGHTS = {
 const isPremiumActive = (user, now = new Date()) =>
   Boolean(user?.isPremium && (!user.premiumUntil || new Date(user.premiumUntil) > now));
 
-const buildSummary = (user, settings, now = new Date()) => {
+const getActiveEntitlementSnapshot = async (userId, now = new Date()) => {
+  const entitlements = await UserEntitlement.find({
+    userId,
+    entitlementType: { $in: [PUBLISHING_RIGHTS.PREMIUM, PUBLISHING_RIGHTS.FEATURED] },
+    $and: [
+      { $or: [{ startAt: null }, { startAt: { $lte: now } }] },
+      { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] }
+    ]
+  })
+    .select('entitlementType quantity usedQuantity expiresAt source')
+    .lean();
+
+  return entitlements.reduce(
+    (summary, item) => {
+      const remaining = Math.max(Number(item.quantity || 0) - Number(item.usedQuantity || 0), 0);
+      if (remaining <= 0) {
+        return summary;
+      }
+
+      if (item.entitlementType === PUBLISHING_RIGHTS.PREMIUM) {
+        summary.premiumActive = true;
+        if (item.expiresAt) {
+          const expiresAt = new Date(item.expiresAt);
+          if (!summary.premiumUntil || expiresAt > summary.premiumUntil) {
+            summary.premiumUntil = expiresAt;
+          }
+        }
+      }
+
+      if (item.entitlementType === PUBLISHING_RIGHTS.FEATURED) {
+        summary.featuredRemaining += remaining;
+      }
+
+      return summary;
+    },
+    {
+      premiumActive: false,
+      premiumUntil: null,
+      featuredRemaining: 0
+    }
+  );
+};
+
+const buildSummary = (user, settings, now = new Date(), entitlementSnapshot = null) => {
   const quota = getListingQuotaSnapshot(user, settings, now);
-  const premiumActive = isPremiumActive(user, now);
-  const featuredCredits = Number(user?.featuredCredits || 0);
+  const userPremiumActive = isPremiumActive(user, now);
+  const entitlementPremiumActive = Boolean(entitlementSnapshot?.premiumActive);
+  const premiumActive = userPremiumActive || entitlementPremiumActive;
+  const premiumUntil = userPremiumActive
+    ? user?.premiumUntil || null
+    : entitlementSnapshot?.premiumUntil || user?.premiumUntil || null;
+  const featuredCredits = Math.max(
+    Number(user?.featuredCredits || 0),
+    Number(entitlementSnapshot?.featuredRemaining || 0)
+  );
   const paidListingCredits = Number(quota.paidListingCredits || 0);
   const freeListingCredits = Number(quota.remainingFree || 0);
   const rights = [
@@ -33,7 +85,7 @@ const buildSummary = (user, settings, now = new Date()) => {
       key: PUBLISHING_RIGHTS.PREMIUM,
       available: premiumActive,
       remaining: premiumActive ? 1 : 0,
-      expiresAt: user?.premiumUntil || null
+      expiresAt: premiumUntil
     },
     {
       key: PUBLISHING_RIGHTS.FEATURED,
@@ -70,6 +122,16 @@ const buildSummary = (user, settings, now = new Date()) => {
       featured: featuredCredits,
       paidListing: paidListingCredits,
       freeListing: freeListingCredits
+    },
+    sources: {
+      premium: {
+        userActive: userPremiumActive,
+        entitlementActive: entitlementPremiumActive
+      },
+      featured: {
+        userCredits: Number(user?.featuredCredits || 0),
+        entitlementRemaining: Number(entitlementSnapshot?.featuredRemaining || 0)
+      }
     }
   };
 };
@@ -80,7 +142,8 @@ export const getPublishingRightsSummary = async (userId, settings = null) => {
   if (!user) {
     return null;
   }
-  return buildSummary(user, config);
+  const entitlementSnapshot = await getActiveEntitlementSnapshot(user._id);
+  return buildSummary(user, config, new Date(), entitlementSnapshot);
 };
 
 export const consumePublishingRight = async ({ userId, requestedRight, settings = null }) => {
@@ -90,7 +153,8 @@ export const consumePublishingRight = async ({ userId, requestedRight, settings 
     return { ok: false, status: 404, code: 'USER_NOT_FOUND', message: 'Kullanıcı bulunamadı.' };
   }
 
-  const summary = buildSummary(user, config);
+  const entitlementSnapshot = await getActiveEntitlementSnapshot(user._id);
+  const summary = buildSummary(user, config, new Date(), entitlementSnapshot);
   const selectedKey = summary.selected?.key || PUBLISHING_RIGHTS.STANDARD;
   const requestedKey = String(requestedRight || selectedKey).trim();
 
@@ -130,7 +194,12 @@ export const consumePublishingRight = async ({ userId, requestedRight, settings 
         status: 402,
         code: 'LISTING_QUOTA_REACHED',
         message: 'Bu dönem için uygun ilan hakkı bulunamadı.',
-        data: buildSummary(await User.findById(userId).lean(), config)
+        data: buildSummary(
+          await User.findById(userId).lean(),
+          config,
+          new Date(),
+          await getActiveEntitlementSnapshot(userId)
+        )
       };
     }
     return {

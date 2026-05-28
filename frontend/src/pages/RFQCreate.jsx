@@ -464,8 +464,18 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       try {
         const response = await api.get('/me/publishing-rights', buildProtectedRequestConfig());
         if (!active) return;
-        setPublishingRights(response.data?.data || null);
-      } catch (_error) {
+        const rightsPayload = response.data?.data || null;
+        debugInfo('RFQ_PUBLISHING_RIGHTS_FETCHED', {
+          selected: rightsPayload?.selected?.key,
+          counts: rightsPayload?.counts,
+          sources: rightsPayload?.sources
+        });
+        setPublishingRights(rightsPayload);
+      } catch (rightsError) {
+        debugWarn('RFQ_PUBLISHING_RIGHTS_FETCH_FAILED', {
+          status: rightsError?.response?.status,
+          code: rightsError?.response?.data?.code
+        });
         if (active) {
           setPublishingRights(null);
         }
@@ -480,6 +490,16 @@ function RFQCreate({ mode = 'create', initialData = null, onSuccess, onClose, su
       active = false;
     };
   }, [isEdit, step]);
+
+  useEffect(() => {
+    if (isEdit || step !== 4 || publishingRightsLoading) return;
+    debugInfo('RFQ_PUBLISHING_RIGHT_RESOLVED', {
+      selected: selectedPublishingRight?.key,
+      available: selectedPublishingRight?.available,
+      remaining: selectedPublishingRight?.remaining,
+      counts: publishingCounts
+    });
+  }, [isEdit, publishingCounts, publishingRightsLoading, selectedPublishingRight, step]);
 
   const normalizeOption = (item) => {
     if (typeof item === 'string') {
