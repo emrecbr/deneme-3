@@ -4969,6 +4969,36 @@ body.dark-mode .advanced-sort-current {
 
 .admin-table-wrap {
   position: relative;
+  overflow-x: auto;
+}
+
+.admin-entitlement-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.admin-entitlement-table th,
+.admin-entitlement-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-entitlement-table th {
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(15, 23, 42, 0.74);
+}
+
+.admin-entitlement-table tbody tr:hover {
+  background: rgba(30, 41, 59, 0.38);
 }
 
 .admin-table-overlay {

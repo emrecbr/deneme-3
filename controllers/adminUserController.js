@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import AdminNote from '../models/AdminNote.js';
+import { createEntitlementRecord, getUserEntitlementsSummary } from '../src/services/entitlementService.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
 
 const normalize = (value) => String(value || '').trim();
@@ -11,6 +12,33 @@ const parseLimit = (value) => {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return 20;
   return Math.min(Math.max(parsed, 1), 100);
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const parsePositiveInteger = (value, fallback = 1) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return null;
+  }
+  return parsed;
+};
+
+const parseOptionalDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const resolvePremiumExpiry = ({ expiresAt, durationDays }) => {
+  const explicit = parseOptionalDate(expiresAt);
+  if (explicit) return explicit;
+  const duration = parsePositiveInteger(durationDays, 30);
+  if (!duration) return null;
+  return new Date(Date.now() + duration * DAY_MS);
 };
 
 const logAdminAction = async (req, action, meta = {}) => {
@@ -104,8 +132,98 @@ export const getAdminUser = async (req, res, next) => {
 
     const settings = await getListingQuotaSettings();
     const quota = getListingQuotaSnapshot(user, settings);
+    const entitlements = await getUserEntitlementsSummary(user._id);
 
-    return res.status(200).json({ success: true, data: user, rfqs, notes, quota });
+    return res.status(200).json({ success: true, data: user, rfqs, notes, quota, entitlements });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const grantAdminUserEntitlement = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: 'userId geçersiz.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const payload = req.body || {};
+    const entitlementType = normalize(payload.entitlementType);
+    const note = normalize(payload.note);
+    const startAt = parseOptionalDate(payload.startAt) || new Date();
+
+    if (!['premium', 'featured_listing'].includes(entitlementType)) {
+      return res.status(400).json({ success: false, message: 'Hak tipi geçersiz.' });
+    }
+
+    if (startAt.getTime() < Date.now() - DAY_MS) {
+      return res.status(400).json({ success: false, message: 'Başlangıç tarihi geçmişte olamaz.' });
+    }
+
+    let quantity = 1;
+    let expiresAt = null;
+
+    if (entitlementType === 'premium') {
+      expiresAt = resolvePremiumExpiry(payload);
+      if (!expiresAt || expiresAt <= new Date()) {
+        return res.status(400).json({ success: false, message: 'Premium bitiş tarihi geçersiz.' });
+      }
+
+      const currentPremiumUntil = user.premiumUntil ? new Date(user.premiumUntil) : null;
+      user.isPremium = true;
+      user.premiumUntil =
+        currentPremiumUntil && currentPremiumUntil > expiresAt ? currentPremiumUntil : expiresAt;
+      user.premiumSource = 'admin';
+    } else {
+      quantity = parsePositiveInteger(payload.quantity, 1);
+      if (quantity < 1) {
+        return res.status(400).json({ success: false, message: 'Hak adedi 1 veya daha büyük olmalı.' });
+      }
+      expiresAt = parseOptionalDate(payload.expiresAt);
+      if (expiresAt && expiresAt <= new Date()) {
+        return res.status(400).json({ success: false, message: 'Bitiş tarihi geçersiz.' });
+      }
+      user.featuredCredits = Number(user.featuredCredits || 0) + quantity;
+    }
+
+    await user.save();
+
+    const entitlement = await createEntitlementRecord({
+      userId: user._id,
+      entitlementType,
+      source: 'admin_grant',
+      quantity,
+      startAt,
+      expiresAt,
+      grantedByAdminId: req.admin?.id || null,
+      note,
+      metadata: {
+        userEmail: user.email || null,
+        userPhone: user.phone || null
+      }
+    });
+
+    await logAdminAction(req, 'user_entitlement_grant', {
+      userId: user._id,
+      entitlementId: entitlement._id,
+      entitlementType,
+      quantity,
+      expiresAt,
+      note
+    });
+
+    const entitlements = await getUserEntitlementsSummary(user._id);
+    return res.status(201).json({
+      success: true,
+      data: user.toObject(),
+      entitlement,
+      entitlements
+    });
   } catch (error) {
     return next(error);
   }

@@ -16,6 +16,21 @@ const formatRfqStatus = (status) => {
   return status || '-';
 };
 
+const formatSource = (source) => {
+  if (source === 'purchase' || source === 'payment') return 'Satın alma';
+  if (source === 'admin_grant' || source === 'admin') return 'Admin tanımlama';
+  if (source === 'campaign' || source === 'promo') return 'Kampanya';
+  return source || '—';
+};
+
+const initialGrantForm = {
+  entitlementType: 'premium',
+  durationDays: 30,
+  quantity: 1,
+  expiresAt: '',
+  note: ''
+};
+
 export default function AdminUserDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,11 +43,14 @@ export default function AdminUserDetail() {
   const [otpLogs, setOtpLogs] = useState([]);
   const [smsLogs, setSmsLogs] = useState([]);
   const [quota, setQuota] = useState(null);
+  const [entitlements, setEntitlements] = useState({ history: [] });
   const [paymentSummary, setPaymentSummary] = useState(null);
   const [paymentProvider, setPaymentProvider] = useState('');
   const [status, setStatus] = useState('');
   const [role, setRole] = useState('');
   const [noteText, setNoteText] = useState('');
+  const [grantForm, setGrantForm] = useState(initialGrantForm);
+  const [grantSaving, setGrantSaving] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
   const load = async () => {
@@ -45,6 +63,7 @@ export default function AdminUserDetail() {
       setRfqs(response.data?.rfqs || []);
       setNotes(response.data?.notes || []);
       setQuota(response.data?.quota || null);
+      setEntitlements(response.data?.entitlements || { history: [] });
       setPaymentSummary(data?.paymentMethod || null);
       setPaymentProvider(data?.paymentProvider || '');
       setStatus(data?.isDeleted ? 'blocked' : data?.isActive ? 'active' : 'passive');
@@ -122,6 +141,35 @@ export default function AdminUserDetail() {
       navigate('/admin/users');
     } catch (err) {
       setActionMessage(err?.response?.data?.message || 'Kullanıcı silinemedi.');
+    }
+  };
+
+  const grantEntitlement = async () => {
+    setActionMessage('');
+    setGrantSaving(true);
+    try {
+      const payload =
+        grantForm.entitlementType === 'premium'
+          ? {
+              entitlementType: 'premium',
+              durationDays: Number(grantForm.durationDays || 30),
+              expiresAt: grantForm.expiresAt || undefined,
+              note: grantForm.note
+            }
+          : {
+              entitlementType: 'featured_listing',
+              quantity: Number(grantForm.quantity || 1),
+              expiresAt: grantForm.expiresAt || undefined,
+              note: grantForm.note
+            };
+      await api.post(`/admin/users/${id}/entitlements/grant`, payload);
+      setGrantForm(initialGrantForm);
+      setActionMessage('Hak tanımlandı.');
+      await load();
+    } catch (err) {
+      setActionMessage(err?.response?.data?.message || 'Hak tanımlanamadı.');
+    } finally {
+      setGrantSaving(false);
     }
   };
 
@@ -211,6 +259,127 @@ export default function AdminUserDetail() {
           </div>
         ) : (
           <div className="admin-empty">Kota bilgisi yok.</div>
+        )}
+
+        <div className="admin-divider"></div>
+
+        <div className="admin-panel-subtitle">Premium & Haklar</div>
+        <div className="admin-detail-grid">
+          <div>
+            <div className="admin-muted">Premium Aktif</div>
+            <div>{user.isPremium ? 'Evet' : 'Hayır'}</div>
+          </div>
+          <div>
+            <div className="admin-muted">Premium Bitiş</div>
+            <div>{formatDate(user.premiumUntil)}</div>
+          </div>
+          <div>
+            <div className="admin-muted">Hak Kaynağı</div>
+            <div>{formatSource(user.premiumSource)}</div>
+          </div>
+          <div>
+            <div className="admin-muted">Kullanılabilir Öne Çıkarma</div>
+            <div>{Number(user.featuredCredits || 0)}</div>
+          </div>
+        </div>
+
+        <div className="admin-form-grid">
+          <label>
+            Hak Tipi
+            <select
+              className="admin-input"
+              value={grantForm.entitlementType}
+              onChange={(event) =>
+                setGrantForm((prev) => ({ ...prev, entitlementType: event.target.value }))
+              }
+              disabled={currentUser?.role !== 'admin'}
+            >
+              <option value="premium">Premium üyelik</option>
+              <option value="featured_listing">Öne çıkarma hakkı</option>
+            </select>
+          </label>
+          {grantForm.entitlementType === 'premium' ? (
+            <label>
+              Süre (gün)
+              <input
+                className="admin-input"
+                type="number"
+                min="1"
+                value={grantForm.durationDays}
+                onChange={(event) =>
+                  setGrantForm((prev) => ({ ...prev, durationDays: event.target.value }))
+                }
+                disabled={currentUser?.role !== 'admin'}
+              />
+            </label>
+          ) : (
+            <label>
+              Hak Adedi
+              <input
+                className="admin-input"
+                type="number"
+                min="1"
+                value={grantForm.quantity}
+                onChange={(event) =>
+                  setGrantForm((prev) => ({ ...prev, quantity: event.target.value }))
+                }
+                disabled={currentUser?.role !== 'admin'}
+              />
+            </label>
+          )}
+          <label>
+            Bitiş Tarihi
+            <input
+              className="admin-input"
+              type="date"
+              value={grantForm.expiresAt}
+              onChange={(event) =>
+                setGrantForm((prev) => ({ ...prev, expiresAt: event.target.value }))
+              }
+              disabled={currentUser?.role !== 'admin'}
+            />
+          </label>
+          <label>
+            Not
+            <input
+              className="admin-input"
+              value={grantForm.note}
+              onChange={(event) => setGrantForm((prev) => ({ ...prev, note: event.target.value }))}
+              placeholder="Kısa açıklama"
+              disabled={currentUser?.role !== 'admin'}
+            />
+          </label>
+        </div>
+        <div className="admin-action-row">
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={grantEntitlement}
+            disabled={currentUser?.role !== 'admin' || grantSaving}
+          >
+            {grantSaving ? 'Kaydediliyor...' : 'Hakkı Tanımla'}
+          </button>
+        </div>
+
+        {entitlements.history?.length ? (
+          <ul className="admin-list">
+            {entitlements.history.map((item) => (
+              <li key={item._id}>
+                <div>
+                  <strong>{item.entitlementType === 'premium' ? 'Premium' : 'Öne çıkarma'}</strong>
+                  <span className="admin-muted">
+                    {formatSource(item.source)} • Kalan {Math.max(Number(item.quantity || 0) - Number(item.usedQuantity || 0), 0)} / {Number(item.quantity || 0)}
+                  </span>
+                  {item.note ? <span className="admin-muted">{item.note}</span> : null}
+                </div>
+                <span className="admin-muted">
+                  {formatDate(item.startAt)} - {formatDate(item.expiresAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="admin-empty">Hak geçmişi yok.</div>
         )}
 
         <div className="admin-divider"></div>

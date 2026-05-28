@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import {
   getMyListingQuotaSummary,
   getMySubscriptionSummary,
+  listAdminEntitlementUsers,
   getPublicHowItWorks,
   listAdminMonetizationPlans,
   updateAdminMonetizationPlan,
@@ -15,6 +16,7 @@ const router = Router();
 
 router.get('/admin/monetization/plans', adminRoleMiddleware, listAdminMonetizationPlans);
 router.patch('/admin/monetization/plans/:id', adminRoleMiddleware, requireAdminOnly, updateAdminMonetizationPlan);
+router.get('/admin/monetization/entitlements', adminRoleMiddleware, listAdminEntitlementUsers);
 
 router.get('/app/monetization/plans', listAppMonetizationPlans);
 router.get('/public/plans', listPublicMonetizationPlans);

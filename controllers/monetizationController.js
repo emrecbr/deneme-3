@@ -1,7 +1,9 @@
 import MonetizationPlan from '../models/MonetizationPlan.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
+import Payment from '../models/Payment.js';
 import Subscription from '../models/Subscription.js';
 import User from '../models/User.js';
+import UserEntitlement from '../models/UserEntitlement.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
 
 const DEFAULT_PLANS = [
@@ -165,6 +167,65 @@ const serializePublicPlan = (plan) => {
   };
 };
 
+const SOURCE_LABELS = {
+  payment: 'Satın alma',
+  purchase: 'Satın alma',
+  admin: 'Admin tanımlama',
+  admin_grant: 'Admin tanımlama',
+  promo: 'Kampanya',
+  campaign: 'Kampanya',
+  current_state: 'Mevcut hak'
+};
+
+const formatSource = (source) => SOURCE_LABELS[source] || source || '—';
+
+const serializeUserForEntitlementList = (user) => ({
+  id: user?._id?.toString?.() || user?._id || null,
+  name: user?.name || '—',
+  email: user?.email || '',
+  phone: user?.phone || ''
+});
+
+const buildEntitlementListItem = ({
+  user,
+  entitlementType,
+  source,
+  startAt,
+  expiresAt,
+  quantity = 0,
+  usedQuantity = 0,
+  actionAt,
+  grantedByAdmin,
+  payment,
+  note
+}) => ({
+  id:
+    payment?._id?.toString?.() ||
+    `${user?._id || 'user'}-${entitlementType}-${source}-${actionAt || expiresAt || startAt || ''}`,
+  user: serializeUserForEntitlementList(user),
+  entitlementType,
+  source,
+  sourceLabel: formatSource(source),
+  startAt: startAt || null,
+  expiresAt: expiresAt || null,
+  quantity: Number(quantity || 0),
+  usedQuantity: Number(usedQuantity || 0),
+  remainingQuantity: Math.max(Number(quantity || 0) - Number(usedQuantity || 0), 0),
+  actionAt: actionAt || null,
+  grantedByAdmin: grantedByAdmin ? serializeUserForEntitlementList(grantedByAdmin) : null,
+  payment: payment
+    ? {
+        id: payment._id,
+        planCode: payment.planCode,
+        planTitle: payment.planTitleSnapshot || payment.planCode,
+        status: payment.status,
+        amount: payment.amount,
+        currency: payment.currency
+      }
+    : null,
+  note: note || ''
+});
+
 const buildListingExtraPublicPlan = (settings) => ({
   id: 'listing_extra_public',
   key: 'listing_extra',
@@ -301,6 +362,150 @@ export const updateAdminMonetizationPlan = async (req, res, next) => {
     });
 
     return res.status(200).json({ success: true, data: serializePlanForAdmin(plan.toObject()) });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const listAdminEntitlementUsers = async (_req, res, next) => {
+  try {
+    const now = new Date();
+    const [activePremiumUsers, featuredCreditUsers, entitlementHistory, paidPayments] = await Promise.all([
+      User.find({
+        isPremium: true,
+        $or: [{ premiumUntil: null }, { premiumUntil: { $gt: now } }]
+      })
+        .select('name email phone isPremium premiumUntil premiumSource featuredCredits updatedAt')
+        .sort({ premiumUntil: -1, updatedAt: -1 })
+        .limit(100)
+        .lean(),
+      User.find({ featuredCredits: { $gt: 0 } })
+        .select('name email phone featuredCredits updatedAt')
+        .sort({ featuredCredits: -1, updatedAt: -1 })
+        .limit(100)
+        .lean(),
+      UserEntitlement.find({})
+        .sort({ createdAt: -1 })
+        .limit(300)
+        .populate('userId', 'name email phone')
+        .populate('grantedByAdminId', 'name email')
+        .lean(),
+      Payment.find({
+        $or: [{ status: 'paid' }, { lifecycleStatus: 'succeeded' }],
+        planCode: { $in: ['premium_monthly', 'premium_yearly', 'featured_one_time', 'featured_monthly', 'featured_yearly', 'listing_extra'] }
+      })
+        .sort({ paidAt: -1, updatedAt: -1 })
+        .limit(150)
+        .populate('user', 'name email phone')
+        .lean()
+    ]);
+
+    const entitlementByUserAndType = new Map();
+    entitlementHistory.forEach((item) => {
+      const userId = item.userId?._id?.toString?.();
+      const key = `${userId}:${item.entitlementType}`;
+      if (userId && !entitlementByUserAndType.has(key)) {
+        entitlementByUserAndType.set(key, item);
+      }
+    });
+
+    const activePremium = activePremiumUsers.map((user) => {
+      const latestEntitlement = entitlementByUserAndType.get(`${user._id}:premium`);
+      return buildEntitlementListItem({
+        user,
+        entitlementType: 'premium',
+        source: latestEntitlement?.source || user.premiumSource || 'current_state',
+        startAt: latestEntitlement?.startAt || null,
+        expiresAt: user.premiumUntil || latestEntitlement?.expiresAt || null,
+        quantity: 1,
+        usedQuantity: 0,
+        actionAt: latestEntitlement?.createdAt || user.updatedAt,
+        grantedByAdmin: latestEntitlement?.grantedByAdminId || null,
+        note: latestEntitlement?.note || ''
+      });
+    });
+
+    const featuredAvailable = featuredCreditUsers.map((user) => {
+      const latestEntitlement = entitlementByUserAndType.get(`${user._id}:featured_listing`);
+      return buildEntitlementListItem({
+        user,
+        entitlementType: 'featured_listing',
+        source: latestEntitlement?.source || 'current_state',
+        startAt: latestEntitlement?.startAt || null,
+        expiresAt: latestEntitlement?.expiresAt || null,
+        quantity: Number(user.featuredCredits || 0) + Number(latestEntitlement?.usedQuantity || 0),
+        usedQuantity: Number(latestEntitlement?.usedQuantity || 0),
+        actionAt: latestEntitlement?.createdAt || user.updatedAt,
+        grantedByAdmin: latestEntitlement?.grantedByAdminId || null,
+        note: latestEntitlement?.note || ''
+      });
+    });
+
+    const usedFeatured = entitlementHistory
+      .filter((item) => item.entitlementType === 'featured_listing' && Number(item.usedQuantity || 0) > 0)
+      .map((item) =>
+        buildEntitlementListItem({
+          user: item.userId,
+          entitlementType: item.entitlementType,
+          source: item.source,
+          startAt: item.startAt,
+          expiresAt: item.expiresAt,
+          quantity: item.quantity,
+          usedQuantity: item.usedQuantity,
+          actionAt: item.updatedAt || item.createdAt,
+          grantedByAdmin: item.grantedByAdminId,
+          note: item.note
+        })
+      );
+
+    const adminGranted = entitlementHistory
+      .filter((item) => item.source === 'admin_grant')
+      .map((item) =>
+        buildEntitlementListItem({
+          user: item.userId,
+          entitlementType: item.entitlementType,
+          source: item.source,
+          startAt: item.startAt,
+          expiresAt: item.expiresAt,
+          quantity: item.quantity,
+          usedQuantity: item.usedQuantity,
+          actionAt: item.createdAt,
+          grantedByAdmin: item.grantedByAdminId,
+          note: item.note
+        })
+      );
+
+    const purchasers = paidPayments.map((payment) => {
+      const entitlementType = payment.planCode?.startsWith('featured')
+        ? 'featured_listing'
+        : payment.planCode === 'listing_extra'
+          ? 'listing_extra'
+          : 'premium';
+      return buildEntitlementListItem({
+        user: payment.user,
+        entitlementType,
+        source: 'purchase',
+        startAt: payment.paidAt || payment.updatedAt,
+        expiresAt: null,
+        quantity: 1,
+        usedQuantity: 0,
+        actionAt: payment.paidAt || payment.updatedAt,
+        payment
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        sections: [
+          { key: 'activePremiumUsers', title: 'Premium aktif kullanıcılar', items: activePremium },
+          { key: 'featuredCreditUsers', title: 'Öne çıkarma hakkı olan kullanıcılar', items: featuredAvailable },
+          { key: 'featuredUsedUsers', title: 'Öne çıkarma hakkını kullanan kullanıcılar', items: usedFeatured },
+          { key: 'purchasers', title: 'Satın alan kullanıcılar', items: purchasers },
+          { key: 'adminGrantedUsers', title: 'Admin tarafından manuel hak verilen kullanıcılar', items: adminGranted }
+        ]
+      }
+    });
   } catch (error) {
     return next(error);
   }

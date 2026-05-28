@@ -18,6 +18,7 @@ import { applyExpiryFilter, backfillMissingExpiresAt, computeExpiresAt, getListi
 import { consumeListingQuota, getListingQuotaSettings, getListingQuotaSnapshot, revertListingQuota } from '../src/utils/listingQuota.js';
 import { checkModeration } from '../src/utils/moderation.js';
 import { triggerMatchingAlertsForRfq } from '../src/services/alertSubscriptionService.js';
+import { consumeFeaturedEntitlement } from '../src/services/entitlementService.js';
 
 const rfqRoutes = Router();
 const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
@@ -1435,6 +1436,7 @@ rfqRoutes.post('/:id/feature', authMiddleware, async (req, res, next) => {
 
     user.featuredCredits = Math.max(0, Number(user.featuredCredits || 0) - 1);
     await user.save();
+    await consumeFeaturedEntitlement(user._id, 1);
 
     return res.status(200).json({
       success: true,

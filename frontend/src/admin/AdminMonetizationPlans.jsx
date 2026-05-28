@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/adminApi';
 
 const initialQuota = {
@@ -23,6 +24,20 @@ const formatPrice = (value) => (Number.isFinite(Number(value)) ? Number(value) :
 const normalizeModes = (modes) =>
   Array.isArray(modes) && modes.length ? modes : ['monthly', 'yearly'];
 
+const formatDate = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('tr-TR');
+};
+
+const formatEntitlementType = (value) => {
+  if (value === 'premium') return 'Premium';
+  if (value === 'featured_listing') return 'Öne çıkarma';
+  if (value === 'listing_extra') return 'Ek ilan';
+  return value || '—';
+};
+
 const planHelpTexts = {
   premium_listing:
     'Premium paket, hesap rozetini ve platform ici premium gorunurluk avantajini yonetir.',
@@ -40,6 +55,7 @@ export default function AdminMonetizationPlans() {
   const [initialPlans, setInitialPlans] = useState([]);
   const [quota, setQuota] = useState(initialQuota);
   const [initialQuotaSnapshot, setInitialQuotaSnapshot] = useState(initialQuota);
+  const [entitlementSections, setEntitlementSections] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -63,9 +79,10 @@ export default function AdminMonetizationPlans() {
   const load = async () => {
     try {
       setError('');
-      const [plansRes, quotaRes] = await Promise.all([
+      const [plansRes, quotaRes, entitlementsRes] = await Promise.all([
         api.get('/admin/monetization/plans'),
-        api.get('/admin/system/listing-quota')
+        api.get('/admin/system/listing-quota'),
+        api.get('/admin/monetization/entitlements')
       ]);
       const incomingPlans = (plansRes.data?.items || []).map(sanitizePlan);
       setPlans(incomingPlans);
@@ -73,6 +90,7 @@ export default function AdminMonetizationPlans() {
       const incomingQuota = quotaRes.data?.data || initialQuota;
       setQuota(incomingQuota);
       setInitialQuotaSnapshot(incomingQuota);
+      setEntitlementSections(entitlementsRes.data?.data?.sections || []);
     } catch (err) {
       setError(err?.response?.data?.message || 'Veriler alinamadi.');
     }
@@ -455,6 +473,73 @@ export default function AdminMonetizationPlans() {
             {saving ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>
+
+        <div className="admin-divider"></div>
+
+        <div className="admin-card admin-plan-card">
+          <div className="admin-card-title">Premium & Hak Kullanıcıları</div>
+          <div className="admin-muted">
+            Satın alma, kullanım ve admin tanımlama kaynaklı premium/öne çıkarma hakları.
+          </div>
+        </div>
+
+        {entitlementSections.map((section) => (
+          <div key={section.key} className="admin-card admin-plan-card">
+            <div className="admin-card-title">{section.title}</div>
+            {!section.items?.length ? (
+              <div className="admin-empty">Kayıt yok.</div>
+            ) : (
+              <div className="admin-table-wrap">
+                <table className="admin-entitlement-table">
+                  <thead>
+                    <tr>
+                      <th>Kullanıcı</th>
+                      <th>İletişim</th>
+                      <th>Paket / Hak</th>
+                      <th>Kaynak</th>
+                      <th>Başlangıç</th>
+                      <th>Bitiş</th>
+                      <th>Kalan</th>
+                      <th>Kullanılan</th>
+                      <th>İşlem</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {section.items.map((item, index) => (
+                      <tr key={item.id || `${section.key}-${index}`}>
+                        <td>{item.user?.name || '—'}</td>
+                        <td>
+                          <div>{item.user?.email || '—'}</div>
+                          <div className="admin-muted">{item.user?.phone || ''}</div>
+                        </td>
+                        <td>
+                          <div>{formatEntitlementType(item.entitlementType)}</div>
+                          <div className="admin-muted">{item.payment?.planTitle || item.payment?.planCode || item.note || ''}</div>
+                        </td>
+                        <td>{item.sourceLabel || item.source || '—'}</td>
+                        <td>{formatDate(item.startAt)}</td>
+                        <td>{formatDate(item.expiresAt)}</td>
+                        <td>{Number(item.remainingQuantity || 0)}</td>
+                        <td>{Number(item.usedQuantity || 0)}</td>
+                        <td>{formatDate(item.actionAt)}</td>
+                        <td>
+                          {item.user?.id ? (
+                            <Link className="admin-link" to={`/admin/users/${item.user.id}`}>
+                              Detaya git
+                            </Link>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

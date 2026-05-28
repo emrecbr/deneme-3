@@ -16,6 +16,7 @@ import {
 import {
   listAdminUsers,
   getAdminUser,
+  grantAdminUserEntitlement,
   updateAdminUserStatus,
   updateAdminUserRole,
   addAdminUserNote,
@@ -111,6 +112,7 @@ router.patch('/rfqs/:id/delete', adminRoleMiddleware, requireAdminOnly, deleteEx
 
 router.get('/users', adminRoleMiddleware, listAdminUsers);
 router.get('/users/:id', adminRoleMiddleware, getAdminUser);
+router.post('/users/:id/entitlements/grant', adminRoleMiddleware, requireAdminOnly, grantAdminUserEntitlement);
 router.patch('/users/:id/status', adminRoleMiddleware, updateAdminUserStatus);
 router.patch('/users/:id/role', adminRoleMiddleware, requireAdminOnly, updateAdminUserRole);
 router.post('/users/:id/notes', adminRoleMiddleware, addAdminUserNote);

@@ -13,6 +13,7 @@ import PaymentMethod from '../models/PaymentMethod.js';
 import MonetizationPlan from '../models/MonetizationPlan.js';
 import { ensureMonetizationPlans } from '../controllers/monetizationController.js';
 import { sendPushToUser } from '../src/services/pushNotificationService.js';
+import { createEntitlementRecord } from '../src/services/entitlementService.js';
 
 const billingRoutes = Router();
 
@@ -891,6 +892,14 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
             } else if (claimedPayment?.planCode && claimedPayment.planCode.startsWith('featured')) {
               user.featuredCredits = Number(user.featuredCredits || 0) + 1;
               await user.save();
+              await createEntitlementRecord({
+                userId: user._id,
+                entitlementType: 'featured_listing',
+                source: 'purchase',
+                quantity: 1,
+                paymentId: claimedPayment?._id || null,
+                metadata: { planCode: claimedPayment?.planCode || null }
+              });
               await sendPushToUser({
                 userId,
                 type: 'featured_activated',
@@ -902,6 +911,16 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
               user.premiumUntil = periodEnd;
               user.premiumSource = 'payment';
               await user.save();
+              await createEntitlementRecord({
+                userId: user._id,
+                entitlementType: 'premium',
+                source: 'purchase',
+                quantity: 1,
+                startAt: event.periodStart || new Date(),
+                expiresAt: periodEnd,
+                paymentId: claimedPayment?._id || null,
+                metadata: { planCode: claimedPayment?.planCode || null }
+              });
               await sendPushToUser({
                 userId,
                 type: 'premium_activated',
@@ -927,6 +946,15 @@ billingRoutes.post('/webhook/iyzico', async (req, res, _next) => {
               user.premiumUntil = premiumUntil;
               user.premiumSource = 'payment';
               await user.save();
+              await createEntitlementRecord({
+                userId: user._id,
+                entitlementType: 'premium',
+                source: 'purchase',
+                quantity: 1,
+                expiresAt: premiumUntil,
+                paymentId: claimedPayment?._id || null,
+                metadata: { planCode: claimedPayment?.planCode || null }
+              });
               await sendPushToUser({
                 userId,
                 type: 'premium_activated',
