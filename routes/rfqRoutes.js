@@ -246,13 +246,46 @@ const resolveCategoryQueryFilter = async (value) => {
     return null;
   }
 
+  const buildCategoryFamilyFilter = async (categoryId, legacyValue = '') => {
+    const rootId = new mongoose.Types.ObjectId(categoryId);
+    const categories = await Category.find().select('_id parent').lean();
+    const childrenByParent = new Map();
+
+    categories.forEach((category) => {
+      const parentId = category.parent ? String(category.parent?._id || category.parent) : '';
+      if (!parentId) {
+        return;
+      }
+      const current = childrenByParent.get(parentId) || [];
+      current.push(category._id);
+      childrenByParent.set(parentId, current);
+    });
+
+    const ids = [rootId];
+    const queue = [String(rootId)];
+    while (queue.length) {
+      const parentId = queue.shift();
+      const children = childrenByParent.get(parentId) || [];
+      children.forEach((childId) => {
+        ids.push(childId);
+        queue.push(String(childId));
+      });
+    }
+
+    const mixedValues = [...ids, ...ids.map((id) => String(id))];
+    if (legacyValue) {
+      mixedValues.push(legacyValue);
+    }
+    return { $in: mixedValues };
+  };
+
   if (mongoose.isValidObjectId(normalizedValue)) {
-    return new mongoose.Types.ObjectId(normalizedValue);
+    return buildCategoryFamilyFilter(normalizedValue, normalizedValue);
   }
 
   const category = await Category.findOne({ slug: normalizedValue.toLowerCase() }).select('_id').lean();
   if (category?._id) {
-    return category._id;
+    return buildCategoryFamilyFilter(category._id, normalizedValue);
   }
 
   return normalizedValue;

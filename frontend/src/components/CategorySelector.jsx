@@ -228,6 +228,20 @@ function CategorySelector({
     });
   };
 
+  const handleSelectCurrentCategory = () => {
+    const item = path[path.length - 1];
+    if (!item) {
+      return;
+    }
+    onSelect?.({
+      _id: item._id,
+      name: item.name,
+      path: path.map((node) => node.name),
+      parentId: path[path.length - 2]?._id || null,
+      segment: activeSegment
+    });
+  };
+
   const handleClearSelection = () => {
     setDirection('back');
     setPath([]);
@@ -309,7 +323,14 @@ function CategorySelector({
           </div>
         </div>
 
-        {breadcrumb ? <div className="categories-breadcrumb">{breadcrumb}</div> : null}
+        {breadcrumb ? (
+          <div className="categories-breadcrumb">
+            <span>{breadcrumb}</span>
+            <button type="button" className="secondary-btn" onClick={handleSelectCurrentCategory}>
+              Bu kategoriyi seç
+            </button>
+          </div>
+        ) : null}
         {!activeSegment ? <div className="card">Önce bir segment seç.</div> : null}
         {loading ? <div className="card">Yükleniyor...</div> : null}
         {error ? <div className="error">{error}</div> : null}

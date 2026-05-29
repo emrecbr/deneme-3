@@ -253,6 +253,29 @@ function flattenCategoryLeaves(nodes, parentTrail = []) {
   });
 }
 
+function flattenCategoryNodes(nodes, parentTrail = []) {
+  if (!Array.isArray(nodes)) {
+    return [];
+  }
+
+  return nodes.flatMap((node) => {
+    const nextTrail = [...parentTrail, node];
+    const children = flattenCategoryNodes(node.children || [], nextTrail);
+    const ownId = node._id ? String(node._id) : '';
+    return [
+      {
+        ...node,
+        parentId: parentTrail[parentTrail.length - 1]?._id || null,
+        parentName: parentTrail[parentTrail.length - 1]?.name || '',
+        path: nextTrail.map((item) => item.name).filter(Boolean),
+        descendantIds: children.map((item) => String(item._id || '')).filter(Boolean),
+        categoryFamilyIds: [ownId, ...children.map((item) => String(item._id || ''))].filter(Boolean)
+      },
+      ...children
+    ];
+  });
+}
+
 function calculateDistance(fromLat, fromLng, toLat, toLng) {
   const earthRadius = 6371;
   const toRad = (value) => (value * Math.PI) / 180;
@@ -341,6 +364,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const [createSheetState, setCreateSheetState] = useState('closed');
   const [createSheetRenderTranslate, setCreateSheetRenderTranslate] = useState(0);
   const [categoryLabel, setCategoryLabel] = useState('');
+  const [categoryItems, setCategoryItems] = useState([]);
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
   const [flatSubcategories, setFlatSubcategories] = useState([]);
   const [filterCompact, setFilterCompact] = useState(false);
@@ -1821,7 +1845,7 @@ function RFQList({ surfaceVariant = 'app' }) {
 
   const categoryIndex = useMemo(() => {
     const map = new Map();
-    flatSubcategories.forEach((item) => {
+    categoryItems.forEach((item) => {
       if (!item) return;
       const id = item._id ? String(item._id) : '';
       if (id) map.set(id, item);
@@ -1829,7 +1853,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       if (item.name) map.set(String(item.name).toLowerCase(), item);
     });
     return map;
-  }, [flatSubcategories]);
+  }, [categoryItems]);
 
   const resolveCategoryItem = useCallback(
     (categoryValue) => {
@@ -1888,6 +1912,46 @@ function RFQList({ surfaceVariant = 'app' }) {
 
     return '';
   }, []);
+
+  const selectedCategoryFamilyIds = useMemo(() => {
+    const selectedId = String(appliedFilters.category || '');
+    if (!selectedId) {
+      return null;
+    }
+    const selectedCategory =
+      categoryIndex.get(selectedId) ||
+      categoryIndex.get(selectedId.toLowerCase()) ||
+      null;
+    const familyIds = selectedCategory?.categoryFamilyIds?.length
+      ? selectedCategory.categoryFamilyIds
+      : [selectedId];
+    return new Set(familyIds.map((item) => String(item)));
+  }, [appliedFilters.category, categoryIndex]);
+
+  const isCategoryMatch = useCallback(
+    (item) => {
+      if (!selectedCategoryFamilyIds) {
+        return true;
+      }
+      const categoryKey = String(getCategoryKey(item) || '');
+      if (selectedCategoryFamilyIds.has(categoryKey)) {
+        return true;
+      }
+      const resolved = resolveCategoryItem(item?.category);
+      if (!resolved) {
+        return false;
+      }
+      const resolvedIds = [
+        resolved._id,
+        resolved.id,
+        resolved.slug,
+        resolved.name,
+        resolved.parentId
+      ].filter(Boolean).map((value) => String(value));
+      return resolvedIds.some((value) => selectedCategoryFamilyIds.has(value));
+    },
+    [getCategoryKey, resolveCategoryItem, selectedCategoryFamilyIds]
+  );
 
   const getCategoryPlaceholder = useCallback((category) => {
     const value = String(getCategoryDisplayName(category) || '').toLowerCase();
@@ -2004,7 +2068,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       const districtMatch = appliedFilters.district
         ? String(getDistrictName(item)).toLowerCase() === String(appliedFilters.district).toLowerCase()
         : true;
-      const categoryMatch = appliedFilters.category ? getCategoryKey(item) === String(appliedFilters.category) : true;
+      const categoryMatch = isCategoryMatch(item);
       const radiusLimit = Number(appliedFilters.radius) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default;
       const isCityWide = cityFallbackEnabled && radiusLimit >= maxRadiusKm && Boolean(appliedFilters.city);
       const radiusMatch = radiusCenter
@@ -2014,7 +2078,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         : true;
       return cityMatch && districtMatch && categoryMatch && radiusMatch;
     });
-  }, [appliedFilters.category, appliedFilters.city, appliedFilters.district, appliedFilters.radius, cityFallbackEnabled, enrichedRFQs, getCategoryKey, getCityName, getDistrictName, maxRadiusKm, radiusCenter, radiusConfig.default]);
+  }, [appliedFilters.city, appliedFilters.district, appliedFilters.radius, cityFallbackEnabled, enrichedRFQs, getCityName, getDistrictName, isCategoryMatch, maxRadiusKm, radiusCenter, radiusConfig.default]);
 
   const canonicalNearbyRFQs = useMemo(
     () => filteredEnrichedRFQs.filter((item) => item.isNearby),
@@ -2764,6 +2828,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       try {
         if (!filters.segment) {
           if (isActive) {
+            setCategoryItems([]);
             setInlineSubcategories([]);
             setFlatSubcategories([]);
           }
@@ -2776,6 +2841,7 @@ function RFQList({ surfaceVariant = 'app' }) {
           response.data?.tree?.length ? response.data.tree : buildCategoryTree(flat),
           filters.segment
         );
+        const allItems = flattenCategoryNodes(tree);
         const leafItems = flattenCategoryLeaves(tree);
         leafItems.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'tr'));
         const subcats = leafItems.map((item) => ({
@@ -2786,11 +2852,13 @@ function RFQList({ surfaceVariant = 'app' }) {
         subcats.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'tr'));
 
         if (isActive) {
+          setCategoryItems(allItems);
           setInlineSubcategories(leafItems);
           setFlatSubcategories(subcats);
         }
       } catch (requestError) {
         if (isActive) {
+          setCategoryItems([]);
           setInlineSubcategories([]);
           setFlatSubcategories([]);
         }
@@ -2836,9 +2904,9 @@ function RFQList({ surfaceVariant = 'app' }) {
   const activeParentName = useMemo(() => {
     const selectedId = String(filters.category || '');
     if (!selectedId) return '';
-    const match = flatSubcategories.find((item) => String(item._id) === selectedId);
+    const match = categoryItems.find((item) => String(item._id) === selectedId);
     return match?.parentName || '';
-  }, [filters.category, flatSubcategories]);
+  }, [categoryItems, filters.category]);
 
   const suggestionResults = useMemo(() => {
     const query = normalizeSearch(deferredSearchQuery);

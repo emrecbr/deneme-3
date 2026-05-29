@@ -8541,9 +8541,20 @@ body.dark-mode .categories-topbar h1 {
 }
 
 .categories-breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-size: 12px;
   color: var(--muted);
   margin-bottom: 10px;
+}
+
+.categories-breadcrumb .secondary-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  flex: 0 0 auto;
 }
 
 .categories-grid-wrap {
