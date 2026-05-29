@@ -121,6 +121,85 @@ const normalizeRFQSortDate = (item) => {
   return Number.isFinite(value) ? value : null;
 };
 
+const normalizePublishingRight = (rfq) => {
+  const raw = rfq?.publishingRight || rfq?.publishing_right || rfq?.right || null;
+  if (!raw) {
+    return '';
+  }
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  return raw.key || raw.type || raw.value || raw.name || '';
+};
+
+const getRfqPromotionTier = (rfq) => {
+  const right = String(normalizePublishingRight(rfq)).toLowerCase();
+  if (rfq?.isPremium === true || rfq?.premium === true || right === 'premium') {
+    return 0;
+  }
+  if (
+    rfq?.isFeatured === true ||
+    rfq?.featuredActive === true ||
+    right === 'featured_listing' ||
+    right === 'featured'
+  ) {
+    return 1;
+  }
+  return 2;
+};
+
+const compareRFQsBySortKey = (a, b, sortKey) => {
+  switch (sortKey) {
+    case 'price_desc': {
+      const aPrice = normalizeRFQSortPrice(a);
+      const bPrice = normalizeRFQSortPrice(b);
+      if (aPrice == null && bPrice == null) return 0;
+      if (aPrice == null) return 1;
+      if (bPrice == null) return -1;
+      return bPrice - aPrice;
+    }
+    case 'price_asc': {
+      const aPrice = normalizeRFQSortPrice(a);
+      const bPrice = normalizeRFQSortPrice(b);
+      if (aPrice == null && bPrice == null) return 0;
+      if (aPrice == null) return 1;
+      if (bPrice == null) return -1;
+      return aPrice - bPrice;
+    }
+    case 'date_asc': {
+      const aDate = normalizeRFQSortDate(a);
+      const bDate = normalizeRFQSortDate(b);
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return aDate - bDate;
+    }
+    case 'km_asc': {
+      const aKm = Number(a?.distanceKm ?? a?.km ?? a?.distance);
+      const bKm = Number(b?.distanceKm ?? b?.km ?? b?.distance);
+      const safeAKm = Number.isFinite(aKm) ? aKm : Number.POSITIVE_INFINITY;
+      const safeBKm = Number.isFinite(bKm) ? bKm : Number.POSITIVE_INFINITY;
+      return safeAKm - safeBKm;
+    }
+    case 'km_desc': {
+      const aKm = Number(a?.distanceKm ?? a?.km ?? a?.distance);
+      const bKm = Number(b?.distanceKm ?? b?.km ?? b?.distance);
+      const safeAKm = Number.isFinite(aKm) ? aKm : Number.NEGATIVE_INFINITY;
+      const safeBKm = Number.isFinite(bKm) ? bKm : Number.NEGATIVE_INFINITY;
+      return safeBKm - safeAKm;
+    }
+    case 'date_desc':
+    default: {
+      const aDate = normalizeRFQSortDate(a);
+      const bDate = normalizeRFQSortDate(b);
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return bDate - aDate;
+    }
+  }
+};
+
 function buildCategoryTree(items) {
   const map = new Map();
   const roots = [];
@@ -534,21 +613,10 @@ function RFQList({ surfaceVariant = 'app' }) {
   const getCityName = useCallback((item) => extractRfqCityName(item), []);
   const getDistrictName = useCallback((item) => extractRfqDistrictName(item), []);
   const isPremiumRFQ = useCallback(
-    (rfq) => Boolean(rfq?.isPremium || rfq?.premium || rfq?.plan === 'premium' || Number(rfq?.targetPrice) > 100000),
+    (rfq) => getRfqPromotionTier(rfq) === 0,
     []
   );
-  const isFeaturedRFQ = useCallback((rfq) => {
-    if (!rfq) {
-      return false;
-    }
-    if (rfq.featuredActive != null) {
-      return Boolean(rfq.featuredActive);
-    }
-    if (!rfq.isFeatured || !rfq.featuredUntil) {
-      return false;
-    }
-    return new Date(rfq.featuredUntil).getTime() > Date.now();
-  }, []);
+  const isFeaturedRFQ = useCallback((rfq) => getRfqPromotionTier(rfq) === 1, []);
 
   const mergeUniqueRFQs = useCallback((existing, incoming) => {
     const map = new Map(existing.map((item) => [item._id, item]));
@@ -1956,45 +2024,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const applySort = useCallback(
     (items = []) => {
       const next = [...items];
-      switch (sortKey) {
-        case 'price_desc':
-          return next.sort((a, b) => {
-            const aPrice = normalizeRFQSortPrice(a);
-            const bPrice = normalizeRFQSortPrice(b);
-            if (aPrice == null && bPrice == null) return 0;
-            if (aPrice == null) return 1;
-            if (bPrice == null) return -1;
-            return bPrice - aPrice;
-          });
-        case 'price_asc':
-          return next.sort((a, b) => {
-            const aPrice = normalizeRFQSortPrice(a);
-            const bPrice = normalizeRFQSortPrice(b);
-            if (aPrice == null && bPrice == null) return 0;
-            if (aPrice == null) return 1;
-            if (bPrice == null) return -1;
-            return aPrice - bPrice;
-          });
-        case 'date_asc':
-          return next.sort((a, b) => {
-            const aDate = normalizeRFQSortDate(a);
-            const bDate = normalizeRFQSortDate(b);
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-            return aDate - bDate;
-          });
-        case 'date_desc':
-        default:
-          return next.sort((a, b) => {
-            const aDate = normalizeRFQSortDate(a);
-            const bDate = normalizeRFQSortDate(b);
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-            return bDate - aDate;
-          });
-      }
+      return next.sort((a, b) => compareRFQsBySortKey(a, b, sortKey));
     },
     [sortKey]
   );
@@ -2051,28 +2081,19 @@ function RFQList({ surfaceVariant = 'app' }) {
     return applySort(highlighted).slice(0, 5);
   }, [applySort, canonicalNearbyRFQs, favoriteItems, filteredEnrichedRFQs, getCategoryKey]);
 
-  const sortPremiumFirst = useCallback(
+  const sortPromotionGroups = useCallback(
     (items = []) =>
-      [...items].sort((a, b) => {
-        const aFeatured = isFeaturedRFQ(a);
-        const bFeatured = isFeaturedRFQ(b);
-        if (aFeatured && !bFeatured) {
-          return -1;
-        }
-        if (!aFeatured && bFeatured) {
-          return 1;
-        }
-        const aPremium = isPremiumRFQ(a);
-        const bPremium = isPremiumRFQ(b);
-        if (aPremium && !bPremium) {
-          return -1;
-        }
-        if (!aPremium && bPremium) {
-          return 1;
-        }
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-      }),
-    [isFeaturedRFQ, isPremiumRFQ]
+      items
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+          const tierDiff = getRfqPromotionTier(a.item) - getRfqPromotionTier(b.item);
+          if (tierDiff !== 0) {
+            return tierDiff;
+          }
+          return compareRFQsBySortKey(a.item, b.item, sortKey) || a.index - b.index;
+        })
+        .map(({ item }) => item),
+    [sortKey]
   );
 
   const featuredIds = useMemo(() => new Set(featuredRFQs.map((item) => item._id)), [featuredRFQs]);
@@ -2093,8 +2114,8 @@ function RFQList({ surfaceVariant = 'app' }) {
     });
     return applySort(recommended);
   }, [applySort, canonicalNearbyRFQs, favoriteItems, featuredIds, filteredEnrichedRFQs, getCategoryKey]);
-  const featuredRFQsSorted = useMemo(() => sortPremiumFirst(featuredRFQs), [featuredRFQs, sortPremiumFirst]);
-  const nearbyOnlyRFQsSorted = useMemo(() => sortPremiumFirst(nearbyOnlyRFQs), [nearbyOnlyRFQs, sortPremiumFirst]);
+  const featuredRFQsSorted = useMemo(() => sortPromotionGroups(featuredRFQs), [featuredRFQs, sortPromotionGroups]);
+  const nearbyOnlyRFQsSorted = useMemo(() => sortPromotionGroups(nearbyOnlyRFQs), [nearbyOnlyRFQs, sortPromotionGroups]);
   const premiumUnderFeaturedRFQs = useMemo(
     () => nearbyOnlyRFQsSorted.filter((item) => isPremiumRFQ(item)),
     [isPremiumRFQ, nearbyOnlyRFQsSorted]
@@ -2105,10 +2126,8 @@ function RFQList({ surfaceVariant = 'app' }) {
   );
   const orderedRFQs = useMemo(() => {
     const combined = [...featuredRFQsSorted, ...premiumUnderFeaturedRFQs, ...normalRFQs];
-    const featured = combined.filter((item) => isFeaturedRFQ(item));
-    const rest = combined.filter((item) => !isFeaturedRFQ(item));
-    return [...featured, ...rest];
-  }, [featuredRFQsSorted, normalRFQs, premiumUnderFeaturedRFQs, isFeaturedRFQ]);
+    return sortPromotionGroups(combined);
+  }, [featuredRFQsSorted, normalRFQs, premiumUnderFeaturedRFQs, sortPromotionGroups]);
   const hasDistanceData = useMemo(
     () =>
       canonicalNearbyRFQs.some(
@@ -2129,70 +2148,11 @@ function RFQList({ surfaceVariant = 'app' }) {
   const hasRadiusCenter = Boolean(mapRadiusCenter && Number.isFinite(mapRadiusCenter.lat) && Number.isFinite(mapRadiusCenter.lng));
   const isMapCityWide = cityFallbackEnabled && mapRadiusKm >= maxRadiusKm && Boolean(filters.city || selectedCity?.name);
   const quickFilteredRFQs = useMemo(() => {
-    let items = filteredOrderedRFQs;
-    if (sortKey !== 'advanced') {
-      const arr = [...items];
-      const getKm = (x) => {
-        const v = x?.distanceKm ?? x?.km ?? x?.distance;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
-      };
-
-      switch (sortKey) {
-        case 'price_desc':
-          arr.sort((a, b) => {
-            const aPrice = normalizeRFQSortPrice(a);
-            const bPrice = normalizeRFQSortPrice(b);
-            if (aPrice == null && bPrice == null) return 0;
-            if (aPrice == null) return 1;
-            if (bPrice == null) return -1;
-            return bPrice - aPrice;
-          });
-          break;
-        case 'price_asc':
-          arr.sort((a, b) => {
-            const aPrice = normalizeRFQSortPrice(a);
-            const bPrice = normalizeRFQSortPrice(b);
-            if (aPrice == null && bPrice == null) return 0;
-            if (aPrice == null) return 1;
-            if (bPrice == null) return -1;
-            return aPrice - bPrice;
-          });
-          break;
-        case 'date_desc':
-          arr.sort((a, b) => {
-            const aDate = normalizeRFQSortDate(a);
-            const bDate = normalizeRFQSortDate(b);
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-            return bDate - aDate;
-          });
-          break;
-        case 'date_asc':
-          arr.sort((a, b) => {
-            const aDate = normalizeRFQSortDate(a);
-            const bDate = normalizeRFQSortDate(b);
-            if (aDate == null && bDate == null) return 0;
-            if (aDate == null) return 1;
-            if (bDate == null) return -1;
-            return aDate - bDate;
-          });
-          break;
-        case 'km_asc':
-          arr.sort((a, b) => getKm(a) - getKm(b));
-          break;
-        case 'km_desc':
-          arr.sort((a, b) => getKm(b) - getKm(a));
-          break;
-        default:
-          break;
-      }
-      items = arr;
+    if (sortKey === 'advanced') {
+      return sortPromotionGroups(filteredOrderedRFQs);
     }
-
-    return items;
-  }, [filteredOrderedRFQs, sortKey]);
+    return sortPromotionGroups(filteredOrderedRFQs);
+  }, [filteredOrderedRFQs, sortKey, sortPromotionGroups]);
 
   const radiusFilteredRFQs = useMemo(() => {
     if (!hasRadiusCenter || mapRadiusKm <= 0 || isMapCityWide) {
@@ -2949,8 +2909,9 @@ function RFQList({ surfaceVariant = 'app' }) {
       const isOpened = swipedCard.id === rfq._id;
       const isFavorite = favorites.includes(String(rfq._id));
       const animating = Boolean(favoriteAnimating[rfq._id]);
-      const isFeatured = isFeaturedRFQ(rfq) || (import.meta.env.DEV && index === 0);
-      const isPremium = Boolean(rfq?.isPremium) || (import.meta.env.DEV && index === 1);
+      const promotionTier = getRfqPromotionTier(rfq);
+      const isPremium = promotionTier === 0;
+      const isFeatured = promotionTier === 1;
       const categoryLabel = (() => {
         const fullLabel = getCategoryDisplayName(rfq.category) || 'Talep';
         const parts = fullLabel.split('>').map((item) => item.trim()).filter(Boolean);

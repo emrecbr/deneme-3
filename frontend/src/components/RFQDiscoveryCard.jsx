@@ -20,7 +20,7 @@ export default function RFQDiscoveryCard({
   className = '',
   variant = 'feed'
 }) {
-  const premiumLabel = isFeatured ? 'Öne Çıkan' : isPremium ? 'Premium' : '';
+  const premiumLabel = isFeatured ? 'Öne Çıkan Talep' : isPremium ? 'Premium Talep' : '';
 
   return (
     <div

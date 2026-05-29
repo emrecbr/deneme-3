@@ -6340,8 +6340,8 @@ body.dark-mode .premium-card {
 }
 
 .featured-card {
-  border-left: 4px solid #f59e0b;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(245, 158, 11, 0.4);
+  border-left: 4px solid #38bdf8;
+  box-shadow: 0 12px 32px rgba(14, 116, 144, 0.2), 0 0 0 1px rgba(56, 189, 248, 0.34);
 }
 
 .card-state-badge {
@@ -6358,7 +6358,7 @@ body.dark-mode .premium-card {
 }
 
 .card-state-badge.featured {
-  background: linear-gradient(135deg, #f59e0b, #f97316);
+  background: linear-gradient(135deg, #06b6d4, #6366f1);
   color: #ffffff;
   border: 0;
   font-weight: 600;
@@ -6366,7 +6366,7 @@ body.dark-mode .premium-card {
 }
 
 .card-state-badge.premium {
-  background: #6366f1;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
   color: #ffffff;
   border: 0;
   left: auto;
@@ -12821,11 +12821,23 @@ body.dark-mode .premium-web-summary__card strong {
 }
 
 .featured-card {
-  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.12);
+  border-color: rgba(14, 165, 233, 0.24);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(125, 211, 252, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(240, 249, 255, 0.98), rgba(236, 253, 245, 0.94));
+  box-shadow:
+    0 18px 42px rgba(14, 116, 144, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .premium-card {
-  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.1);
+  border-color: rgba(245, 158, 11, 0.28);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(253, 230, 138, 0.36), transparent 34%),
+    linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(255, 247, 237, 0.94));
+  box-shadow:
+    0 18px 42px rgba(180, 83, 9, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .rfq-discovery-card {
@@ -12866,15 +12878,17 @@ body.dark-mode .premium-web-summary__card strong {
 }
 
 .rfq-discovery-card.is-featured .rfq-discovery-card__state {
-  color: #9a6700;
-  background: rgba(255, 248, 235, 0.92);
-  border-color: rgba(217, 119, 6, 0.18);
+  color: #075985;
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.96), rgba(238, 242, 255, 0.94));
+  border-color: rgba(14, 165, 233, 0.22);
+  box-shadow: 0 8px 18px rgba(14, 116, 144, 0.1);
 }
 
 .rfq-discovery-card.is-premium:not(.is-featured) .rfq-discovery-card__state {
-  color: #4f46e5;
-  background: rgba(241, 245, 255, 0.96);
-  border-color: rgba(79, 70, 229, 0.16);
+  color: #92400e;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.98), rgba(255, 247, 237, 0.96));
+  border-color: rgba(245, 158, 11, 0.24);
+  box-shadow: 0 8px 18px rgba(180, 83, 9, 0.1);
 }
 
 .rfq-discovery-card__topline {
@@ -13262,15 +13276,15 @@ body.dark-mode .rfq-discovery-card__state {
 }
 
 body.dark-mode .rfq-discovery-card.is-featured .rfq-discovery-card__state {
-  background: rgba(113, 63, 18, 0.3);
-  border-color: rgba(245, 158, 11, 0.24);
-  color: #fcd34d;
+  background: rgba(8, 47, 73, 0.42);
+  border-color: rgba(56, 189, 248, 0.26);
+  color: #7dd3fc;
 }
 
 body.dark-mode .rfq-discovery-card.is-premium:not(.is-featured) .rfq-discovery-card__state {
-  background: rgba(49, 46, 129, 0.38);
-  border-color: rgba(129, 140, 248, 0.22);
-  color: #c7d2fe;
+  background: rgba(113, 63, 18, 0.34);
+  border-color: rgba(245, 158, 11, 0.26);
+  color: #fcd34d;
 }
 
 body.dark-mode .rfq-discovery-card__favorite {
@@ -13548,6 +13562,38 @@ html:not([data-surface="admin"]) .deadline-badge {
   color: var(--tlp-warning);
   background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.22);
+}
+
+html:not([data-surface="admin"]) .rfq-card.featured-card {
+  border-color: rgba(14, 165, 233, 0.24);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(125, 211, 252, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(240, 249, 255, 0.98), rgba(236, 253, 245, 0.94));
+  box-shadow:
+    0 18px 42px rgba(14, 116, 144, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html:not([data-surface="admin"]) .rfq-card.premium-card {
+  border-color: rgba(245, 158, 11, 0.28);
+  background:
+    radial-gradient(circle at 14% 0%, rgba(253, 230, 138, 0.36), transparent 34%),
+    linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(255, 247, 237, 0.94));
+  box-shadow:
+    0 18px 42px rgba(180, 83, 9, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html:not([data-surface="admin"]) .rfq-discovery-card.is-featured .rfq-discovery-card__state {
+  color: #075985;
+  background: linear-gradient(135deg, rgba(224, 242, 254, 0.96), rgba(238, 242, 255, 0.94));
+  border-color: rgba(14, 165, 233, 0.22);
+}
+
+html:not([data-surface="admin"]) .rfq-discovery-card.is-premium:not(.is-featured) .rfq-discovery-card__state {
+  color: #92400e;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.98), rgba(255, 247, 237, 0.96));
+  border-color: rgba(245, 158, 11, 0.24);
 }
 
 @media (max-width: 768px) {
