@@ -63,6 +63,9 @@ const DEFAULT_FEATURE_FLAGS = {
   liveLocationEnabled: true,
   cityFallbackEnabled: true
 };
+const SYNTHETIC_CATEGORY_PREFIX = 'synthetic-category';
+const OTHER_CATEGORY_NAME = 'Diğer';
+const JOBSEEKER_REQUIRED_CHILD_SLUGS = ['cafe', 'sanayi', 'lokanta', 'diger'];
 const SEGMENT_OPTIONS = [
   { value: 'goods', label: 'Eşya' },
   { value: 'service', label: 'Hizmet / Usta' },
@@ -253,6 +256,42 @@ function flattenCategoryLeaves(nodes, parentTrail = []) {
   });
 }
 
+const normalizeCategoryName = (value) => String(value || '').trim().toLocaleLowerCase('tr-TR');
+
+const buildSyntheticCategoryId = (node, slug = 'diger') => {
+  const segment = String(node?.segment || '').trim();
+  const parentSlug = String(node?.slug || node?._id || node?.name || '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+  if (!segment || !parentSlug) {
+    return '';
+  }
+  return `${SYNTHETIC_CATEGORY_PREFIX}:${segment}:${parentSlug}:${slug}`;
+};
+
+const getSyntheticCategoryFamilyIds = (node) => {
+  const ids = [];
+  const hasChildren = Boolean(node?.children?.length);
+  if (hasChildren && normalizeCategoryName(node?.name) !== normalizeCategoryName(OTHER_CATEGORY_NAME)) {
+    const otherId = buildSyntheticCategoryId(node, 'diger');
+    if (otherId) {
+      ids.push(otherId);
+    }
+  }
+
+  if (node?.segment === 'jobseeker' && (!node?.parent || Number(node?.level || 0) === 0)) {
+    JOBSEEKER_REQUIRED_CHILD_SLUGS.forEach((slug) => {
+      const id = buildSyntheticCategoryId(node, slug);
+      if (id) {
+        ids.push(id);
+      }
+    });
+  }
+
+  return ids;
+};
+
 function flattenCategoryNodes(nodes, parentTrail = []) {
   if (!Array.isArray(nodes)) {
     return [];
@@ -262,6 +301,7 @@ function flattenCategoryNodes(nodes, parentTrail = []) {
     const nextTrail = [...parentTrail, node];
     const children = flattenCategoryNodes(node.children || [], nextTrail);
     const ownId = node._id ? String(node._id) : '';
+    const syntheticIds = getSyntheticCategoryFamilyIds(node);
     return [
       {
         ...node,
@@ -269,7 +309,12 @@ function flattenCategoryNodes(nodes, parentTrail = []) {
         parentName: parentTrail[parentTrail.length - 1]?.name || '',
         path: nextTrail.map((item) => item.name).filter(Boolean),
         descendantIds: children.map((item) => String(item._id || '')).filter(Boolean),
-        categoryFamilyIds: [ownId, ...children.map((item) => String(item._id || ''))].filter(Boolean)
+        categoryFamilyIds: [
+          ownId,
+          ...children.map((item) => String(item._id || '')),
+          ...children.flatMap((item) => item.categoryFamilyIds || []),
+          ...syntheticIds
+        ].filter(Boolean)
       },
       ...children
     ];
@@ -697,6 +742,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             page: nextPage,
             limit: PAGE_LIMIT,
             segment: filters.segment || undefined,
+            category: filters.category || undefined,
             cityId: filters.cityId || undefined,
             districtId: filters.districtId || undefined
           }
@@ -729,7 +775,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         setRefreshing(false);
       }
     },
-    [cacheRFQs, filters.cityId, filters.districtId, filters.segment, handleAuthFailure, readCachedRFQs]
+    [cacheRFQs, filters.category, filters.cityId, filters.districtId, filters.segment, handleAuthFailure, readCachedRFQs]
   );
 
   const fetchCurrentUser = useCallback(async () => {
@@ -1009,7 +1055,12 @@ function RFQList({ surfaceVariant = 'app' }) {
     if (cityFallbackAttemptedRef.current.failed) {
       try {
         const response = await api.get('/rfq', {
-          params: { page: 1, limit: 100, segment: filters.segment || undefined },
+          params: {
+            page: 1,
+            limit: 100,
+            segment: filters.segment || undefined,
+            category: filters.category || undefined
+          },
           headers: { 'Cache-Control': 'no-cache' }
         });
         setNearbyRFQs(response.data?.data || response.data?.items || []);
@@ -1025,6 +1076,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             page: 1,
             limit: 100,
             segment: filters.segment || undefined,
+            category: filters.category || undefined,
             cityId: fallbackCityId,
             districtId: filters.districtId || undefined
           },
@@ -1037,7 +1089,12 @@ function RFQList({ surfaceVariant = 'app' }) {
       window.setTimeout(() => setToast(null), 2000);
       try {
         const response = await api.get('/rfq', {
-          params: { page: 1, limit: 100, segment: filters.segment || undefined },
+          params: {
+            page: 1,
+            limit: 100,
+            segment: filters.segment || undefined,
+            category: filters.category || undefined
+          },
           headers: { 'Cache-Control': 'no-cache' }
         });
         setNearbyRFQs(response.data?.data || response.data?.items || []);
@@ -1047,7 +1104,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         setNearbyRFQs(cityOnly);
       }
     }
-  }, [filters.city, filters.cityId, filters.districtId, filters.segment, getCityName, rfqs, setToast]);
+  }, [filters.category, filters.city, filters.cityId, filters.districtId, filters.segment, getCityName, rfqs, setToast]);
 
   useEffect(() => {
     if (userCoords) {

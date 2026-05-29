@@ -246,9 +246,42 @@ const resolveCategoryQueryFilter = async (value) => {
     return null;
   }
 
+  const buildSyntheticCategoryId = (category, slug = 'diger') => {
+    const segment = cleanText(category?.segment);
+    const parentSlug = cleanText(
+      category?.slug || String(category?._id || category?.name || '').replace(/\s+/g, '-').toLowerCase()
+    );
+    if (!segment || !parentSlug) {
+      return null;
+    }
+    return `synthetic-category:${segment}:${parentSlug}:${slug}`;
+  };
+
+  const getSyntheticCategoryIds = (category, hasChildren) => {
+    const syntheticIds = [];
+    if (hasChildren) {
+      const otherId = buildSyntheticCategoryId(category, 'diger');
+      if (otherId) {
+        syntheticIds.push(otherId);
+      }
+    }
+
+    if (category?.segment === 'jobseeker' && !category?.parent) {
+      ['cafe', 'sanayi', 'lokanta', 'diger'].forEach((slug) => {
+        const id = buildSyntheticCategoryId(category, slug);
+        if (id) {
+          syntheticIds.push(id);
+        }
+      });
+    }
+
+    return syntheticIds;
+  };
+
   const buildCategoryFamilyFilter = async (categoryId, legacyValue = '') => {
     const rootId = new mongoose.Types.ObjectId(categoryId);
-    const categories = await Category.find().select('_id parent').lean();
+    const categories = await Category.find().select('_id parent slug segment name').lean();
+    const categoriesById = new Map(categories.map((category) => [String(category._id), category]));
     const childrenByParent = new Map();
 
     categories.forEach((category) => {
@@ -272,7 +305,14 @@ const resolveCategoryQueryFilter = async (value) => {
       });
     }
 
-    const mixedValues = [...ids, ...ids.map((id) => String(id))];
+    const syntheticIds = [];
+    ids.forEach((id) => {
+      const category = categoriesById.get(String(id));
+      const hasChildren = Boolean(childrenByParent.get(String(id))?.length);
+      syntheticIds.push(...getSyntheticCategoryIds(category, hasChildren));
+    });
+
+    const mixedValues = [...ids, ...ids.map((id) => String(id)), ...syntheticIds];
     if (legacyValue) {
       mixedValues.push(legacyValue);
     }
