@@ -16,48 +16,9 @@ const formatPrice = (value, currency = 'TRY') =>
     maximumFractionDigits: 0
   }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
 
-const getPlanPriceSummary = (plan) => {
-  const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
-  if (modes.includes('monthly') && modes.includes('yearly')) {
-    return `${formatPrice(plan.monthlyPrice, plan.currency)} / ay - ${formatPrice(plan.yearlyPrice, plan.currency)} / yil`;
-  }
-  if (modes.includes('monthly')) {
-    return `${formatPrice(plan.monthlyPrice, plan.currency)} / ay`;
-  }
-  if (modes.includes('yearly')) {
-    return `${formatPrice(plan.yearlyPrice, plan.currency)} / yil`;
-  }
-  return formatPrice(plan.monthlyPrice || plan.yearlyPrice, plan.currency);
-};
-
-const getDurationSummary = (plan) => {
-  const durations = plan.entitlements?.durationLabels || {};
-  const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
-  if (modes.includes('monthly') && modes.includes('yearly')) {
-    return `${durations.monthly || '30 gun'} / ${durations.yearly || '365 gun'}`;
-  }
-  if (modes.includes('monthly')) {
-    return durations.monthly || '30 gün';
-  }
-  if (modes.includes('yearly')) {
-    return durations.yearly || '365 gün';
-  }
-  return durations.monthly || durations.yearly || 'Tek seferlik';
-};
-
-const getCheckoutLabel = (plan, mode) => {
-  if (plan.key === 'listing_extra') {
-    return 'Ek İlan Hakkını Başlat';
-  }
-  if (plan.key === 'featured_listing') {
-    return mode === 'yearly' ? 'Yıllık Öne Çıkarma Paketini Aktifleştir' : 'Aylık Öne Çıkarma Paketini Aktifleştir';
-  }
-  return mode === 'yearly' ? 'Yıllık Premium Paketini Aktifleştir' : 'Aylık Premium Paketini Aktifleştir';
-};
-
 const getPreferredMode = (plan) => {
-  const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
-  if (plan.key === 'listing_extra') {
+  const modes = Array.isArray(plan?.billingModes) ? plan.billingModes : [];
+  if (plan?.key === 'listing_extra') {
     return 'one_time';
   }
   if (modes.includes('monthly')) {
@@ -69,17 +30,28 @@ const getPreferredMode = (plan) => {
   return modes[0] || 'monthly';
 };
 
+const getAvailableModes = (plan) => {
+  const modes = Array.isArray(plan?.billingModes) ? plan.billingModes : [];
+  if (plan?.key === 'listing_extra') {
+    return ['one_time'];
+  }
+  return modes.length ? modes.filter((mode) => mode === 'monthly' || mode === 'yearly') : ['monthly'];
+};
+
 const getModeLabel = (mode) => {
   if (mode === 'yearly') {
     return 'Yıllık';
   }
   if (mode === 'one_time') {
-    return 'Tek Seferlik';
+    return 'Tek seferlik';
   }
   return 'Aylık';
 };
 
 const getModePrice = (plan, mode) => {
+  if (!plan) {
+    return 'Şu anda kullanılamıyor';
+  }
   if (mode === 'yearly') {
     return formatPrice(plan.yearlyPrice, plan.currency);
   }
@@ -87,28 +59,122 @@ const getModePrice = (plan, mode) => {
 };
 
 const getModeDuration = (plan, mode) => {
-  const labels = plan.entitlements?.durationLabels || {};
+  const labels = plan?.entitlements?.durationLabels || {};
   if (mode === 'yearly') {
     return labels.yearly || '365 gün';
   }
   if (mode === 'one_time') {
-    return labels.monthly || labels.yearly || 'Tek seferlik hak';
+    return labels.monthly || labels.yearly || 'Hemen kullanılabilir';
   }
   return labels.monthly || '30 gün';
 };
 
-const getFeaturedSummary = (plan, mode) => {
-  const durations = plan.entitlements?.featuredDurationDays || {};
-  const value = mode === 'yearly' ? durations.yearly : durations.monthly;
-  return value ? `${value} gün öne çıkarma` : 'Öne çıkarma dahil değil';
+const getPlanCodes = (plan) => plan?.planCodes || plan?.metadata?.planCodes || {};
+
+const getPlanCode = (plan, mode) => {
+  if (!plan) {
+    return '';
+  }
+  const codes = getPlanCodes(plan);
+  if (plan.key === 'listing_extra') {
+    return codes.one_time || 'listing_extra';
+  }
+  if (mode === 'yearly') {
+    return codes.yearly || (plan.key === 'featured_listing' ? 'featured_yearly' : 'premium_yearly');
+  }
+  return codes.monthly || (plan.key === 'featured_listing' ? 'featured_monthly' : 'premium_monthly');
 };
 
-const PREMIUM_BENEFITS = [
-  'Dijital hizmet paketi olarak premium görünürlük',
-  'Profilde premium rozet ve güven sinyali',
-  'Ek ilan hakkı ve öne çıkarma kredisi takibi',
-  'Kullanıcılar arası ödeme değil, yalnızca üyelik ve görünürlük modeli'
+const PACKAGE_CONFIGS = [
+  {
+    id: 'premium',
+    keys: ['premium_listing', 'premium'],
+    title: 'Premium Talep',
+    badge: 'En yüksek görünürlük',
+    description: 'Talebin premium kart tasarımıyla listenin en üstünde yer alır.',
+    cta: 'Premium Satın Al',
+    unavailableCta: 'Premium kullanılamıyor',
+    theme: 'premium',
+    features: [
+      'Listenin en üstünde görünür',
+      'Premium Talep rozeti',
+      'Altın premium kart tasarımı',
+      'Maksimum görünürlük'
+    ]
+  },
+  {
+    id: 'featured',
+    keys: ['featured_listing'],
+    title: 'Öne Çıkan Talep',
+    badge: 'Daha fazla görünürlük',
+    description: 'Talebin standart taleplerden ayrılır ve premium taleplerden sonra öne çıkar.',
+    cta: 'Öne Çıkar',
+    unavailableCta: 'Öne çıkarma kullanılamıyor',
+    theme: 'featured',
+    features: [
+      'Öne Çıkan Talep rozeti',
+      'Mavi/turkuaz özel kart tasarımı',
+      'Standart taleplerin üstünde görünür',
+      'Daha fazla teklif alma şansı'
+    ]
+  },
+  {
+    id: 'extra',
+    keys: ['listing_extra', 'paid_listing', 'extra_listing'],
+    title: 'Ek Talep Hakkı',
+    badge: 'Hemen kullanılabilir',
+    description: 'Ücretsiz talep hakkın bittiğinde yeni talep oluşturmak için ek hak satın al.',
+    cta: 'Ek Hak Satın Al',
+    unavailableCta: 'Ek hak kullanılamıyor',
+    theme: 'extra',
+    features: [
+      'Ek talep oluşturma hakkı',
+      'Hemen kullanılabilir',
+      'Hesabına otomatik tanımlanır'
+    ]
+  }
 ];
+
+const COMPARISON_ROWS = [
+  {
+    label: 'Standart yayın',
+    standard: true,
+    featured: true,
+    premium: true
+  },
+  {
+    label: 'Standart taleplerin üstünde görünme',
+    standard: false,
+    featured: true,
+    premium: true
+  },
+  {
+    label: 'Premium taleplerin en üstte görünmesi',
+    standard: false,
+    featured: false,
+    premium: true
+  },
+  {
+    label: 'Özel rozet',
+    standard: false,
+    featured: true,
+    premium: true
+  },
+  {
+    label: 'Özel kart tasarımı',
+    standard: false,
+    featured: true,
+    premium: true
+  },
+  {
+    label: 'Daha fazla teklif alma şansı',
+    standard: false,
+    featured: true,
+    premium: true
+  }
+];
+
+const findPlan = (plans, keys) => plans.find((plan) => keys.includes(plan.key)) || null;
 
 function Premium({ surfaceVariant = 'app' }) {
   const navigate = useNavigate();
@@ -157,7 +223,7 @@ function Premium({ surfaceVariant = 'app' }) {
       if (!isActive()) {
         return;
       }
-      setError(requestError.response?.data?.message || 'Paket bilgileri alinamadi.');
+      setError(requestError.response?.data?.message || 'Paket bilgileri alınamadı.');
     } finally {
       if (isActive()) {
         setLoading(false);
@@ -174,6 +240,11 @@ function Premium({ surfaceVariant = 'app' }) {
   }, [loadPageData]);
 
   const handleCheckout = async (planCode) => {
+    if (!planCode) {
+      setPurchaseNotice('Bu paket şu anda kullanılamıyor.');
+      return;
+    }
+
     if (!PREMIUM_PURCHASES_ENABLED) {
       setPurchaseNotice(PREMIUM_PURCHASE_DISABLED_MESSAGE);
       return;
@@ -201,7 +272,7 @@ function Premium({ surfaceVariant = 'app' }) {
       const message =
         status === 401 || status === 403
           ? 'Oturum doğrulanamadı. Lütfen sayfayı yenileyip tekrar dene; sorun sürerse yeniden giriş yap.'
-          : requestError.response?.data?.message || 'Dijital paket baslatilamadi.';
+          : requestError.response?.data?.message || 'Dijital paket başlatılamadı.';
       setError(message);
     } finally {
       setProcessing('');
@@ -221,7 +292,7 @@ function Premium({ surfaceVariant = 'app' }) {
       await loadPageData();
       await checkAuth();
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Iptal istegi alinamadi.');
+      setError(requestError.response?.data?.message || 'İptal isteği alınamadı.');
     }
   };
 
@@ -230,37 +301,62 @@ function Premium({ surfaceVariant = 'app' }) {
       (user?.isPremium && (!user?.premiumUntil || new Date(user.premiumUntil) > new Date()))
   );
 
-  const visiblePlans = useMemo(
-    () => plans.filter((plan) => ['listing_extra', 'featured_listing', 'premium_listing'].includes(plan.key)),
-    [plans]
-  );
-
-  const planCountLabel = quotaSummary ? `${quotaSummary.remaining}/${quotaSummary.limit}` : '-';
   const featuredCredits = subscriptionSummary?.featuredCredits ?? user?.featuredCredits ?? 0;
   const paidListingCredits = subscriptionSummary?.paidListingCredits ?? quotaSummary?.paidCredits ?? 0;
-  const activePlanCode = subscriptionSummary?.subscription?.planCode || 'Aktif üyelik yok';
+  const planCountLabel = quotaSummary ? `${quotaSummary.remaining}/${quotaSummary.limit}` : '-';
+  const activePlanCode = subscriptionSummary?.subscription?.planCode || 'Aktif paket yok';
   const premiumUntilLabel = subscriptionSummary?.premiumUntil
     ? new Date(subscriptionSummary.premiumUntil).toLocaleDateString('tr-TR')
-    : 'Aktif sure yok';
+    : 'Aktif süre yok';
 
-  const updateSelectedMode = (plan, mode) => {
-    const key = plan.id || plan.key;
+  const packageCards = useMemo(
+    () =>
+      PACKAGE_CONFIGS.map((config) => {
+        const plan = findPlan(plans, config.keys);
+        const planStateKey = plan?.id || plan?.key || config.id;
+        const selectedMode = selectedModes[planStateKey] || getPreferredMode(plan);
+        return {
+          ...config,
+          plan,
+          selectedMode,
+          selectedPlanCode: getPlanCode(plan, selectedMode),
+          modes: getAvailableModes(plan),
+          stateKey: planStateKey
+        };
+      }),
+    [plans, selectedModes]
+  );
+
+  const updateSelectedMode = (card, mode) => {
     setSelectedModes((prev) => ({
       ...prev,
-      [key]: mode
+      [card.stateKey]: mode
     }));
   };
 
+  const getCardRightLabel = (card) => {
+    if (card.id === 'premium' && premiumActive) {
+      return 'Aktif hakkın var';
+    }
+    if (card.id === 'featured' && Number(featuredCredits) > 0) {
+      return `Kalan hak: ${featuredCredits}`;
+    }
+    if (card.id === 'extra' && Number(paidListingCredits) > 0) {
+      return `Kalan hak: ${paidListingCredits}`;
+    }
+    return '';
+  };
+
   return (
-    <div className={`page premium-page ${isWebSurface ? 'premium-page--web website-profile-module' : ''}`}>
+    <div className={`page premium-page premium-page--modern ${isWebSurface ? 'premium-page--web website-profile-module' : ''}`}>
       {isWebSurface ? (
-        <div className="website-profile-module__header">
+        <div className="website-profile-module__header premium-modern-web-header">
           <div>
-            <p className="landing-eyebrow">Profil modulu</p>
+            <p className="landing-eyebrow">Paketler ve fiyatlandırma</p>
             <h2>Premium ve Paketler</h2>
             <p>
-              Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Buradaki ödemeler yalnızca
-              dijital görünürlük, premium hak ve ek ilan paketleri içindir.
+              Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Ödemeler yalnızca dijital
+              görünürlük, premium hak ve ek talep paketleri içindir.
             </p>
           </div>
         </div>
@@ -273,216 +369,181 @@ function Premium({ surfaceVariant = 'app' }) {
       )}
 
       {error ? (
-        <div className="card ux-error-state">
+        <div className="premium-modern-alert premium-modern-alert--error">
           <p>{error}</p>
           <button type="button" className="secondary-btn" onClick={() => loadPageData()}>
-            Tekrar Dene
+            Tekrar dene
           </button>
         </div>
       ) : null}
       {!error && purchaseNotice ? (
-        <div className="website-profile-state-card">
-          <strong>Yakinda aktif</strong>
+        <div className="premium-modern-alert">
+          <strong>Bilgi</strong>
           <p>{purchaseNotice}</p>
         </div>
       ) : null}
 
-      <section className="card premium-membership-hero">
-        <div className="premium-membership-hero__header">
+      <section className="premium-modern-hero">
+        <div className="premium-modern-hero__copy">
+          <span className="premium-modern-eyebrow">Premium görünürlük</span>
+          <h2>Talebini Daha Fazla Kişiye Göster</h2>
+          <p>
+            Premium ve öne çıkarma haklarıyla taleplerin daha görünür olsun, daha hızlı teklif al.
+          </p>
+        </div>
+        <div className="premium-rights-strip" aria-label="Hak özeti">
           <div>
-            <p className="premium-membership-hero__eyebrow">Dijital üyelik ve görünürlük hizmeti</p>
-            <h2>Premium üyelik özeti</h2>
-            <p>
-              Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Talepet yalnızca premium
-              görünürlük, üyelik ve ilan hizmetleri sunar.
-            </p>
+            <span>Premium</span>
+            <strong>{premiumActive ? 'Aktif' : 'Pasif'}</strong>
           </div>
-          <div className={`premium-membership-hero__status ${premiumActive ? 'is-active' : ''}`}>
-            <span className="premium-membership-hero__status-label">Üyelik durumu</span>
-            <strong>{premiumActive ? 'Premium aktif' : 'Standart hesap'}</strong>
-          </div>
-        </div>
-
-        <div className="premium-membership-hero__stats">
-          <article className="premium-membership-hero__stat">
-            <span>Kalan ilan hakkı</span>
-            <strong>{planCountLabel}</strong>
-          </article>
-          <article className="premium-membership-hero__stat">
-            <span>Ek ilan kredisi</span>
-            <strong>{paidListingCredits}</strong>
-          </article>
-          <article className="premium-membership-hero__stat">
-            <span>Öne çıkarma kredisi</span>
+          <div>
+            <span>Öne çıkarma</span>
             <strong>{featuredCredits}</strong>
-          </article>
-          <article className="premium-membership-hero__stat">
-            <span>Premium badge</span>
-            <strong>{premiumActive ? 'Aktif' : 'Kapalı'}</strong>
-          </article>
+          </div>
+          <div>
+            <span>Ek hak</span>
+            <strong>{paidListingCredits}</strong>
+          </div>
+          <div>
+            <span>İlan hakkı</span>
+            <strong>{planCountLabel}</strong>
+          </div>
         </div>
+      </section>
 
-        <div className="premium-membership-hero__meta">
-          <div className="premium-membership-hero__meta-item">
+      {subscriptionSummary?.subscription ? (
+        <section className="premium-active-summary">
+          <div>
             <span>Aktif paket</span>
             <strong>{activePlanCode}</strong>
           </div>
-          <div className="premium-membership-hero__meta-item">
-            <span>Üyelik bitişi</span>
+          <div>
+            <span>Premium bitişi</span>
             <strong>{premiumUntilLabel}</strong>
           </div>
-          <div className="premium-membership-hero__meta-item">
-            <span>Dijital hizmet etiketi</span>
-            <strong>Premium üyelik ve görünürlük hizmeti</strong>
-          </div>
-        </div>
+          {subscriptionSummary.subscription.cancelAtPeriodEnd ? (
+            <span className="premium-status-pill">Dönem sonunda iptal</span>
+          ) : (
+            <button type="button" className="secondary-btn" onClick={handleCancelAtPeriodEnd}>
+              Dönem sonunda iptal et
+            </button>
+          )}
+        </section>
+      ) : null}
 
-        <div className="premium-disclaimer-inline">
-          <span>Talepet kullanıcılar arasında ödeme aracılığı yapmaz.</span>
-          <span>Bu ödeme dijital platform hizmeti içindir.</span>
-          <span>Talepet yalnızca premium görünürlük, üyelik ve ilan hizmetleri sunar.</span>
-        </div>
-      </section>
-
-      <section className="card premium-status-card">
-        <h2>{premiumActive ? 'Üyelik yönetimi' : 'Üyelik durumu'}</h2>
-        <div className="premium-subscription-box">
-          <div>Aktif plan: {activePlanCode}</div>
-          <div>Premium bitisi: {premiumUntilLabel}</div>
-          <div>Kalan ek ilan kredisi: {paidListingCredits}</div>
-          <div>Kalan öne çıkarma kredisi: {featuredCredits}</div>
-          <div>Dijital hizmet etiketi: Premium üyelik ve görünürlük hizmeti</div>
-          {subscriptionSummary?.subscription ? (
-            subscriptionSummary.subscription.cancelAtPeriodEnd ? (
-              <div className="status-pill pending">Dönem sonunda iptal</div>
-            ) : (
-              <button type="button" className="secondary-btn" onClick={handleCancelAtPeriodEnd}>
-                Dönem sonunda iptal et
-              </button>
-            )
-          ) : null}
-        </div>
-      </section>
-
-      <section className="card premium-plans">
-        <h2>Paketler ve fiyatlandırma</h2>
-        <p className="premium-plans__lead">
-          Aşağıdaki tüm seçenekler dijital platform hizmetidir. Tek bir checkout akışı kullanılır;
-          ikinci bir paket ekranı açılmaz.
-        </p>
-        {!PREMIUM_PURCHASES_ENABLED ? (
-          <div className="website-profile-state-card">
-            <strong>Geçici olarak pasif</strong>
-            <p>
-              Premium paket satın alma yakında aktif olacak. Paket hakları ve fiyatlar şu anda
-              inceleme amaçlı gösterilmektedir.
-            </p>
-          </div>
-        ) : null}
-        {loading ? <div className="website-profile-state-card">Paketler yükleniyor...</div> : null}
-        {!loading && !visiblePlans.length ? (
-          <div className="website-profile-state-card">
-            <p>Gösterilecek dijital paket bulunamadı.</p>
+      <section className="premium-package-stack" aria-label="Paketler ve fiyatlandırma">
+        {loading ? <div className="premium-modern-skeleton">Paketler yükleniyor...</div> : null}
+        {!loading && !packageCards.some((card) => card.plan) ? (
+          <div className="premium-modern-alert">
+            <strong>Paket bulunamadı</strong>
+            <p>Şu anda gösterilecek dijital paket yok.</p>
             <button type="button" className="secondary-btn" onClick={() => loadPageData()}>
               Yeniden dene
             </button>
           </div>
         ) : null}
-        {!loading && visiblePlans.length ? (
-          <div className="premium-plan-grid">
-            {visiblePlans.map((plan) => {
-              const modes = Array.isArray(plan.billingModes) ? plan.billingModes : [];
-              const planStateKey = plan.id || plan.key;
-              const selectedMode = selectedModes[planStateKey] || getPreferredMode(plan);
-              const selectedPlanCode =
-                selectedMode === 'yearly'
-                  ? plan.planCodes?.yearly || 'premium_yearly'
-                  : plan.key === 'listing_extra'
-                    ? 'listing_extra'
-                    : plan.planCodes?.monthly || 'premium_monthly';
+        {!loading
+          ? packageCards.map((card) => {
+              const hasPlan = Boolean(card.plan);
+              const rightLabel = getCardRightLabel(card);
+              const isProcessing = processing === card.selectedPlanCode;
               return (
-                <article key={plan.id || plan.key} className="premium-plan-card premium-plan-card--detailed">
-                  <div className="premium-plan-head">
-                    <div className="premium-plan-head__copy">
-                      <span className="premium-plan-badge">
-                        {plan.entitlements?.digitalServiceLabel || 'Dijital hizmet paketi'}
+                <article
+                  key={card.id}
+                  className={`premium-package-card premium-package-card--${card.theme}`}
+                >
+                  <div className="premium-package-card__header">
+                    <span className="premium-package-card__badge">{card.badge}</span>
+                    {rightLabel ? <span className="premium-package-card__right">{rightLabel}</span> : null}
+                  </div>
+                  <div className="premium-package-card__body">
+                    <h2>{card.title}</h2>
+                    <p>{card.description}</p>
+                  </div>
+                  {hasPlan ? (
+                    <div className="premium-package-card__pricing">
+                      <strong>{getModePrice(card.plan, card.selectedMode)}</strong>
+                      <span>
+                        {getModeLabel(card.selectedMode)} · {getModeDuration(card.plan, card.selectedMode)}
                       </span>
-                      <div className="premium-plan-title-row">
-                        <div className="premium-plan-title">{plan.title}</div>
-                        {plan.badgeLabel ? <span className="premium-plan-accent">{plan.badgeLabel}</span> : null}
-                      </div>
-                      <div className="premium-plan-desc">{plan.shortDescription}</div>
                     </div>
-                    {modes.length > 1 ? (
-                      <div className="premium-plan-mode-switch" aria-label={`${plan.title} paket tipi`}>
-                        {modes.map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            className={`premium-plan-mode ${selectedMode === mode ? 'is-active' : ''}`}
-                            onClick={() => updateSelectedMode(plan, mode)}
-                          >
-                            {getModeLabel(mode)}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="premium-plan-price-block">
-                    <div className="premium-plan-price">{getModePrice(plan, selectedMode)}</div>
-                    <div className="premium-plan-duration">
-                      {getModeLabel(selectedMode)} · {getModeDuration(plan, selectedMode)}
+                  ) : (
+                    <div className="premium-package-card__pricing premium-package-card__pricing--unavailable">
+                      <strong>Şu anda kullanılamıyor</strong>
+                      <span>Admin panelden aktif paket tanımlanınca burada görünür.</span>
                     </div>
-                  </div>
-
-                  <div className="premium-plan-facts">
-                    <div className="premium-plan-fact">
-                      <span>İlan hakkı</span>
-                      <strong>{plan.entitlements?.listingRights || 'Belirtilmedi'}</strong>
+                  )}
+                  {hasPlan && card.modes.length > 1 ? (
+                    <div className="premium-package-modes" aria-label={`${card.title} ödeme aralığı`}>
+                      {card.modes.map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={`premium-package-mode ${card.selectedMode === mode ? 'is-active' : ''}`}
+                          onClick={() => updateSelectedMode(card, mode)}
+                        >
+                          {getModeLabel(mode)}
+                        </button>
+                      ))}
                     </div>
-                    <div className="premium-plan-fact">
-                      <span>Premium badge</span>
-                      <strong>{plan.entitlements?.premiumBadgeIncluded ? 'Var' : 'Yok'}</strong>
-                    </div>
-                    <div className="premium-plan-fact">
-                      <span>Öne çıkarma hakkı</span>
-                      <strong>{getFeaturedSummary(plan, selectedMode)}</strong>
-                    </div>
-                    <div className="premium-plan-fact">
-                      <span>Görünürlük</span>
-                      <strong>{plan.entitlements?.visibilityBoostLabel || 'Belirtilmedi'}</strong>
-                    </div>
-                    <div className="premium-plan-fact">
-                      <span>Teklif önceliği</span>
-                      <strong>{plan.entitlements?.offerPriorityLabel || 'Dahil değil'}</strong>
-                    </div>
-                  </div>
-                  <div className="premium-plan-note">
-                    {plan.disclaimer ||
-                      'Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme aracılığı yapmaz.'}
-                  </div>
-                  <div className="premium-plan-checkout-note">
-                    Bu ödeme dijital platform hizmeti içindir. Talepet kullanıcılar arasında ödeme
-                    aracılığı yapmaz.
-                  </div>
-                  <div className="premium-cta-actions">
-                    <button
-                      type="button"
-                      className="primary-btn premium-plan-action"
-                      onClick={() => handleCheckout(selectedPlanCode)}
-                      disabled={processing === selectedPlanCode}
-                    >
-                      {processing === selectedPlanCode
-                        ? 'Yönlendiriliyor...'
-                        : getCheckoutLabel(plan, selectedMode)}
-                    </button>
-                  </div>
+                  ) : null}
+                  <ul className="premium-package-features">
+                    {card.features.map((feature) => (
+                      <li key={feature}>
+                        <span aria-hidden="true">✓</span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="premium-package-cta"
+                    onClick={() => handleCheckout(card.selectedPlanCode)}
+                    disabled={!hasPlan || isProcessing}
+                  >
+                    {isProcessing ? 'Yönlendiriliyor...' : hasPlan ? card.cta : card.unavailableCta}
+                  </button>
                 </article>
               );
-            })}
+            })
+          : null}
+      </section>
+
+      <section className="premium-comparison-card">
+        <div className="premium-comparison-card__header">
+          <span className="premium-modern-eyebrow">Karşılaştırma</span>
+          <h2>Hangi paket sana uygun?</h2>
+        </div>
+        <div className="premium-comparison-grid" role="table" aria-label="Paket karşılaştırması">
+          <div className="premium-comparison-grid__head" role="row">
+            <span role="columnheader">Özellik</span>
+            <span role="columnheader">Standart</span>
+            <span role="columnheader">Öne Çıkan</span>
+            <span role="columnheader">Premium</span>
           </div>
-        ) : null}
+          {COMPARISON_ROWS.map((row) => (
+            <div key={row.label} className="premium-comparison-grid__row" role="row">
+              <span role="cell">{row.label}</span>
+              <span role="cell" className={row.standard ? 'is-included' : ''}>
+                {row.standard ? '✓' : '—'}
+              </span>
+              <span role="cell" className={row.featured ? 'is-included' : ''}>
+                {row.featured ? '✓' : '—'}
+              </span>
+              <span role="cell" className={row.premium ? 'is-included' : ''}>
+                {row.premium ? '✓' : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="premium-service-note">
+        <strong>Dijital hizmet modeli</strong>
+        <p>
+          Talepet kullanıcılar arasında ödeme aracılığı yapmaz. Satın aldığın paketler yalnızca
+          Talepet içindeki görünürlük, premium rozet ve ek talep yayınlama haklarıdır.
+        </p>
       </section>
 
       {isWebSurface ? <ProfileLegalSection /> : null}
