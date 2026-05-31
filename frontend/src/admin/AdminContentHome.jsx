@@ -895,43 +895,44 @@ export default function AdminContentHome() {
                   </div>
                 ) : null}
 
-                <div className="admin-home-live-preview-card">
-                  <div className="admin-home-live-preview-head">
-                    <div>
-                      <strong>Canlı Mobil Önizleme</strong>
-                      <span>Uygulama ana sayfası gerçek mobil görünümle burada gösterilir.</span>
+              </aside>
+
+              <aside className="admin-home-live-preview-panel">
+                <div className="admin-home-live-preview-head">
+                  <div>
+                    <strong>Canlı Mobil Önizleme</strong>
+                    <span>Uygulama ana sayfası gerçek mobil görünümle burada gösterilir.</span>
+                  </div>
+                  <button type="button" className="admin-btn admin-btn-secondary" onClick={refreshLivePreview}>
+                    Önizlemeyi Yenile
+                  </button>
+                </div>
+                <div className="admin-home-live-preview-actions">
+                  <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
+                    App’te Aç
+                  </a>
+                </div>
+                <div className="admin-home-live-frame">
+                  {livePreviewLoading ? (
+                    <div className="admin-home-live-frame-status">Canlı önizleme yükleniyor...</div>
+                  ) : null}
+                  {livePreviewError ? (
+                    <div className="admin-home-live-frame-error">
+                      Canlı önizleme yüklenemedi. App’i yeni sekmede açarak kontrol edin.
                     </div>
-                    <button type="button" className="admin-btn admin-btn-secondary" onClick={refreshLivePreview}>
-                      Önizlemeyi Yenile
-                    </button>
-                  </div>
-                  <div className="admin-home-live-preview-actions">
-                    <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
-                      App’te Aç
-                    </a>
-                  </div>
-                  <div className="admin-home-live-frame">
-                    {livePreviewLoading ? (
-                      <div className="admin-home-live-frame-status">Canlı önizleme yükleniyor...</div>
-                    ) : null}
-                    {livePreviewError ? (
-                      <div className="admin-home-live-frame-error">
-                        Canlı önizleme yüklenemedi. App’i yeni sekmede açarak kontrol edin.
-                      </div>
-                    ) : null}
-                    <iframe
-                      key={previewReloadKey}
-                      title="Talepet canlı mobil önizleme"
-                      src={livePreviewSrc}
-                      className="admin-home-live-iframe"
-                      loading="lazy"
-                      onLoad={() => setLivePreviewLoading(false)}
-                      onError={() => {
-                        setLivePreviewLoading(false);
-                        setLivePreviewError(true);
-                      }}
-                    />
-                  </div>
+                  ) : null}
+                  <iframe
+                    key={previewReloadKey}
+                    title="Talepet canlı mobil önizleme"
+                    src={livePreviewSrc}
+                    className="admin-home-live-iframe"
+                    loading="lazy"
+                    onLoad={() => setLivePreviewLoading(false)}
+                    onError={() => {
+                      setLivePreviewLoading(false);
+                      setLivePreviewError(true);
+                    }}
+                  />
                 </div>
               </aside>
             </div>
