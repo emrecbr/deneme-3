@@ -369,7 +369,7 @@ html[data-surface="admin"] .admin-home-builder-header p {
 
 html[data-surface="admin"] .admin-home-builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  grid-template-columns: minmax(0, 1fr) minmax(430px, 460px);
   gap: 24px;
   align-items: start;
 }
@@ -598,7 +598,8 @@ html[data-surface="admin"] .admin-home-file-input {
 }
 
 html[data-surface="admin"] .admin-home-live-phone {
-  max-width: 320px;
+  max-width: 360px;
+  min-width: 320px;
   width: 100%;
   justify-self: center;
   overflow: hidden;
@@ -614,6 +615,18 @@ html[data-surface="admin"] .admin-home-live-top {
   justify-content: space-between;
   color: #111827;
   font-size: 0.9rem;
+}
+
+html[data-surface="admin"] .admin-home-live-top i {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+  color: #007bff;
+  font-style: normal;
+  line-height: 1;
 }
 
 html[data-surface="admin"] .admin-home-live-top span {
@@ -632,7 +645,8 @@ html[data-surface="admin"] .admin-home-live-search {
 
 html[data-surface="admin"] .admin-home-live-hero {
   display: flex;
-  min-height: 132px;
+  aspect-ratio: 2 / 1;
+  min-height: 158px;
   align-items: flex-end;
   overflow: hidden;
   border-radius: 24px;
@@ -651,15 +665,19 @@ html[data-surface="admin"] .admin-home-live-hero.with-overlay {
 
 html[data-surface="admin"] .admin-home-live-hero h3 {
   margin: 0 0 5px;
-  font-size: 1.08rem;
-  line-height: 1.1;
+  font-size: 1.25rem;
+  line-height: 1.08;
 }
 
 html[data-surface="admin"] .admin-home-live-hero p {
   margin: 0 0 10px;
-  font-size: 0.76rem;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.84rem;
   line-height: 1.35;
   opacity: 0.9;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 html[data-surface="admin"] .admin-home-live-hero span {
@@ -681,10 +699,10 @@ html[data-surface="admin"] .admin-home-live-categories {
 
 html[data-surface="admin"] .admin-home-live-categories div {
   display: grid;
-  min-height: 58px;
+  min-height: 68px;
   place-items: center;
   border-radius: 16px;
-  padding: 6px 3px;
+  padding: 8px 4px;
 }
 
 html[data-surface="admin"] .admin-home-live-categories img {
@@ -730,10 +748,21 @@ html[data-surface="admin"] .admin-home-live-rfq span {
 
 html[data-surface="admin"] .admin-home-live-rfq {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   padding: 14px;
   background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+html[data-surface="admin"] .admin-home-live-rfq-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.82), transparent 34%),
+    linear-gradient(135deg, #dbeafe, #c7d2fe);
 }
 
 html[data-surface="admin"] .admin-home-save-button {
@@ -744,6 +773,41 @@ html[data-surface="admin"] .admin-home-save-button {
 html[data-surface="admin"] .admin-home-publish-note {
   margin: -6px 0 0;
   text-align: center;
+}
+
+html[data-surface="admin"] .admin-home-sync-check {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 12px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.82rem;
+}
+
+html[data-surface="admin"] .admin-home-sync-check.is-warning {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+html[data-surface="admin"] .admin-home-sync-check strong {
+  color: inherit;
+}
+
+html[data-surface="admin"] .admin-home-sync-check span,
+html[data-surface="admin"] .admin-home-sync-check small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-surface="admin"] .admin-home-sync-check a {
+  justify-self: start;
+  color: #007bff;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 html[data-surface="admin"] .admin-home-advanced {

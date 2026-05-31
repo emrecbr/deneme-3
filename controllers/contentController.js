@@ -8,6 +8,7 @@ export const getContent = async (req, res, next) => {
     const section = String(req.params.section || '').trim();
     const defaults = DEFAULT_CONTENT_PAYLOAD[section] || {};
     const doc = await AppSetting.findOne({ key: getKey(section) }).lean();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     return res.status(200).json({ success: true, data: { ...defaults, ...(doc?.value || {}) } });
   } catch (error) {
     return next(error);

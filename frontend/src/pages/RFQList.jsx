@@ -81,21 +81,27 @@ const SORT_OPTIONS = [
   { value: 'date_desc', label: 'Tarihe göre: yeni ilan' },
   { value: 'date_asc', label: 'Tarihe göre: eski ilan' }
 ];
+const DEFAULT_HOME_QUICK_CATEGORIES = [
+  { key: 'default-goods', label: 'Eşya', segment: 'goods', backgroundColor: '#FFF4DE', enabled: true, sortOrder: 10 },
+  { key: 'default-service', label: 'Hizmet', segment: 'service', backgroundColor: '#EAF2FF', enabled: true, sortOrder: 20 },
+  { key: 'default-auto', label: 'Otomobil', segment: 'auto', backgroundColor: '#EEFDF8', enabled: true, sortOrder: 30 },
+  { key: 'default-jobseeker', label: 'İş Arayan', segment: 'jobseeker', backgroundColor: '#F3EFFF', enabled: true, sortOrder: 40 }
+];
 const DEFAULT_HOME_CONTENT = {
   heroTitle: '',
   heroSubtitle: '',
   layoutVariant: 'premium_mobile_v1',
   heroBanner: {
-    enabled: false,
-    title: '',
-    subtitle: '',
-    ctaLabel: '',
-    ctaPath: '',
+    enabled: true,
+    title: 'Talebini daha hızlı tamamla',
+    subtitle: 'Yakındaki açık talepleri keşfet ve doğru tekliflere daha hızlı ulaş.',
+    ctaLabel: 'Talep Oluştur',
+    ctaPath: '/create',
     imageUrl: '',
     overlayEnabled: true,
     sortOrder: 10
   },
-  quickCategories: [],
+  quickCategories: DEFAULT_HOME_QUICK_CATEGORIES,
   homeSections: [],
   visualTheme: {
     background: '#F5F1EA',
@@ -109,7 +115,10 @@ const normalizeHomeContent = (payload = {}) => ({
   ...payload,
   heroBanner: { ...DEFAULT_HOME_CONTENT.heroBanner, ...(payload.heroBanner || {}) },
   visualTheme: { ...DEFAULT_HOME_CONTENT.visualTheme, ...(payload.visualTheme || {}) },
-  quickCategories: Array.isArray(payload.quickCategories) ? payload.quickCategories : [],
+  quickCategories:
+    Array.isArray(payload.quickCategories) && payload.quickCategories.length
+      ? payload.quickCategories
+      : DEFAULT_HOME_QUICK_CATEGORIES,
   homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : []
 });
 
@@ -2657,9 +2666,17 @@ function RFQList({ surfaceVariant = 'app' }) {
     let active = true;
     const loadHomeContent = async () => {
       try {
-        const response = await api.get('/content/home');
+        const response = await api.get(`/content/home?ts=${Date.now()}`);
         if (!active) return;
-        setHomeContent((prev) => normalizeHomeContent({ ...prev, ...(response.data?.data || {}) }));
+        const nextHomeContent = normalizeHomeContent(response.data?.data || {});
+        setHomeContent(nextHomeContent);
+        if (window.localStorage?.getItem('talepet:debug-home-content') === '1') {
+          console.info('HOME_CONTENT_LOADED', {
+            isWebSurface,
+            heroBanner: nextHomeContent.heroBanner,
+            quickCategories: nextHomeContent.quickCategories?.length || 0
+          });
+        }
       } catch (_error) {
         // ignore content errors
       }
@@ -2668,7 +2685,7 @@ function RFQList({ surfaceVariant = 'app' }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isWebSurface]);
 
   const normalizeSearch = useCallback((value) => String(value || '').toLowerCase().trim(), []);
 

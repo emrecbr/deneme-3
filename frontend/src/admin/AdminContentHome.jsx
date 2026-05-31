@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
+import { buildSurfaceHref } from '../config/surfaces';
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 const SEGMENTS = [
@@ -28,6 +29,7 @@ const HOME_HERO_TARGET_HEIGHT = 600;
 const HOME_HERO_TARGET_SIZE_BYTES = 1024 * 1024;
 const HOME_HERO_WEBP_QUALITIES = [0.82, 0.75, 0.68];
 const HOME_ASSET_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const APP_HOME_PREVIEW_HREF = buildSurfaceHref('app', '/app') || '/app';
 
 const presetQuickCategories = (items) =>
   items.map((item, index) => ({
@@ -404,6 +406,7 @@ export default function AdminContentHome() {
   const [uploadingKey, setUploadingKey] = useState('');
   const [uploadStage, setUploadStage] = useState('');
   const [heroPreviewUrl, setHeroPreviewUrl] = useState('');
+  const [publicContentCheck, setPublicContentCheck] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
@@ -554,6 +557,7 @@ export default function AdminContentHome() {
     updateHero('imageUrl', '');
     setHeroPreviewUrl('');
     setUploadStage('');
+    setPublicContentCheck(null);
     setSuccess('Hero görseli kaldırıldı. Canlıya yansıtmak için Kaydet butonuna basın.');
   };
 
@@ -629,6 +633,7 @@ export default function AdminContentHome() {
 
       const localPreviewUrl = URL.createObjectURL(optimizedBlob);
       setHeroPreviewUrl(localPreviewUrl);
+      setPublicContentCheck(null);
       setUploadStage('Görsel yükleniyor...');
       await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
       setUploadStage('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
@@ -651,10 +656,36 @@ export default function AdminContentHome() {
     setSuccess('');
     try {
       const response = await api.patch('/admin/content/home', form);
-      setForm(normalizeForm(response.data?.data || form));
-      setSuccess('Ana sayfa içerikleri güncellendi.');
+      const savedForm = normalizeForm(response.data?.data || form);
+      setForm(savedForm);
+      const publicResponse = await api.get(`/content/home?ts=${Date.now()}`);
+      const publicForm = normalizeForm(publicResponse.data?.data || {});
+      const savedTitle = savedForm.heroBanner?.title || '';
+      const publicTitle = publicForm.heroBanner?.title || '';
+      const savedImageUrl = savedForm.heroBanner?.imageUrl || '';
+      const publicImageUrl = publicForm.heroBanner?.imageUrl || '';
+      const savedCategoryCount = Array.isArray(savedForm.quickCategories) ? savedForm.quickCategories.length : 0;
+      const publicCategoryCount = Array.isArray(publicForm.quickCategories) ? publicForm.quickCategories.length : 0;
+      const publicMatches =
+        savedTitle === publicTitle &&
+        savedImageUrl === publicImageUrl &&
+        savedCategoryCount === publicCategoryCount;
+
+      setPublicContentCheck({
+        ok: publicMatches,
+        checkedAt: new Date().toLocaleString('tr-TR'),
+        savedTitle,
+        publicTitle,
+        publicImageUrl,
+        publicCategoryCount
+      });
+      setSuccess(
+        publicMatches
+          ? 'Kaydedildi. Public ana sayfa içeriği güncel. App yüzeyinde kontrol edebilirsiniz.'
+          : 'Kaydedildi ancak public içerik henüz güncel görünmüyor. Cache veya deploy kontrolü gerekebilir.'
+      );
     } catch (err) {
-      setError(err?.response?.data?.message || 'İçerik güncellenemedi.');
+      setError(err?.response?.data?.message || 'İçerik güncellenemedi veya public içerik doğrulanamadı.');
     } finally {
       setSaving(false);
     }
@@ -677,7 +708,7 @@ export default function AdminContentHome() {
                   düzenle ve kaydet.
                 </p>
               </div>
-              <a className="admin-btn admin-btn-secondary" href="/app" target="_blank" rel="noreferrer">
+              <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
                 Siteyi Görüntüle
               </a>
             </div>
@@ -830,9 +861,9 @@ export default function AdminContentHome() {
                 >
                   <div className="admin-home-live-top">
                     <strong>Talepet</strong>
-                    <span>İstanbul</span>
+                    <span>Kocaeli</span>
+                    <i aria-hidden="true">•</i>
                   </div>
-                  <div className="admin-home-live-search">Ne arıyorsun?</div>
                   {form.heroBanner.enabled ? (
                     <div
                       className={`admin-home-live-hero ${form.heroBanner.overlayEnabled ? 'with-overlay' : ''}`}
@@ -858,8 +889,11 @@ export default function AdminContentHome() {
                     <span>{enabledSections[0]?.subtitle || 'Sana yakın güncel talepler.'}</span>
                   </div>
                   <div className="admin-home-live-rfq" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }}>
-                    <strong>Örnek talep kartı</strong>
-                    <span>Konum, kategori ve teklif bilgisi burada görünür.</span>
+                    <div className="admin-home-live-rfq-thumb" />
+                    <div>
+                      <strong>Boya badana ihtiyacım var</strong>
+                      <span>Kocaeli • Hizmet / Usta</span>
+                    </div>
                   </div>
                 </div>
 
@@ -867,6 +901,19 @@ export default function AdminContentHome() {
                   {saving ? 'Kaydediliyor…' : uploadingKey ? 'Görsel yükleniyor…' : 'Kaydet ve Yayınla'}
                 </button>
                 <p className="admin-home-publish-note">Değişiklikler kaydedildikten sonra uygulama ana sayfasında yayına alınır.</p>
+                {publicContentCheck ? (
+                  <div className={`admin-home-sync-check ${publicContentCheck.ok ? 'is-ok' : 'is-warning'}`}>
+                    <strong>Yansıma Kontrolü</strong>
+                    <span>Son kaydedilen başlık: {publicContentCheck.savedTitle || '-'}</span>
+                    <span>Public content başlığı: {publicContentCheck.publicTitle || '-'}</span>
+                    <span>Public görsel URL: {publicContentCheck.publicImageUrl || '-'}</span>
+                    <span>Kategori kısa yolu: {publicContentCheck.publicCategoryCount}</span>
+                    <small>Kontrol zamanı: {publicContentCheck.checkedAt}</small>
+                    <a href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
+                      App’te Aç
+                    </a>
+                  </div>
+                ) : null}
               </aside>
             </div>
 
