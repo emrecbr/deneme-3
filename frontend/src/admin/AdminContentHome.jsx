@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 
@@ -16,6 +16,10 @@ const SECTION_SOURCES = [
   { value: 'latest', label: 'Son eklenen' },
   { value: 'premium', label: 'Premium' }
 ];
+
+const HERO_TITLE_LIMIT = 80;
+const HERO_SUBTITLE_LIMIT = 120;
+const HERO_CTA_LIMIT = 30;
 
 const presetQuickCategories = (items) =>
   items.map((item, index) => ({
@@ -42,8 +46,8 @@ const presetSections = (items) =>
 const HOME_VISUAL_PRESETS = [
   {
     key: 'premium-general',
-    name: 'Premium Genel Ana Sayfa',
-    description: 'Tüm kullanıcılar için dengeli ve dönüşüm odaklı ana sayfa.',
+    name: 'Premium Ana Sayfa',
+    description: 'Genel kullanım için dengeli ana sayfa tasarımı.',
     useCase: 'Genel kullanım, yeni kullanıcı karşılama ve hızlı talep oluşturma.',
     accent: '#3478F6',
     form: {
@@ -61,7 +65,7 @@ const HOME_VISUAL_PRESETS = [
       },
       quickCategories: presetQuickCategories([
         { label: 'Eşya', segment: 'goods', backgroundColor: '#FEF3C7' },
-        { label: 'Hizmet / Usta', segment: 'service', backgroundColor: '#DBEAFE' },
+        { label: 'Hizmet', segment: 'service', backgroundColor: '#DBEAFE' },
         { label: 'Otomobil', segment: 'auto', backgroundColor: '#E0F2FE' },
         { label: 'İş Arayan', segment: 'jobseeker', backgroundColor: '#F3E8FF' }
       ]),
@@ -79,8 +83,8 @@ const HOME_VISUAL_PRESETS = [
   },
   {
     key: 'service-focused',
-    name: 'Hizmet ve Usta Odaklı',
-    description: 'Elektrikçi, tesisatçı, tamir ve bakım taleplerini öne çıkarır.',
+    name: 'Usta / Hizmet Odaklı',
+    description: 'Hizmet ve usta taleplerini öne çıkaran tasarım.',
     useCase: 'Hizmet talebi oluşturmayı artırmak istediğin dönemler.',
     accent: '#0EA5E9',
     form: {
@@ -99,7 +103,7 @@ const HOME_VISUAL_PRESETS = [
       quickCategories: presetQuickCategories([
         { label: 'Elektrik', segment: 'service', backgroundColor: '#DBEAFE' },
         { label: 'Tesisat', segment: 'service', backgroundColor: '#CCFBF1' },
-        { label: 'Boya / Tadilat', segment: 'service', backgroundColor: '#EDE9FE' },
+        { label: 'Boya', segment: 'service', backgroundColor: '#EDE9FE' },
         { label: 'Temizlik', segment: 'service', backgroundColor: '#DCFCE7' }
       ]),
       homeSections: presetSections([
@@ -116,8 +120,8 @@ const HOME_VISUAL_PRESETS = [
   },
   {
     key: 'goods-second-hand',
-    name: 'Eşya ve İkinci El Odaklı',
-    description: 'Ev eşyası, ihtiyaç ve ürün taleplerini daha görünür yapar.',
+    name: 'Eşya Odaklı',
+    description: 'Eşya ve ikinci el taleplerini öne çıkaran tasarım.',
     useCase: 'Eşya taleplerini ve ikinci el kullanım senaryosunu öne çıkarmak için.',
     accent: '#F59E0B',
     form: {
@@ -137,7 +141,7 @@ const HOME_VISUAL_PRESETS = [
         { label: 'Mobilya', segment: 'goods', backgroundColor: '#FEF3C7' },
         { label: 'Elektronik', segment: 'goods', backgroundColor: '#E0F2FE' },
         { label: 'Ev Eşyası', segment: 'goods', backgroundColor: '#FDE68A' },
-        { label: 'Bebek / Çocuk', segment: 'goods', backgroundColor: '#FCE7F3' }
+        { label: 'Bebek', segment: 'goods', backgroundColor: '#FCE7F3' }
       ]),
       homeSections: presetSections([
         { title: 'Eşya Talepleri', subtitle: 'Eşya ve ürün ihtiyaçlarını gör.', source: 'featured' },
@@ -153,17 +157,17 @@ const HOME_VISUAL_PRESETS = [
   },
   {
     key: 'location-nearby',
-    name: 'Konum Odaklı Yakındaki Talepler',
-    description: 'Şehir, ilçe ve radius mantığını daha anlaşılır hale getirir.',
+    name: 'Konum Odaklı',
+    description: 'Yakındaki talepleri keşfetmeyi ön plana çıkarır.',
     useCase: 'Yakındaki talepleri, konum keşfini ve şehir bazlı kullanımı vurgulamak için.',
     accent: '#14B8A6',
     form: {
       heroTitle: 'Yakınındaki talepleri keşfet.',
-      heroSubtitle: 'Şehir, ilçe ve konumuna göre en yakın fırsatları gör.',
+      heroSubtitle: 'Şehir, ilçe ve konumuna göre en yakın talepleri gör.',
       heroBanner: {
         enabled: true,
         title: 'Yakınındaki talepleri keşfet.',
-        subtitle: 'Şehir, ilçe ve konumuna göre en yakın fırsatları gör.',
+        subtitle: 'Şehir, ilçe ve konumuna göre en yakın talepleri gör.',
         ctaLabel: 'Konumuna Göre Keşfet',
         ctaPath: '/app',
         imageUrl: '',
@@ -285,13 +289,14 @@ const buildAssetUrl = (url) => {
 };
 
 export default function AdminContentHome() {
+  const heroFileInputRef = useRef(null);
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingKey, setUploadingKey] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedPresetKey, setSelectedPresetKey] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
 
   useEffect(() => {
     let active = true;
@@ -324,9 +329,29 @@ export default function AdminContentHome() {
     () => [...(form.homeSections || [])].filter((item) => item.enabled !== false).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)),
     [form.homeSections]
   );
+  const selectedPreset = useMemo(
+    () => HOME_VISUAL_PRESETS.find((preset) => preset.key === selectedPresetKey) || HOME_VISUAL_PRESETS[0],
+    [selectedPresetKey]
+  );
 
   const updateHero = (key, value) => {
     setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, [key]: value } }));
+  };
+
+  const updateHeroTitle = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      heroTitle: value,
+      heroBanner: { ...prev.heroBanner, title: value }
+    }));
+  };
+
+  const updateHeroSubtitle = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      heroSubtitle: value,
+      heroBanner: { ...prev.heroBanner, subtitle: value }
+    }));
   };
 
   const updateTheme = (key, value) => {
@@ -406,6 +431,11 @@ export default function AdminContentHome() {
     setSuccess('Şablon forma uygulandı. Canlıya yansıtmak için Kaydet butonuna basın.');
   };
 
+  const removeHeroImage = () => {
+    updateHero('imageUrl', '');
+    setSuccess('Hero görseli kaldırıldı. Canlıya yansıtmak için Kaydet butonuna basın.');
+  };
+
   const uploadAsset = async (file, target, index = null) => {
     if (!file) return;
     setUploadingKey(index == null ? target : `${target}-${index}`);
@@ -465,118 +495,239 @@ export default function AdminContentHome() {
           <div className="admin-empty">Yükleniyor…</div>
         ) : (
           <>
-            <div className="admin-info admin-home-visuals-intro">
-              Bu ekrandan uygulama ana sayfasındaki hero görseli, kategori kısa yolları ve ana sayfa bölümleri yönetilir.
-              Hazır şablonlar sadece formu doldurur; canlıya almak için Kaydet butonuna basman gerekir.
+            <div className="admin-home-builder-header">
+              <div>
+                <h2>Ana Sayfa Tasarımını Seç</h2>
+                <p>
+                  Uygulama ana sayfasının nasıl görüneceğini buradan seç. Bir şablon seç, görselini yükle, başlığı
+                  düzenle ve kaydet.
+                </p>
+              </div>
+              <a className="admin-btn admin-btn-secondary" href="/app" target="_blank" rel="noreferrer">
+                Siteyi Görüntüle
+              </a>
             </div>
 
-            <div className="admin-card admin-home-presets">
-              <div className="admin-card-title">Hazır Ana Sayfa Şablonları</div>
-              <div className="admin-muted">
-                Bir şablon seçerek hero, kısa yollar, bölüm başlıkları ve tema alanlarını tek tıkla doldur.
-              </div>
-              <div className="admin-home-preset-grid">
-                {HOME_VISUAL_PRESETS.map((preset) => (
-                  <div
-                    key={preset.key}
-                    className={`admin-home-preset-card ${selectedPresetKey === preset.key ? 'is-selected' : ''}`}
-                  >
-                    <div className="admin-home-preset-preview" style={{ '--preset-accent': preset.accent }}>
-                      <div className="admin-home-preset-hero" />
-                      <div className="admin-home-preset-chips">
-                        <span />
-                        <span />
-                        <span />
+            <div className="admin-home-builder-layout">
+              <section className="admin-home-template-area" id="home-visual-presets">
+                <div className="admin-home-section-heading">
+                  <div>
+                    <h3>Hazır Şablonlar</h3>
+                    <p>Şablon seçimi canlıya otomatik yansımaz; formu doldurur ve önizlemeyi günceller.</p>
+                  </div>
+                  <span>5 şablon</span>
+                </div>
+                <div className="admin-home-template-grid">
+                  {HOME_VISUAL_PRESETS.map((preset) => (
+                    <article
+                      key={preset.key}
+                      className={`admin-home-template-card ${selectedPresetKey === preset.key ? 'is-selected' : ''}`}
+                    >
+                      {selectedPresetKey === preset.key ? <span className="admin-home-template-check">✓</span> : null}
+                      <div className="admin-home-template-mock" style={{ '--preset-accent': preset.accent }}>
+                        <div className="admin-home-template-mock-hero" />
+                        <div className="admin-home-template-mock-search" />
+                        <div className="admin-home-template-mock-cats">
+                          {(preset.form.quickCategories || []).slice(0, 4).map((item) => (
+                            <span key={item.key}>{String(item.label || '').slice(0, 1)}</span>
+                          ))}
+                        </div>
+                        <div className="admin-home-template-mock-card" />
                       </div>
-                      <div className="admin-home-preset-row" />
-                    </div>
-                    <div className="admin-home-preset-copy">
                       <strong>{preset.name}</strong>
                       <p>{preset.description}</p>
                       <small>Nerede kullanılır? {preset.useCase}</small>
-                    </div>
-                    <button type="button" className="admin-btn admin-btn-secondary" onClick={() => applyPreset(preset)}>
-                      Bu Şablonu Kullan
-                    </button>
+                      <button type="button" className="admin-btn" onClick={() => applyPreset(preset)}>
+                        Seç ve Düzenle
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <aside className="admin-home-editor-panel">
+                <div className="admin-home-editor-panel-head">
+                  <div>
+                    <span>Seçilen Şablon</span>
+                    <strong>{selectedPreset?.name || 'Premium Ana Sayfa'}</strong>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="admin-home-visuals-grid">
-              <div className="admin-home-visuals-editor">
-              <div className="admin-card admin-plan-card">
-                <div className="admin-card-title">Eski başlık alanı</div>
-                <div className="admin-form-grid">
-                  <label>
-                    <span>Başlık</span>
-                    <input className="admin-input" value={form.heroTitle || ''} onChange={(e) => setForm({ ...form, heroTitle: e.target.value })} />
-                  </label>
-                  <label>
-                    <span>Alt başlık</span>
-                    <textarea className="admin-textarea" rows={3} value={form.heroSubtitle || ''} onChange={(e) => setForm({ ...form, heroSubtitle: e.target.value })} />
-                  </label>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-secondary"
+                    onClick={() => document.getElementById('home-visual-presets')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    Şablonu Değiştir
+                  </button>
                 </div>
-              </div>
 
-              <div className="admin-card admin-plan-card">
-                <div className="admin-card-title">Hero Banner</div>
-                <div className="admin-muted" style={{ marginBottom: 12 }}>
-                  Ana sayfanın üst büyük görsel alanı. Başlık, açıklama, CTA ve isteğe bağlı görsel buradan yönetilir.
-                </div>
-                <div className="admin-form-grid">
-                  <label>
-                    <span>Aktif</span>
-                    <select className="admin-input" value={form.heroBanner.enabled ? '1' : '0'} onChange={(e) => updateHero('enabled', e.target.value === '1')}>
-                      <option value="1">Aktif</option>
-                      <option value="0">Pasif</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Overlay</span>
-                    <select className="admin-input" value={form.heroBanner.overlayEnabled ? '1' : '0'} onChange={(e) => updateHero('overlayEnabled', e.target.value === '1')}>
-                      <option value="1">Aktif</option>
-                      <option value="0">Pasif</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Başlık</span>
-                    <input className="admin-input" value={form.heroBanner.title || ''} onChange={(e) => updateHero('title', e.target.value)} />
-                  </label>
-                  <label>
-                    <span>Alt başlık</span>
-                    <textarea className="admin-textarea" rows={3} value={form.heroBanner.subtitle || ''} onChange={(e) => updateHero('subtitle', e.target.value)} />
-                  </label>
-                  <label>
-                    <span>CTA metni</span>
-                    <input className="admin-input" value={form.heroBanner.ctaLabel || ''} onChange={(e) => updateHero('ctaLabel', e.target.value)} />
-                  </label>
-                  <label>
-                    <span>CTA path</span>
-                    <input className="admin-input" placeholder="/create" value={form.heroBanner.ctaPath || ''} onChange={(e) => updateHero('ctaPath', e.target.value)} />
-                  </label>
-                  <label>
-                    <span>Görsel URL</span>
-                    <input className="admin-input" value={form.heroBanner.imageUrl || ''} onChange={(e) => updateHero('imageUrl', e.target.value)} />
-                  </label>
-                  <label>
-                    <span>Görsel upload</span>
+                <div className="admin-home-edit-block">
+                  <div className="admin-home-edit-label">
+                    <strong>Hero Görseli</strong>
+                    <span>Ana banner görseli (önerilen boyut: 1200x600)</span>
+                  </div>
+                  <div
+                    className={`admin-home-hero-upload-preview ${form.heroBanner.imageUrl ? 'has-image' : ''}`}
+                    style={form.heroBanner.imageUrl ? { backgroundImage: `url(${buildAssetUrl(form.heroBanner.imageUrl)})` } : undefined}
+                  >
+                    {!form.heroBanner.imageUrl ? <span>Hero görseli önizlemesi</span> : null}
+                  </div>
+                  <div className="admin-home-button-row">
+                    <button type="button" className="admin-btn" onClick={() => heroFileInputRef.current?.click()}>
+                      Görsel Yükle
+                    </button>
+                    <button type="button" className="admin-btn admin-btn-secondary" onClick={removeHeroImage}>
+                      Kaldır
+                    </button>
                     <input
-                      className="admin-input"
+                      ref={heroFileInputRef}
+                      className="admin-home-file-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(e) => uploadAsset(e.target.files?.[0], 'hero')}
                     />
-                  </label>
+                  </div>
                 </div>
-              </div>
 
-              <div className="admin-card admin-plan-card">
-                <div className="admin-card-title">Kategori Kısa Yolları</div>
-                <div className="admin-muted" style={{ marginBottom: 12 }}>
-                  Kullanıcının ana sayfada hızlı filtre seçmesini sağlar.
+                <label className="admin-home-field">
+                  <span>Başlık</span>
+                  <input
+                    className="admin-input"
+                    maxLength={HERO_TITLE_LIMIT}
+                    value={form.heroBanner.title || ''}
+                    onChange={(e) => updateHeroTitle(e.target.value)}
+                  />
+                  <small>{String(form.heroBanner.title || '').length} / {HERO_TITLE_LIMIT}</small>
+                </label>
+
+                <label className="admin-home-field">
+                  <span>Alt Başlık</span>
+                  <textarea
+                    className="admin-textarea"
+                    rows={3}
+                    maxLength={HERO_SUBTITLE_LIMIT}
+                    value={form.heroBanner.subtitle || ''}
+                    onChange={(e) => updateHeroSubtitle(e.target.value)}
+                  />
+                  <small>{String(form.heroBanner.subtitle || '').length} / {HERO_SUBTITLE_LIMIT}</small>
+                </label>
+
+                <label className="admin-home-field">
+                  <span>Buton Yazısı</span>
+                  <input
+                    className="admin-input"
+                    maxLength={HERO_CTA_LIMIT}
+                    value={form.heroBanner.ctaLabel || ''}
+                    onChange={(e) => updateHero('ctaLabel', e.target.value)}
+                  />
+                  <small>{String(form.heroBanner.ctaLabel || '').length} / {HERO_CTA_LIMIT}</small>
+                </label>
+
+                <label className="admin-home-field">
+                  <span>Buton Yönlendirme</span>
+                  <input
+                    className="admin-input"
+                    placeholder="/create"
+                    value={form.heroBanner.ctaPath || ''}
+                    onChange={(e) => updateHero('ctaPath', e.target.value)}
+                  />
+                  <small>Örn: /talep-olustur</small>
+                </label>
+
+                <div className="admin-home-edit-label">
+                  <strong>Önizleme (Mobil)</strong>
+                  <span>Form değişiklikleri bu telefon önizlemesine anlık yansır.</span>
                 </div>
-                <div className="admin-repeat-list">
+
+                <div
+                  className="admin-home-live-phone"
+                  style={{ background: form.visualTheme.background || '#F5F1EA' }}
+                >
+                  <div className="admin-home-live-top">
+                    <strong>Talepet</strong>
+                    <span>İstanbul</span>
+                  </div>
+                  <div className="admin-home-live-search">Ne arıyorsun?</div>
+                  {form.heroBanner.enabled ? (
+                    <div
+                      className={`admin-home-live-hero ${form.heroBanner.overlayEnabled ? 'with-overlay' : ''}`}
+                      style={form.heroBanner.imageUrl ? { backgroundImage: `url(${buildAssetUrl(form.heroBanner.imageUrl)})` } : undefined}
+                    >
+                      <div>
+                        <h3>{form.heroBanner.title}</h3>
+                        <p>{form.heroBanner.subtitle}</p>
+                        {form.heroBanner.ctaLabel ? <span>{form.heroBanner.ctaLabel}</span> : null}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="admin-home-live-categories">
+                    {enabledQuickCategories.slice(0, 4).map((item) => (
+                      <div key={item.key || item.label} style={{ background: item.backgroundColor || '#F8F6F2' }}>
+                        {item.iconUrl ? <img src={buildAssetUrl(item.iconUrl)} alt="" /> : <span>{String(item.label || '?').slice(0, 1)}</span>}
+                        <small>{item.label}</small>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="admin-home-live-section">
+                    <strong>{enabledSections[0]?.title || 'Yakındaki Talepler'}</strong>
+                    <span>{enabledSections[0]?.subtitle || 'Sana yakın güncel talepler.'}</span>
+                  </div>
+                  <div className="admin-home-live-rfq" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }}>
+                    <strong>Örnek talep kartı</strong>
+                    <span>Konum, kategori ve teklif bilgisi burada görünür.</span>
+                  </div>
+                </div>
+
+                <button type="button" className="admin-btn admin-home-save-button" onClick={save} disabled={loading || saving || Boolean(uploadingKey)}>
+                  {saving ? 'Kaydediliyor…' : uploadingKey ? 'Görsel yükleniyor…' : 'Kaydet ve Yayınla'}
+                </button>
+                <p className="admin-home-publish-note">Değişiklikler kaydedildikten sonra uygulama ana sayfasında yayına alınır.</p>
+              </aside>
+            </div>
+
+            <details className="admin-home-advanced">
+              <summary>
+                <span>Gelişmiş Ayarlar</span>
+                <small>(isteğe bağlı) Kategori kısa yolları, bölümler ve tema ayarlarını düzenleyin.</small>
+              </summary>
+              <div className="admin-home-advanced-body">
+                <div className="admin-card admin-plan-card">
+                  <div className="admin-card-title">Eski başlık alanı</div>
+                  <div className="admin-form-grid">
+                    <label>
+                      <span>Başlık</span>
+                      <input className="admin-input" value={form.heroTitle || ''} onChange={(e) => setForm({ ...form, heroTitle: e.target.value })} />
+                    </label>
+                    <label>
+                      <span>Alt başlık</span>
+                      <textarea className="admin-textarea" rows={3} value={form.heroSubtitle || ''} onChange={(e) => setForm({ ...form, heroSubtitle: e.target.value })} />
+                    </label>
+                    <label>
+                      <span>Hero aktif</span>
+                      <select className="admin-input" value={form.heroBanner.enabled ? '1' : '0'} onChange={(e) => updateHero('enabled', e.target.value === '1')}>
+                        <option value="1">Aktif</option>
+                        <option value="0">Pasif</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Hero overlay</span>
+                      <select className="admin-input" value={form.heroBanner.overlayEnabled ? '1' : '0'} onChange={(e) => updateHero('overlayEnabled', e.target.value === '1')}>
+                        <option value="1">Aktif</option>
+                        <option value="0">Pasif</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Hero görsel URL</span>
+                      <input className="admin-input" value={form.heroBanner.imageUrl || ''} onChange={(e) => updateHero('imageUrl', e.target.value)} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="admin-card admin-plan-card">
+                  <div className="admin-card-title">Kategori Kısa Yolları</div>
+                  <div className="admin-muted" style={{ marginBottom: 12 }}>
+                    Kullanıcının ana sayfada hızlı filtre seçmesini sağlar.
+                  </div>
+                  <div className="admin-repeat-list">
                   {(form.quickCategories || []).map((item, index) => (
                     <div className="admin-repeat-item" key={item.key || index}>
                       <div className="admin-repeat-header">
@@ -635,14 +786,14 @@ export default function AdminContentHome() {
                 <button type="button" className="admin-btn admin-btn-secondary" onClick={addQuickCategory}>
                   Kısa Yol Ekle
                 </button>
-              </div>
-
-              <div className="admin-card admin-plan-card">
-                <div className="admin-card-title">Ana Sayfa Bölümleri</div>
-                <div className="admin-muted" style={{ marginBottom: 12 }}>
-                  Liste başlıklarını ve hangi talep kaynaklarının öne çıkacağını belirler.
                 </div>
-                <div className="admin-repeat-list">
+
+                <div className="admin-card admin-plan-card">
+                  <div className="admin-card-title">Ana Sayfa Bölümleri</div>
+                  <div className="admin-muted" style={{ marginBottom: 12 }}>
+                    Liste başlıklarını ve hangi talep kaynaklarının öne çıkacağını belirler.
+                  </div>
+                  <div className="admin-repeat-list">
                   {(form.homeSections || []).map((item, index) => (
                     <div className="admin-repeat-item" key={item.key || index}>
                       <div className="admin-repeat-header">
@@ -684,14 +835,14 @@ export default function AdminContentHome() {
                 <button type="button" className="admin-btn admin-btn-secondary" onClick={addSection}>
                   Bölüm Ekle
                 </button>
-              </div>
-
-              <div className="admin-card admin-plan-card">
-                <div className="admin-card-title">Görsel Tema</div>
-                <div className="admin-muted" style={{ marginBottom: 12 }}>
-                  Kart radius, arka plan ve yumuşak görünüm ayarlarıdır.
                 </div>
-                <div className="admin-form-grid">
+
+                <div className="admin-card admin-plan-card">
+                  <div className="admin-card-title">Görsel Tema</div>
+                  <div className="admin-muted" style={{ marginBottom: 12 }}>
+                    Kart radius, arka plan ve yumuşak görünüm ayarlarıdır.
+                  </div>
+                  <div className="admin-form-grid">
                   <label>
                     <span>Arka plan</span>
                     <input className="admin-input" type="color" value={form.visualTheme.background || '#F5F1EA'} onChange={(e) => updateTheme('background', e.target.value)} />
@@ -707,57 +858,12 @@ export default function AdminContentHome() {
                       <option value="0">Pasif</option>
                     </select>
                   </label>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <aside className="admin-home-preview">
-              <div
-                className="admin-home-preview-phone"
-                style={{ background: form.visualTheme.background || '#F5F1EA' }}
-              >
-                <div className="admin-home-preview-top">
-                  <strong>Talepet</strong>
-                  <span>İstanbul</span>
-                </div>
-                {form.heroBanner.enabled ? (
-                  <div
-                    className={`admin-home-preview-hero ${form.heroBanner.overlayEnabled ? 'with-overlay' : ''}`}
-                    style={form.heroBanner.imageUrl ? { backgroundImage: `url(${buildAssetUrl(form.heroBanner.imageUrl)})` } : undefined}
-                  >
-                    <div>
-                      <span>Premium ana sayfa</span>
-                      <h3>{form.heroBanner.title}</h3>
-                      <p>{form.heroBanner.subtitle}</p>
-                    </div>
-                  </div>
-                ) : null}
-                <div className="admin-home-preview-quick">
-                  {enabledQuickCategories.slice(0, 4).map((item) => (
-                    <div key={item.key || item.label} style={{ background: item.backgroundColor || '#F8F6F2' }}>
-                      {item.iconUrl ? <img src={buildAssetUrl(item.iconUrl)} alt="" /> : <span>{String(item.label || '?').slice(0, 1)}</span>}
-                      <small>{item.label}</small>
-                    </div>
-                  ))}
-                </div>
-                {enabledSections[0] ? (
-                  <div className="admin-home-preview-section">
-                    <strong>{enabledSections[0].title}</strong>
-                    <span>{enabledSections[0].subtitle}</span>
-                  </div>
-                ) : null}
-                <div className="admin-home-preview-card" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }} />
-                <div className="admin-home-preview-card short" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }} />
-              </div>
-            </aside>
-            </div>
+            </details>
           </>
         )}
-        <div className="admin-action-row">
-          <button type="button" className="admin-btn" onClick={save} disabled={loading || saving || Boolean(uploadingKey)}>
-            {saving ? 'Kaydediliyor…' : uploadingKey ? 'Görsel yükleniyor…' : 'Kaydet'}
-          </button>
-        </div>
       </div>
     </div>
   );
