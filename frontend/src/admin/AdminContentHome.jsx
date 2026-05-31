@@ -22,6 +22,11 @@ const HERO_SUBTITLE_LIMIT = 120;
 const HERO_CTA_LIMIT = 30;
 const HOME_ASSET_UPLOAD_TIMEOUT_MS = 60000;
 const HOME_ASSET_MAX_SIZE_BYTES = 5 * 1024 * 1024;
+const HOME_HERO_SOURCE_MAX_SIZE_BYTES = 15 * 1024 * 1024;
+const HOME_HERO_TARGET_WIDTH = 1200;
+const HOME_HERO_TARGET_HEIGHT = 600;
+const HOME_HERO_TARGET_SIZE_BYTES = 1024 * 1024;
+const HOME_HERO_WEBP_QUALITIES = [0.82, 0.75, 0.68];
 const HOME_ASSET_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const presetQuickCategories = (items) =>
@@ -294,9 +299,101 @@ const buildAssetUrl = (url) => {
 const resolveUploadErrorMessage = (err) => {
   const message = String(err?.message || '');
   if (err?.code === 'ECONNABORTED' || /timeout/i.test(message)) {
-    return 'Görsel yükleme zaman aşımına uğradı. Lütfen daha küçük bir görsel deneyin veya tekrar yükleyin.';
+    return 'Görsel yükleme zaman aşımına uğradı. Lütfen tekrar deneyin.';
+  }
+  if (
+    message === 'Sadece JPG, PNG veya WebP görsel kullanabilirsiniz.' ||
+    message === 'Bu görsel çok büyük. Lütfen daha küçük bir görsel seçin.' ||
+    message === 'Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.'
+  ) {
+    return message;
   }
   return err?.response?.data?.message || 'Görsel yüklenemedi. Lütfen tekrar deneyin.';
+};
+
+const canvasToBlob = (canvas, quality) =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.'));
+        }
+      },
+      'image/webp',
+      quality
+    );
+  });
+
+const loadImageFromFile = (file) =>
+  new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.'));
+    };
+    image.src = objectUrl;
+  });
+
+const resizeHeroImage = async (file) => {
+  const image = await loadImageFromFile(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = HOME_HERO_TARGET_WIDTH;
+  canvas.height = HOME_HERO_TARGET_HEIGHT;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.');
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+
+  const targetRatio = HOME_HERO_TARGET_WIDTH / HOME_HERO_TARGET_HEIGHT;
+  const imageRatio = image.width / image.height;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = image.width;
+  let sourceHeight = image.height;
+
+  if (imageRatio > targetRatio) {
+    sourceWidth = image.height * targetRatio;
+    sourceX = (image.width - sourceWidth) / 2;
+  } else if (imageRatio < targetRatio) {
+    sourceHeight = image.width / targetRatio;
+    sourceY = (image.height - sourceHeight) / 2;
+  }
+
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    HOME_HERO_TARGET_WIDTH,
+    HOME_HERO_TARGET_HEIGHT
+  );
+
+  let outputBlob = null;
+  for (const quality of HOME_HERO_WEBP_QUALITIES) {
+    outputBlob = await canvasToBlob(canvas, quality);
+    if (outputBlob.size <= HOME_HERO_TARGET_SIZE_BYTES) {
+      return outputBlob;
+    }
+  }
+
+  if (outputBlob && outputBlob.size <= HOME_ASSET_MAX_SIZE_BYTES) {
+    return outputBlob;
+  }
+
+  throw new Error('Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.');
 };
 
 export default function AdminContentHome() {
@@ -305,6 +402,8 @@ export default function AdminContentHome() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingKey, setUploadingKey] = useState('');
+  const [uploadStage, setUploadStage] = useState('');
+  const [heroPreviewUrl, setHeroPreviewUrl] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
@@ -331,6 +430,12 @@ export default function AdminContentHome() {
     };
   }, []);
 
+  useEffect(() => () => {
+    if (heroPreviewUrl) {
+      URL.revokeObjectURL(heroPreviewUrl);
+    }
+  }, [heroPreviewUrl]);
+
   const enabledQuickCategories = useMemo(
     () => [...(form.quickCategories || [])].filter((item) => item.enabled !== false).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)),
     [form.quickCategories]
@@ -344,6 +449,7 @@ export default function AdminContentHome() {
     () => HOME_VISUAL_PRESETS.find((preset) => preset.key === selectedPresetKey) || HOME_VISUAL_PRESETS[0],
     [selectedPresetKey]
   );
+  const heroPreviewImage = heroPreviewUrl || buildAssetUrl(form.heroBanner.imageUrl);
 
   const updateHero = (key, value) => {
     setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, [key]: value } }));
@@ -438,19 +544,42 @@ export default function AdminContentHome() {
       })
     );
     setSelectedPresetKey(preset.key);
+    setHeroPreviewUrl('');
+    setUploadStage('');
     setError('');
     setSuccess('Şablon forma uygulandı. Canlıya yansıtmak için Kaydet butonuna basın.');
   };
 
   const removeHeroImage = () => {
     updateHero('imageUrl', '');
+    setHeroPreviewUrl('');
+    setUploadStage('');
     setSuccess('Hero görseli kaldırıldı. Canlıya yansıtmak için Kaydet butonuna basın.');
+  };
+
+  const postAssetFile = async (file, target, index = null, fileName = file?.name || 'home-asset.webp') => {
+    const payload = new FormData();
+    payload.append('file', file, fileName);
+    const response = await api.post('/admin/content/home/asset', payload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: HOME_ASSET_UPLOAD_TIMEOUT_MS
+    });
+    const url = response.data?.data?.url || '';
+    if (!url) {
+      throw new Error('Upload URL alınamadı.');
+    }
+    if (target === 'hero') {
+      updateHero('imageUrl', url);
+    } else if (target === 'quickCategory') {
+      updateQuickCategory(index, 'iconUrl', url);
+    }
+    return url;
   };
 
   const uploadAsset = async (file, target, index = null) => {
     if (!file) return;
     if (!HOME_ASSET_ALLOWED_TYPES.has(file.type)) {
-      setError('Sadece JPG, PNG veya WebP görsel yükleyebilirsiniz.');
+      setError('Sadece JPG, PNG veya WebP görsel kullanabilirsiniz.');
       setSuccess('');
       return;
     }
@@ -463,23 +592,50 @@ export default function AdminContentHome() {
     setError('');
     setSuccess('');
     try {
-      const payload = new FormData();
-      payload.append('file', file);
-      const response = await api.post('/admin/content/home/asset', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: HOME_ASSET_UPLOAD_TIMEOUT_MS
-      });
-      const url = response.data?.data?.url || '';
-      if (!url) {
-        throw new Error('Upload URL alınamadı.');
-      }
-      if (target === 'hero') {
-        updateHero('imageUrl', url);
-      } else if (target === 'quickCategory') {
-        updateQuickCategory(index, 'iconUrl', url);
-      }
+      await postAssetFile(file, target, index);
       setSuccess('Görsel yüklendi. Canlıya yansıtmak için Kaydet ve Yayınla butonuna basın.');
     } catch (err) {
+      setError(resolveUploadErrorMessage(err));
+    } finally {
+      setUploadingKey('');
+    }
+  };
+
+  const handleHeroImageSelect = async (file) => {
+    if (!file) return;
+    if (!HOME_ASSET_ALLOWED_TYPES.has(file.type)) {
+      setError('Sadece JPG, PNG veya WebP görsel kullanabilirsiniz.');
+      setSuccess('');
+      setUploadStage('');
+      return;
+    }
+    if (file.size > HOME_HERO_SOURCE_MAX_SIZE_BYTES) {
+      setError('Bu görsel çok büyük. Lütfen daha küçük bir görsel seçin.');
+      setSuccess('');
+      setUploadStage('');
+      return;
+    }
+
+    setUploadingKey('hero');
+    setError('');
+    setSuccess('');
+    setUploadStage('Görsel hazırlanıyor...');
+    try {
+      setUploadStage('Görsel şablona uyarlanıyor...');
+      const optimizedBlob = await resizeHeroImage(file);
+      if (optimizedBlob.size > HOME_ASSET_MAX_SIZE_BYTES) {
+        throw new Error('Görsel sıkıştırılamadı. Lütfen daha küçük veya daha sade bir görsel deneyin.');
+      }
+
+      const localPreviewUrl = URL.createObjectURL(optimizedBlob);
+      setHeroPreviewUrl(localPreviewUrl);
+      setUploadStage('Görsel yükleniyor...');
+      await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
+      setUploadStage('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
+      setSuccess('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
+    } catch (err) {
+      setHeroPreviewUrl('');
+      setUploadStage('');
       setError(resolveUploadErrorMessage(err));
     } finally {
       setUploadingKey('');
@@ -582,10 +738,10 @@ export default function AdminContentHome() {
                     <span>Ana banner görseli (önerilen boyut: 1200x600)</span>
                   </div>
                   <div
-                    className={`admin-home-hero-upload-preview ${form.heroBanner.imageUrl ? 'has-image' : ''}`}
-                    style={form.heroBanner.imageUrl ? { backgroundImage: `url(${buildAssetUrl(form.heroBanner.imageUrl)})` } : undefined}
+                    className={`admin-home-hero-upload-preview ${heroPreviewImage ? 'has-image' : ''}`}
+                    style={heroPreviewImage ? { backgroundImage: `url(${heroPreviewImage})` } : undefined}
                   >
-                    {!form.heroBanner.imageUrl ? <span>Hero görseli önizlemesi</span> : null}
+                    {!heroPreviewImage ? <span>Hero görseli önizlemesi</span> : null}
                   </div>
                   <div className="admin-home-button-row">
                     <button
@@ -611,12 +767,12 @@ export default function AdminContentHome() {
                       accept="image/jpeg,image/png,image/webp"
                       disabled={uploadingKey === 'hero'}
                       onChange={(e) => {
-                        uploadAsset(e.target.files?.[0], 'hero');
+                        handleHeroImageSelect(e.target.files?.[0]);
                         e.target.value = '';
                       }}
                     />
                   </div>
-                  {uploadingKey === 'hero' ? <div className="admin-muted">Görsel yükleniyor...</div> : null}
+                  {uploadStage ? <div className="admin-muted">{uploadStage}</div> : null}
                 </div>
 
                 <label className="admin-home-field">
@@ -680,7 +836,7 @@ export default function AdminContentHome() {
                   {form.heroBanner.enabled ? (
                     <div
                       className={`admin-home-live-hero ${form.heroBanner.overlayEnabled ? 'with-overlay' : ''}`}
-                      style={form.heroBanner.imageUrl ? { backgroundImage: `url(${buildAssetUrl(form.heroBanner.imageUrl)})` } : undefined}
+                      style={heroPreviewImage ? { backgroundImage: `url(${heroPreviewImage})` } : undefined}
                     >
                       <div>
                         <h3>{form.heroBanner.title}</h3>
