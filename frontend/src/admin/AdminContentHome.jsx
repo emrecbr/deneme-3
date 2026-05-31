@@ -506,10 +506,6 @@ export default function AdminContentHome() {
 
   return (
     <div className="admin-panel admin-home-visuals">
-      <div className="admin-panel-title">Ana Sayfa Görsel Yönetimi</div>
-      <div className="admin-panel-subtitle">
-        Uygulama ana sayfasındaki hero banner, kategori kısa yolları ve liste bölüm başlıkları buradan yönetilir.
-      </div>
       <div className="admin-panel-body">
         {error ? <div className="admin-error">{error}</div> : null}
         {success ? <div className="admin-success">{success}</div> : null}
@@ -535,7 +531,6 @@ export default function AdminContentHome() {
                 <div className="admin-home-section-heading">
                   <div>
                     <h3>Hazır Şablonlar</h3>
-                    <p>Şablon seçimi canlıya otomatik yansımaz; formu doldurur ve önizlemeyi günceller.</p>
                   </div>
                   <span>5 şablon</span>
                 </div>
@@ -558,7 +553,6 @@ export default function AdminContentHome() {
                       </div>
                       <strong>{preset.name}</strong>
                       <p>{preset.description}</p>
-                      <small>Nerede kullanılır? {preset.useCase}</small>
                       <button type="button" className="admin-btn" onClick={() => applyPreset(preset)}>
                         Seç ve Düzenle
                       </button>
@@ -600,7 +594,7 @@ export default function AdminContentHome() {
                       onClick={() => heroFileInputRef.current?.click()}
                       disabled={uploadingKey === 'hero'}
                     >
-                      {uploadingKey === 'hero' ? 'Yükleniyor...' : 'Görsel Yükle'}
+                      {uploadingKey === 'hero' ? 'Yükleniyor...' : 'Görseli Şablona Uyarla'}
                     </button>
                     <button
                       type="button"
@@ -667,12 +661,11 @@ export default function AdminContentHome() {
                     value={form.heroBanner.ctaPath || ''}
                     onChange={(e) => updateHero('ctaPath', e.target.value)}
                   />
-                  <small>Örn: /talep-olustur</small>
+                  <small>Örn: /create</small>
                 </label>
 
                 <div className="admin-home-edit-label">
                   <strong>Önizleme (Mobil)</strong>
-                  <span>Form değişiklikleri bu telefon önizlemesine anlık yansır.</span>
                 </div>
 
                 <div

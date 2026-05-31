@@ -345,47 +345,47 @@ html[data-surface="admin"] .admin-home-builder-header {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
-  padding: 20px;
-  border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  margin-bottom: 24px;
+  padding: 4px 0 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 html[data-surface="admin"] .admin-home-builder-header h2 {
   margin: 0;
   color: #111827;
-  font-size: 1.55rem;
+  font-size: 1.72rem;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 html[data-surface="admin"] .admin-home-builder-header p {
   max-width: 720px;
-  margin: 8px 0 0;
+  margin: 7px 0 0;
   color: #6b7280;
   line-height: 1.5;
 }
 
 html[data-surface="admin"] .admin-home-builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 410px);
-  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 24px;
   align-items: start;
 }
 
 html[data-surface="admin"] .admin-home-section-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 html[data-surface="admin"] .admin-home-section-heading h3 {
   margin: 0;
   color: #111827;
-  font-size: 1.2rem;
+  font-size: 1.18rem;
   font-weight: 800;
 }
 
@@ -414,14 +414,20 @@ html[data-surface="admin"] .admin-home-template-grid {
 html[data-surface="admin"] .admin-home-template-card {
   position: relative;
   display: grid;
-  gap: 12px;
+  gap: 11px;
   align-content: start;
   min-height: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 18px;
-  padding: 16px;
+  padding: 14px;
   background: #ffffff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.07);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+html[data-surface="admin"] .admin-home-template-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.1);
 }
 
 html[data-surface="admin"] .admin-home-template-card.is-selected {
@@ -446,16 +452,17 @@ html[data-surface="admin"] .admin-home-template-check {
 
 html[data-surface="admin"] .admin-home-template-mock {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   overflow: hidden;
   border: 7px solid #111827;
   border-radius: 24px;
-  padding: 10px;
+  padding: 9px;
   background: linear-gradient(180deg, #f8f6f2, #f5f1ea);
+  aspect-ratio: 0.72;
 }
 
 html[data-surface="admin"] .admin-home-template-mock-hero {
-  height: 72px;
+  height: 68px;
   border-radius: 16px;
   background:
     radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.64), transparent 34%),
@@ -493,14 +500,22 @@ html[data-surface="admin"] .admin-home-template-mock-card {
 
 html[data-surface="admin"] .admin-home-template-card strong {
   color: #111827;
-  font-size: 1rem;
+  font-size: 0.98rem;
 }
 
 html[data-surface="admin"] .admin-home-template-card p,
 html[data-surface="admin"] .admin-home-template-card small {
   margin: 0;
   color: #6b7280;
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+html[data-surface="admin"] .admin-home-template-card p {
+  display: -webkit-box;
+  min-height: 2.8em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 html[data-surface="admin"] .admin-home-template-card small {
@@ -511,12 +526,12 @@ html[data-surface="admin"] .admin-home-editor-panel {
   position: sticky;
   top: 18px;
   display: grid;
-  gap: 16px;
+  gap: 15px;
   border: 1px solid #e5e7eb;
   border-radius: 22px;
-  padding: 18px;
+  padding: 18px 18px 20px;
   background: #ffffff;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.11);
 }
 
 html[data-surface="admin"] .admin-home-editor-panel-head,
@@ -559,7 +574,8 @@ html[data-surface="admin"] .admin-home-field small {
 
 html[data-surface="admin"] .admin-home-hero-upload-preview {
   display: grid;
-  min-height: 132px;
+  aspect-ratio: 2 / 1;
+  min-height: 0;
   place-items: center;
   overflow: hidden;
   border: 1px dashed #cbd5e1;
@@ -582,6 +598,9 @@ html[data-surface="admin"] .admin-home-file-input {
 }
 
 html[data-surface="admin"] .admin-home-live-phone {
+  max-width: 320px;
+  width: 100%;
+  justify-self: center;
   overflow: hidden;
   border: 9px solid #111827;
   border-radius: 32px;
