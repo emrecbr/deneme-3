@@ -1,5 +1,15 @@
 .env
+.env.local
+.env.production
+.env.*.local
 .env.*
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.*.local
+frontend/.env.*
+!.env.example
+!frontend/.env.example
 node_modules
 dist
 build

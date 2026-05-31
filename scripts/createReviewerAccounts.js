@@ -6,6 +6,14 @@ import { connectDB } from '../config/db.js';
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
 
+const requireEnv = (key) => {
+  const value = String(process.env[key] || '').trim();
+  if (!value) {
+    throw new Error(`${key} environment variable is required.`);
+  }
+  return value;
+};
+
 const REVIEWER_USERS = [
   {
     key: 'standard',
@@ -14,7 +22,7 @@ const REVIEWER_USERS = [
     firstName: 'Talepet',
     lastName: 'Reviewer',
     email: 'review.user@talepet.net.tr',
-    password: 'TalepetReview2026!',
+    password: requireEnv('REVIEWER_STANDARD_PASSWORD'),
     role: 'buyer',
     city: 'Istanbul',
     isPremium: false,
@@ -31,7 +39,7 @@ const REVIEWER_USERS = [
     firstName: 'Talepet',
     lastName: 'Premium Reviewer',
     email: 'premium.review@talepet.net.tr',
-    password: 'TalepetPremium2026!',
+    password: requireEnv('REVIEWER_PREMIUM_PASSWORD'),
     role: 'buyer',
     city: 'Istanbul',
     isPremium: true,

@@ -55,8 +55,8 @@ Not: `/Users/c1/talepet/backend` bu proje için eski/yanlış klasör.
 ### MongoDB (Atlas) Notları
 - **Database Access** bölümünde bir kullanıcı oluşturduğundan emin ol (username/password).
 - Şifre içinde özel karakter varsa URL-encode et (örn: `@` -> `%40`, `:` -> `%3A`, `/` -> `%2F`).
-- Örnek URI:
-  `mongodb+srv://user:encodedPass@cluster0.xxxxxx.mongodb.net/talepet?retryWrites=true&w=majority`
+- Örnek URI formatı:
+  `mongodb+srv://<username>:<url-encoded-password>@<cluster>/<database>?retryWrites=true&w=majority`
 
 ### Render (Backend)
 - **Root Directory:** repo kökü
