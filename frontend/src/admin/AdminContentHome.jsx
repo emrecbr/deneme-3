@@ -20,6 +20,9 @@ const SECTION_SOURCES = [
 const HERO_TITLE_LIMIT = 80;
 const HERO_SUBTITLE_LIMIT = 120;
 const HERO_CTA_LIMIT = 30;
+const HOME_ASSET_UPLOAD_TIMEOUT_MS = 60000;
+const HOME_ASSET_MAX_SIZE_BYTES = 5 * 1024 * 1024;
+const HOME_ASSET_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const presetQuickCategories = (items) =>
   items.map((item, index) => ({
@@ -288,6 +291,14 @@ const buildAssetUrl = (url) => {
   return `${API_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`;
 };
 
+const resolveUploadErrorMessage = (err) => {
+  const message = String(err?.message || '');
+  if (err?.code === 'ECONNABORTED' || /timeout/i.test(message)) {
+    return 'Görsel yükleme zaman aşımına uğradı. Lütfen daha küçük bir görsel deneyin veya tekrar yükleyin.';
+  }
+  return err?.response?.data?.message || 'Görsel yüklenemedi. Lütfen tekrar deneyin.';
+};
+
 export default function AdminContentHome() {
   const heroFileInputRef = useRef(null);
   const [form, setForm] = useState(defaultForm);
@@ -438,6 +449,16 @@ export default function AdminContentHome() {
 
   const uploadAsset = async (file, target, index = null) => {
     if (!file) return;
+    if (!HOME_ASSET_ALLOWED_TYPES.has(file.type)) {
+      setError('Sadece JPG, PNG veya WebP görsel yükleyebilirsiniz.');
+      setSuccess('');
+      return;
+    }
+    if (file.size > HOME_ASSET_MAX_SIZE_BYTES) {
+      setError('Görsel boyutu en fazla 5MB olabilir.');
+      setSuccess('');
+      return;
+    }
     setUploadingKey(index == null ? target : `${target}-${index}`);
     setError('');
     setSuccess('');
@@ -445,7 +466,8 @@ export default function AdminContentHome() {
       const payload = new FormData();
       payload.append('file', file);
       const response = await api.post('/admin/content/home/asset', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: HOME_ASSET_UPLOAD_TIMEOUT_MS
       });
       const url = response.data?.data?.url || '';
       if (!url) {
@@ -456,9 +478,9 @@ export default function AdminContentHome() {
       } else if (target === 'quickCategory') {
         updateQuickCategory(index, 'iconUrl', url);
       }
-      setSuccess('Görsel yüklendi. Yayına almak için Kaydet butonuna bas.');
+      setSuccess('Görsel yüklendi. Canlıya yansıtmak için Kaydet ve Yayınla butonuna basın.');
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Görsel yüklenemedi.');
+      setError(resolveUploadErrorMessage(err));
     } finally {
       setUploadingKey('');
     }
@@ -572,10 +594,20 @@ export default function AdminContentHome() {
                     {!form.heroBanner.imageUrl ? <span>Hero görseli önizlemesi</span> : null}
                   </div>
                   <div className="admin-home-button-row">
-                    <button type="button" className="admin-btn" onClick={() => heroFileInputRef.current?.click()}>
-                      Görsel Yükle
+                    <button
+                      type="button"
+                      className="admin-btn"
+                      onClick={() => heroFileInputRef.current?.click()}
+                      disabled={uploadingKey === 'hero'}
+                    >
+                      {uploadingKey === 'hero' ? 'Yükleniyor...' : 'Görsel Yükle'}
                     </button>
-                    <button type="button" className="admin-btn admin-btn-secondary" onClick={removeHeroImage}>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-secondary"
+                      onClick={removeHeroImage}
+                      disabled={uploadingKey === 'hero'}
+                    >
                       Kaldır
                     </button>
                     <input
@@ -583,9 +615,14 @@ export default function AdminContentHome() {
                       className="admin-home-file-input"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => uploadAsset(e.target.files?.[0], 'hero')}
+                      disabled={uploadingKey === 'hero'}
+                      onChange={(e) => {
+                        uploadAsset(e.target.files?.[0], 'hero');
+                        e.target.value = '';
+                      }}
                     />
                   </div>
+                  {uploadingKey === 'hero' ? <div className="admin-muted">Görsel yükleniyor...</div> : null}
                 </div>
 
                 <label className="admin-home-field">
@@ -776,7 +813,11 @@ export default function AdminContentHome() {
                             className="admin-input"
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
-                            onChange={(e) => uploadAsset(e.target.files?.[0], 'quickCategory', index)}
+                            disabled={uploadingKey === `quickCategory-${index}`}
+                            onChange={(e) => {
+                              uploadAsset(e.target.files?.[0], 'quickCategory', index);
+                              e.target.value = '';
+                            }}
                           />
                         </label>
                       </div>
