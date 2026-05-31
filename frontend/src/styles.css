@@ -9693,30 +9693,29 @@ html[data-surface="admin"] .table-toolbar__description {
 
 html[data-surface="admin"] .admin-menu-section {
   display: block;
+  padding-top: 0.1rem;
 }
 
 html[data-surface="admin"] .admin-menu-links {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 html[data-surface="admin"] .admin-menu-link {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
+  align-items: center;
+  gap: 0;
   min-width: 0;
-  padding: 0.65rem 0.85rem;
-  line-height: 1.3;
+  min-height: 2.45rem;
+  padding: 0.62rem 0.9rem;
+  line-height: 1.25;
   white-space: normal;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 html[data-surface="admin"] .admin-menu-link .nav-icon.admin-menu-link__icon {
-  margin: 0.08rem 0 0;
-  width: 1rem;
-  min-width: 1rem;
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.72);
+  display: none;
 }
 
 html[data-surface="admin"] .admin-menu-link__label {
@@ -9724,7 +9723,9 @@ html[data-surface="admin"] .admin-menu-link__label {
   flex: 1 1 auto;
   min-width: 0;
   white-space: normal;
-  line-height: 1.35;
+  line-height: 1.25;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 html[data-surface="admin"] .admin-menu-link.active .nav-icon.admin-menu-link__icon {

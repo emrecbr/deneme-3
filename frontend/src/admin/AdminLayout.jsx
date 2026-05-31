@@ -155,7 +155,6 @@ export default function AdminLayout() {
                           to={item.to}
                           className={({ isActive }) => `nav-link admin-menu-link ${isActive ? 'active' : ''}`}
                         >
-                          <i className="nav-icon far fa-circle admin-menu-link__icon" aria-hidden="true" />
                           <p className="admin-menu-link__label">{item.label}</p>
                         </NavLink>
                       </div>
