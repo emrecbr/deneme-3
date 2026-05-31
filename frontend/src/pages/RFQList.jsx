@@ -5,6 +5,9 @@ import CategorySelector from '../components/CategorySelector';
 import EmptyStateCard from '../components/EmptyStateCard';
 import ErrorStateCard from '../components/ErrorStateCard';
 import FilterBar from '../components/FilterBar';
+import HomeHeroBanner from '../components/home/HomeHeroBanner';
+import HomeQuickCategories from '../components/home/HomeQuickCategories';
+import HomeSectionHeader from '../components/home/HomeSectionHeader';
 import RFQDiscoveryCard from '../components/RFQDiscoveryCard';
 import ReusableBottomSheet from '../components/ReusableBottomSheet';
 import RFQSkeletonGrid from '../components/RFQSkeletonGrid';
@@ -78,6 +81,37 @@ const SORT_OPTIONS = [
   { value: 'date_desc', label: 'Tarihe göre: yeni ilan' },
   { value: 'date_asc', label: 'Tarihe göre: eski ilan' }
 ];
+const DEFAULT_HOME_CONTENT = {
+  heroTitle: '',
+  heroSubtitle: '',
+  layoutVariant: 'premium_mobile_v1',
+  heroBanner: {
+    enabled: false,
+    title: '',
+    subtitle: '',
+    ctaLabel: '',
+    ctaPath: '',
+    imageUrl: '',
+    overlayEnabled: true,
+    sortOrder: 10
+  },
+  quickCategories: [],
+  homeSections: [],
+  visualTheme: {
+    background: '#F5F1EA',
+    cardRadius: 28,
+    useSoftCards: true
+  }
+};
+
+const normalizeHomeContent = (payload = {}) => ({
+  ...DEFAULT_HOME_CONTENT,
+  ...payload,
+  heroBanner: { ...DEFAULT_HOME_CONTENT.heroBanner, ...(payload.heroBanner || {}) },
+  visualTheme: { ...DEFAULT_HOME_CONTENT.visualTheme, ...(payload.visualTheme || {}) },
+  quickCategories: Array.isArray(payload.quickCategories) ? payload.quickCategories : [],
+  homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : []
+});
 
 const normalizeSortNumber = (value) => {
   if (value == null || value === '') {
@@ -2600,10 +2634,7 @@ function RFQList({ surfaceVariant = 'app' }) {
     emptyCityTitle: 'Şehir seçerek talepleri gör',
     emptyCityDescription: 'Şehir seçerek bulunduğun bölgedeki talepleri görebilirsin.'
   });
-  const [homeContent, setHomeContent] = useState({
-    heroTitle: '',
-    heroSubtitle: ''
-  });
+  const [homeContent, setHomeContent] = useState(DEFAULT_HOME_CONTENT);
 
   useEffect(() => {
     let active = true;
@@ -2628,7 +2659,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       try {
         const response = await api.get('/content/home');
         if (!active) return;
-        setHomeContent((prev) => ({ ...prev, ...(response.data?.data || {}) }));
+        setHomeContent((prev) => normalizeHomeContent({ ...prev, ...(response.data?.data || {}) }));
       } catch (_error) {
         // ignore content errors
       }
@@ -2777,6 +2808,19 @@ function RFQList({ surfaceVariant = 'app' }) {
   const handleCreateRFQ = useCallback(() => {
     window.dispatchEvent(new Event('open-rfq-create-sheet'));
   }, []);
+
+  const handleHomeBannerNavigate = useCallback(
+    (path) => {
+      const nextPath = String(path || '').trim();
+      if (!nextPath) return;
+      if (nextPath === '/create') {
+        handleCreateRFQ();
+        return;
+      }
+      navigate(nextPath);
+    },
+    [handleCreateRFQ, navigate]
+  );
 
   const handleRetry = useCallback(() => {
     fetchRFQs({ nextPage: 1, replace: true, isRefresh: true });
@@ -2939,6 +2983,31 @@ function RFQList({ surfaceVariant = 'app' }) {
       setIsCategoryModalOpen(false);
     },
     [filters.segment, updateFilter]
+  );
+
+  const handleHomeQuickCategorySelect = useCallback(
+    (item) => {
+      const nextSegment = item?.segment || '';
+      const nextCategoryId = item?.categoryId ? String(item.categoryId) : '';
+
+      if (nextSegment && nextSegment !== filters.segment) {
+        updateFilter('segment', nextSegment);
+      }
+
+      if (nextCategoryId) {
+        updateFilter('category', nextCategoryId);
+        const match = categoryItems.find((category) => String(category._id || '') === nextCategoryId);
+        setCategoryLabel(match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '');
+      } else {
+        updateFilter('category', null);
+        setCategoryLabel('');
+      }
+
+      setSearchQuery('');
+      setIsCategoryModalOpen(false);
+      triggerHaptic('light');
+    },
+    [categoryItems, filters.segment, updateFilter]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
@@ -3202,9 +3271,28 @@ function RFQList({ surfaceVariant = 'app' }) {
     ]
   );
 
+  const activeHomeSection = useMemo(() => {
+    const sections = Array.isArray(homeContent.homeSections) ? homeContent.homeSections : [];
+    return sections
+      .filter((section) => section?.enabled !== false)
+      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))[0] || null;
+  }, [homeContent.homeSections]);
+
+  const homeVisualStyle = useMemo(() => {
+    if (isWebSurface) {
+      return undefined;
+    }
+    const theme = homeContent.visualTheme || {};
+    return {
+      '--home-visual-bg': theme.background || '#F5F1EA',
+      '--home-card-radius': `${Number(theme.cardRadius || 28)}px`
+    };
+  }, [homeContent.visualTheme, isWebSurface]);
+
   return (
     <div
       className={`rfq-list-page ${surfaceVariant === 'web' ? 'rfq-list-page--web' : ''}`}
+      style={homeVisualStyle}
       onTouchStart={onPullStart}
       onTouchMove={onPullMove}
       onTouchEnd={onPullEnd}
@@ -3256,6 +3344,21 @@ function RFQList({ surfaceVariant = 'app' }) {
             </div>
           </div>
         </section>
+      ) : null}
+
+      {!isWebSurface ? (
+        <div className="home-managed-visuals">
+          <HomeHeroBanner
+            banner={homeContent.heroBanner}
+            assetBaseUrl={BACKEND_ORIGIN}
+            onNavigate={handleHomeBannerNavigate}
+          />
+          <HomeQuickCategories
+            items={homeContent.quickCategories}
+            assetBaseUrl={BACKEND_ORIGIN}
+            onSelect={handleHomeQuickCategorySelect}
+          />
+        </div>
       ) : null}
 
       <section className={`home-filters ${isWebSurface ? 'home-filters--web' : ''}`}>
@@ -3365,6 +3468,9 @@ function RFQList({ surfaceVariant = 'app' }) {
             {!isWebSurface ? <div className="advanced-sort-current">{activeSortLabel}</div> : null}
             {homeContent.heroSubtitle ? (
               <div className="list-subtitle">{homeContent.heroSubtitle}</div>
+            ) : null}
+            {!isWebSurface ? (
+              <HomeSectionHeader title={activeHomeSection?.title} subtitle={activeHomeSection?.subtitle} />
             ) : null}
           </div>
 

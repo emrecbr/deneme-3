@@ -4,7 +4,83 @@ import AdminAuditLog from '../models/AdminAuditLog.js';
 const DEFAULT_CONTENT = {
   home: {
     heroTitle: 'Talepet ile hızlı talep oluştur',
-    heroSubtitle: 'Bulunduğun bölgede teklifleri keşfet.'
+    heroSubtitle: 'Bulunduğun bölgede teklifleri keşfet.',
+    layoutVariant: 'premium_mobile_v1',
+    heroBanner: {
+      enabled: true,
+      title: 'Talebini daha hızlı tamamla',
+      subtitle: 'Yakındaki açık talepleri keşfet, ihtiyacını paylaş ve doğru tekliflere daha hızlı ulaş.',
+      ctaLabel: 'Talep Oluştur',
+      ctaPath: '/create',
+      imageUrl: '',
+      overlayEnabled: true,
+      sortOrder: 10
+    },
+    quickCategories: [
+      {
+        key: 'goods',
+        label: 'Eşya',
+        segment: 'goods',
+        categoryId: null,
+        iconUrl: '',
+        backgroundColor: '#FFF4DE',
+        enabled: true,
+        sortOrder: 10
+      },
+      {
+        key: 'service',
+        label: 'Hizmet',
+        segment: 'service',
+        categoryId: null,
+        iconUrl: '',
+        backgroundColor: '#EAF2FF',
+        enabled: true,
+        sortOrder: 20
+      },
+      {
+        key: 'auto',
+        label: 'Otomobil',
+        segment: 'auto',
+        categoryId: null,
+        iconUrl: '',
+        backgroundColor: '#EEFDF8',
+        enabled: true,
+        sortOrder: 30
+      },
+      {
+        key: 'jobseeker',
+        label: 'İş Arayan',
+        segment: 'jobseeker',
+        categoryId: null,
+        iconUrl: '',
+        backgroundColor: '#F3EFFF',
+        enabled: true,
+        sortOrder: 40
+      }
+    ],
+    homeSections: [
+      {
+        key: 'featured',
+        title: 'Öne çıkan talepler',
+        subtitle: 'Premium ve öne çıkarılmış ilanlar öncelikli gösterilir.',
+        enabled: true,
+        source: 'featured',
+        sortOrder: 10
+      },
+      {
+        key: 'nearby',
+        title: 'Yakındaki talepler',
+        subtitle: 'Seçtiğin konuma ve filtrelere göre güncel talepler.',
+        enabled: true,
+        source: 'nearby',
+        sortOrder: 20
+      }
+    ],
+    visualTheme: {
+      background: '#F5F1EA',
+      cardRadius: 28,
+      useSoftCards: true
+    }
   },
   onboarding: {
     steps: [
@@ -20,7 +96,7 @@ const DEFAULT_CONTENT = {
   }
 };
 
-const logAdminAction = async (req, action, meta = {}) => {
+export const logAdminAction = async (req, action, meta = {}) => {
   try {
     await AdminAuditLog.create({
       adminId: req.admin?.id || null,
@@ -60,6 +136,28 @@ export const updateAdminContent = async (req, res, next) => {
     );
     await logAdminAction(req, 'content_update', { section, value: nextValue });
     return res.status(200).json({ success: true, data: saved?.value || nextValue });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const uploadHomeContentAsset = async (req, res, next) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'Görsel dosyası gerekli.' });
+    }
+
+    const url = `/uploads/${file.filename}`;
+    const data = {
+      url,
+      filename: file.filename,
+      mimeType: file.mimetype,
+      size: file.size
+    };
+
+    await logAdminAction(req, 'content_home_asset_upload', data);
+    return res.status(201).json({ success: true, data });
   } catch (error) {
     return next(error);
   }

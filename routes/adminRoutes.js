@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import path from 'path';
 import { adminRoleMiddleware, requireAdminOnly } from '../middleware/adminRoleMiddleware.js';
 import { getDashboardSummary, refreshDashboardSummary } from '../controllers/adminDashboardController.js';
 import {
@@ -65,7 +66,7 @@ import {
 } from '../controllers/adminSystemController.js';
 import { getMapSettings, updateMapSettings, runMapTest } from '../controllers/adminMapController.js';
 import { getSearchAnalytics } from '../controllers/adminSearchController.js';
-import { getAdminContent, updateAdminContent } from '../controllers/adminContentController.js';
+import { getAdminContent, updateAdminContent, uploadHomeContentAsset } from '../controllers/adminContentController.js';
 import { getRfqFlowSteps, getRfqValidationAnalytics } from '../controllers/adminRfqFlowController.js';
 import { listAdvancedModerationQueue, listRiskSignals } from '../controllers/adminModerationController.js';
 import {
@@ -95,6 +96,29 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
+});
+const homeAssetStorage = multer.diskStorage({
+  destination: 'uploads',
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const safeBase = path
+      .basename(file.originalname || 'home-asset', ext)
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .replace(/-+/g, '-')
+      .slice(0, 48);
+    cb(null, `${Date.now()}-${safeBase || 'home-asset'}${ext}`);
+  }
+});
+const homeAssetUpload = multer({
+  storage: homeAssetStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowed.has(file.mimetype)) {
+      return cb(new Error('Sadece JPG, PNG veya WEBP görsel yüklenebilir.'));
+    }
+    return cb(null, true);
+  }
 });
 
 router.get('/dashboard/summary', adminRoleMiddleware, getDashboardSummary);
@@ -165,6 +189,13 @@ router.get('/search/analytics', adminRoleMiddleware, getSearchAnalytics);
 
 router.get('/content/:section', adminRoleMiddleware, getAdminContent);
 router.patch('/content/:section', adminRoleMiddleware, requireAdminOnly, updateAdminContent);
+router.post(
+  '/content/home/asset',
+  adminRoleMiddleware,
+  requireAdminOnly,
+  homeAssetUpload.single('file'),
+  uploadHomeContentAsset
+);
 
 router.get('/rfq-flow/steps', adminRoleMiddleware, getRfqFlowSteps);
 router.get('/rfq-flow/validation-analytics', adminRoleMiddleware, getRfqValidationAnalytics);
