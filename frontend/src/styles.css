@@ -256,6 +256,90 @@ html[data-surface="admin"] .admin-home-visuals-editor {
   gap: 16px;
 }
 
+html[data-surface="admin"] .admin-home-visuals-intro {
+  margin-bottom: 16px;
+}
+
+html[data-surface="admin"] .admin-home-presets {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+html[data-surface="admin"] .admin-home-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+html[data-surface="admin"] .admin-home-preset-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+}
+
+html[data-surface="admin"] .admin-home-preset-card.is-selected {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12), 0 10px 26px rgba(15, 23, 42, 0.08);
+}
+
+html[data-surface="admin"] .admin-home-preset-preview {
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 10px;
+  background: linear-gradient(180deg, #f8f6f2, #f5f1ea);
+}
+
+html[data-surface="admin"] .admin-home-preset-hero {
+  height: 58px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.58), transparent 34%),
+    linear-gradient(135deg, var(--preset-accent, #3478f6), #7c5cff);
+}
+
+html[data-surface="admin"] .admin-home-preset-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+html[data-surface="admin"] .admin-home-preset-chips span {
+  height: 26px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+html[data-surface="admin"] .admin-home-preset-row {
+  height: 30px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+html[data-surface="admin"] .admin-home-preset-copy {
+  display: grid;
+  gap: 5px;
+  color: #111827;
+}
+
+html[data-surface="admin"] .admin-home-preset-copy p,
+html[data-surface="admin"] .admin-home-preset-copy small {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+html[data-surface="admin"] .admin-home-preset-copy small {
+  font-size: 0.78rem;
+}
+
 html[data-surface="admin"] .admin-repeat-list {
   display: grid;
   gap: 14px;

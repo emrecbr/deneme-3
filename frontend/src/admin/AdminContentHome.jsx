@@ -17,6 +17,215 @@ const SECTION_SOURCES = [
   { value: 'premium', label: 'Premium' }
 ];
 
+const presetQuickCategories = (items) =>
+  items.map((item, index) => ({
+    key: `preset-quick-${item.label.toLowerCase().replace(/\s+/g, '-')}-${index}`,
+    label: item.label,
+    segment: item.segment || '',
+    categoryId: '',
+    iconUrl: '',
+    backgroundColor: item.backgroundColor || '#F8F6F2',
+    enabled: true,
+    sortOrder: (index + 1) * 10
+  }));
+
+const presetSections = (items) =>
+  items.map((item, index) => ({
+    key: `preset-section-${item.title.toLowerCase().replace(/\s+/g, '-')}-${index}`,
+    title: item.title,
+    subtitle: item.subtitle || '',
+    enabled: true,
+    source: item.source || 'latest',
+    sortOrder: (index + 1) * 10
+  }));
+
+const HOME_VISUAL_PRESETS = [
+  {
+    key: 'premium-general',
+    name: 'Premium Genel Ana Sayfa',
+    description: 'Tüm kullanıcılar için dengeli ve dönüşüm odaklı ana sayfa.',
+    useCase: 'Genel kullanım, yeni kullanıcı karşılama ve hızlı talep oluşturma.',
+    accent: '#3478F6',
+    form: {
+      heroTitle: 'Aramakla uğraşma, talebini oluştur.',
+      heroSubtitle: 'İhtiyacını paylaş, yakınındaki teklifleri hızlıca gör.',
+      heroBanner: {
+        enabled: true,
+        title: 'Aramakla uğraşma, talebini oluştur.',
+        subtitle: 'İhtiyacını paylaş, yakınındaki teklifleri hızlıca gör.',
+        ctaLabel: 'Talep Oluştur',
+        ctaPath: '/create',
+        imageUrl: '',
+        overlayEnabled: true,
+        sortOrder: 10
+      },
+      quickCategories: presetQuickCategories([
+        { label: 'Eşya', segment: 'goods', backgroundColor: '#FEF3C7' },
+        { label: 'Hizmet / Usta', segment: 'service', backgroundColor: '#DBEAFE' },
+        { label: 'Otomobil', segment: 'auto', backgroundColor: '#E0F2FE' },
+        { label: 'İş Arayan', segment: 'jobseeker', backgroundColor: '#F3E8FF' }
+      ]),
+      homeSections: presetSections([
+        { title: 'Yakındaki Talepler', subtitle: 'Konumuna yakın açık talepleri keşfet.', source: 'nearby' },
+        { title: 'Öne Çıkan Talepler', subtitle: 'Daha görünür yayınlanan talepler.', source: 'featured' },
+        { title: 'Son Eklenenler', subtitle: 'Yeni yayınlanan talepler.', source: 'latest' }
+      ]),
+      visualTheme: {
+        background: '#F5F1EA',
+        cardRadius: 28,
+        useSoftCards: true
+      }
+    }
+  },
+  {
+    key: 'service-focused',
+    name: 'Hizmet ve Usta Odaklı',
+    description: 'Elektrikçi, tesisatçı, tamir ve bakım taleplerini öne çıkarır.',
+    useCase: 'Hizmet talebi oluşturmayı artırmak istediğin dönemler.',
+    accent: '#0EA5E9',
+    form: {
+      heroTitle: 'Usta aramak yerine talebini oluştur.',
+      heroSubtitle: 'Yakınındaki uygun hizmet verenlerden hızlıca teklif al.',
+      heroBanner: {
+        enabled: true,
+        title: 'Usta aramak yerine talebini oluştur.',
+        subtitle: 'Yakınındaki uygun hizmet verenlerden hızlıca teklif al.',
+        ctaLabel: 'Hizmet Talebi Oluştur',
+        ctaPath: '/create',
+        imageUrl: '',
+        overlayEnabled: true,
+        sortOrder: 10
+      },
+      quickCategories: presetQuickCategories([
+        { label: 'Elektrik', segment: 'service', backgroundColor: '#DBEAFE' },
+        { label: 'Tesisat', segment: 'service', backgroundColor: '#CCFBF1' },
+        { label: 'Boya / Tadilat', segment: 'service', backgroundColor: '#EDE9FE' },
+        { label: 'Temizlik', segment: 'service', backgroundColor: '#DCFCE7' }
+      ]),
+      homeSections: presetSections([
+        { title: 'Yakındaki Hizmet Talepleri', subtitle: 'Konumuna yakın hizmet ihtiyaçları.', source: 'nearby' },
+        { title: 'En Çok İlgi Görenler', subtitle: 'Öne çıkan hizmet talepleri.', source: 'featured' },
+        { title: 'Yeni Hizmet Talepleri', subtitle: 'Son yayınlanan hizmet talepleri.', source: 'latest' }
+      ]),
+      visualTheme: {
+        background: '#F2F8FA',
+        cardRadius: 28,
+        useSoftCards: true
+      }
+    }
+  },
+  {
+    key: 'goods-second-hand',
+    name: 'Eşya ve İkinci El Odaklı',
+    description: 'Ev eşyası, ihtiyaç ve ürün taleplerini daha görünür yapar.',
+    useCase: 'Eşya taleplerini ve ikinci el kullanım senaryosunu öne çıkarmak için.',
+    accent: '#F59E0B',
+    form: {
+      heroTitle: 'Evindeki fazlalık başkasının ihtiyacı olabilir.',
+      heroSubtitle: 'Eşya taleplerini keşfet, ihtiyacını kolayca paylaş.',
+      heroBanner: {
+        enabled: true,
+        title: 'Evindeki fazlalık başkasının ihtiyacı olabilir.',
+        subtitle: 'Eşya taleplerini keşfet, ihtiyacını kolayca paylaş.',
+        ctaLabel: 'Eşya Talebi Oluştur',
+        ctaPath: '/create',
+        imageUrl: '',
+        overlayEnabled: true,
+        sortOrder: 10
+      },
+      quickCategories: presetQuickCategories([
+        { label: 'Mobilya', segment: 'goods', backgroundColor: '#FEF3C7' },
+        { label: 'Elektronik', segment: 'goods', backgroundColor: '#E0F2FE' },
+        { label: 'Ev Eşyası', segment: 'goods', backgroundColor: '#FDE68A' },
+        { label: 'Bebek / Çocuk', segment: 'goods', backgroundColor: '#FCE7F3' }
+      ]),
+      homeSections: presetSections([
+        { title: 'Eşya Talepleri', subtitle: 'Eşya ve ürün ihtiyaçlarını gör.', source: 'featured' },
+        { title: 'Yakındaki İlanlar', subtitle: 'Yakınındaki eşya talepleri.', source: 'nearby' },
+        { title: 'Yeni Eklenenler', subtitle: 'Son eklenen eşya talepleri.', source: 'latest' }
+      ]),
+      visualTheme: {
+        background: '#F8F1E7',
+        cardRadius: 28,
+        useSoftCards: true
+      }
+    }
+  },
+  {
+    key: 'location-nearby',
+    name: 'Konum Odaklı Yakındaki Talepler',
+    description: 'Şehir, ilçe ve radius mantığını daha anlaşılır hale getirir.',
+    useCase: 'Yakındaki talepleri, konum keşfini ve şehir bazlı kullanımı vurgulamak için.',
+    accent: '#14B8A6',
+    form: {
+      heroTitle: 'Yakınındaki talepleri keşfet.',
+      heroSubtitle: 'Şehir, ilçe ve konumuna göre en yakın fırsatları gör.',
+      heroBanner: {
+        enabled: true,
+        title: 'Yakınındaki talepleri keşfet.',
+        subtitle: 'Şehir, ilçe ve konumuna göre en yakın fırsatları gör.',
+        ctaLabel: 'Konumuna Göre Keşfet',
+        ctaPath: '/app',
+        imageUrl: '',
+        overlayEnabled: true,
+        sortOrder: 10
+      },
+      quickCategories: presetQuickCategories([
+        { label: 'Yakınımdakiler', segment: '', backgroundColor: '#CCFBF1' },
+        { label: 'Şehir Geneli', segment: '', backgroundColor: '#DBEAFE' },
+        { label: 'Hizmetler', segment: 'service', backgroundColor: '#E0F2FE' },
+        { label: 'Eşyalar', segment: 'goods', backgroundColor: '#FEF3C7' }
+      ]),
+      homeSections: presetSections([
+        { title: 'Sana Yakın Talepler', subtitle: 'Konumuna göre öne çıkan talepler.', source: 'nearby' },
+        { title: 'Şehrindeki Talepler', subtitle: 'Seçili şehirdeki güncel talepler.', source: 'featured' },
+        { title: 'Yeni Talepler', subtitle: 'Yeni yayınlanan yakın talepler.', source: 'latest' }
+      ]),
+      visualTheme: {
+        background: '#EEF8F6',
+        cardRadius: 28,
+        useSoftCards: true
+      }
+    }
+  },
+  {
+    key: 'minimal-launch',
+    name: 'Minimal Lansman Şablonu',
+    description: 'Sade, temiz ve lansman dönemine uygun ana sayfa.',
+    useCase: 'Az metinli, hızlı anlaşılır ve yeni kullanıcıya uygun giriş ekranı.',
+    accent: '#7C5CFF',
+    form: {
+      heroTitle: 'Talepet ile ihtiyacını kolayca paylaş.',
+      heroSubtitle: 'Talep oluştur, teklifleri karşılaştır, hızlıca iletişime geç.',
+      heroBanner: {
+        enabled: true,
+        title: 'Talepet ile ihtiyacını kolayca paylaş.',
+        subtitle: 'Talep oluştur, teklifleri karşılaştır, hızlıca iletişime geç.',
+        ctaLabel: 'Hemen Başla',
+        ctaPath: '/create',
+        imageUrl: '',
+        overlayEnabled: true,
+        sortOrder: 10
+      },
+      quickCategories: presetQuickCategories([
+        { label: 'Eşya', segment: 'goods', backgroundColor: '#FEF3C7' },
+        { label: 'Hizmet', segment: 'service', backgroundColor: '#DBEAFE' },
+        { label: 'Otomobil', segment: 'auto', backgroundColor: '#E0E7FF' },
+        { label: 'İş', segment: 'jobseeker', backgroundColor: '#F3E8FF' }
+      ]),
+      homeSections: presetSections([
+        { title: 'Öne Çıkanlar', subtitle: 'Daha görünür talepleri keşfet.', source: 'featured' },
+        { title: 'Son Eklenenler', subtitle: 'Yeni yayınlanan talepler.', source: 'latest' }
+      ]),
+      visualTheme: {
+        background: '#F8F6F2',
+        cardRadius: 24,
+        useSoftCards: true
+      }
+    }
+  }
+];
+
 const defaultForm = {
   heroTitle: 'Talepet ile hızlı talep oluştur',
   heroSubtitle: 'Bulunduğun bölgede teklifleri keşfet.',
@@ -82,6 +291,7 @@ export default function AdminContentHome() {
   const [uploadingKey, setUploadingKey] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedPresetKey, setSelectedPresetKey] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -169,6 +379,33 @@ export default function AdminContentHome() {
     }));
   };
 
+  const applyPreset = (preset) => {
+    if (!preset) return;
+    if (!window.confirm('Mevcut ana sayfa ayarları bu şablonla değiştirilecek. Devam edilsin mi?')) {
+      return;
+    }
+    setForm((prev) =>
+      normalizeForm({
+        ...prev,
+        ...preset.form,
+        layoutVariant: 'premium_mobile_v1',
+        heroBanner: {
+          ...defaultForm.heroBanner,
+          ...preset.form.heroBanner
+        },
+        quickCategories: (preset.form.quickCategories || []).map((item) => ({ ...item })),
+        homeSections: (preset.form.homeSections || []).map((item) => ({ ...item })),
+        visualTheme: {
+          ...defaultForm.visualTheme,
+          ...(preset.form.visualTheme || {})
+        }
+      })
+    );
+    setSelectedPresetKey(preset.key);
+    setError('');
+    setSuccess('Şablon forma uygulandı. Canlıya yansıtmak için Kaydet butonuna basın.');
+  };
+
   const uploadAsset = async (file, target, index = null) => {
     if (!file) return;
     setUploadingKey(index == null ? target : `${target}-${index}`);
@@ -227,8 +464,47 @@ export default function AdminContentHome() {
         {loading ? (
           <div className="admin-empty">Yükleniyor…</div>
         ) : (
-          <div className="admin-home-visuals-grid">
-            <div className="admin-home-visuals-editor">
+          <>
+            <div className="admin-info admin-home-visuals-intro">
+              Bu ekrandan uygulama ana sayfasındaki hero görseli, kategori kısa yolları ve ana sayfa bölümleri yönetilir.
+              Hazır şablonlar sadece formu doldurur; canlıya almak için Kaydet butonuna basman gerekir.
+            </div>
+
+            <div className="admin-card admin-home-presets">
+              <div className="admin-card-title">Hazır Ana Sayfa Şablonları</div>
+              <div className="admin-muted">
+                Bir şablon seçerek hero, kısa yollar, bölüm başlıkları ve tema alanlarını tek tıkla doldur.
+              </div>
+              <div className="admin-home-preset-grid">
+                {HOME_VISUAL_PRESETS.map((preset) => (
+                  <div
+                    key={preset.key}
+                    className={`admin-home-preset-card ${selectedPresetKey === preset.key ? 'is-selected' : ''}`}
+                  >
+                    <div className="admin-home-preset-preview" style={{ '--preset-accent': preset.accent }}>
+                      <div className="admin-home-preset-hero" />
+                      <div className="admin-home-preset-chips">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                      <div className="admin-home-preset-row" />
+                    </div>
+                    <div className="admin-home-preset-copy">
+                      <strong>{preset.name}</strong>
+                      <p>{preset.description}</p>
+                      <small>Nerede kullanılır? {preset.useCase}</small>
+                    </div>
+                    <button type="button" className="admin-btn admin-btn-secondary" onClick={() => applyPreset(preset)}>
+                      Bu Şablonu Kullan
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="admin-home-visuals-grid">
+              <div className="admin-home-visuals-editor">
               <div className="admin-card admin-plan-card">
                 <div className="admin-card-title">Eski başlık alanı</div>
                 <div className="admin-form-grid">
@@ -245,6 +521,9 @@ export default function AdminContentHome() {
 
               <div className="admin-card admin-plan-card">
                 <div className="admin-card-title">Hero Banner</div>
+                <div className="admin-muted" style={{ marginBottom: 12 }}>
+                  Ana sayfanın üst büyük görsel alanı. Başlık, açıklama, CTA ve isteğe bağlı görsel buradan yönetilir.
+                </div>
                 <div className="admin-form-grid">
                   <label>
                     <span>Aktif</span>
@@ -294,6 +573,9 @@ export default function AdminContentHome() {
 
               <div className="admin-card admin-plan-card">
                 <div className="admin-card-title">Kategori Kısa Yolları</div>
+                <div className="admin-muted" style={{ marginBottom: 12 }}>
+                  Kullanıcının ana sayfada hızlı filtre seçmesini sağlar.
+                </div>
                 <div className="admin-repeat-list">
                   {(form.quickCategories || []).map((item, index) => (
                     <div className="admin-repeat-item" key={item.key || index}>
@@ -357,6 +639,9 @@ export default function AdminContentHome() {
 
               <div className="admin-card admin-plan-card">
                 <div className="admin-card-title">Ana Sayfa Bölümleri</div>
+                <div className="admin-muted" style={{ marginBottom: 12 }}>
+                  Liste başlıklarını ve hangi talep kaynaklarının öne çıkacağını belirler.
+                </div>
                 <div className="admin-repeat-list">
                   {(form.homeSections || []).map((item, index) => (
                     <div className="admin-repeat-item" key={item.key || index}>
@@ -403,6 +688,9 @@ export default function AdminContentHome() {
 
               <div className="admin-card admin-plan-card">
                 <div className="admin-card-title">Görsel Tema</div>
+                <div className="admin-muted" style={{ marginBottom: 12 }}>
+                  Kart radius, arka plan ve yumuşak görünüm ayarlarıdır.
+                </div>
                 <div className="admin-form-grid">
                   <label>
                     <span>Arka plan</span>
@@ -424,7 +712,10 @@ export default function AdminContentHome() {
             </div>
 
             <aside className="admin-home-preview">
-              <div className="admin-home-preview-phone">
+              <div
+                className="admin-home-preview-phone"
+                style={{ background: form.visualTheme.background || '#F5F1EA' }}
+              >
                 <div className="admin-home-preview-top">
                   <strong>Talepet</strong>
                   <span>İstanbul</span>
@@ -455,11 +746,12 @@ export default function AdminContentHome() {
                     <span>{enabledSections[0].subtitle}</span>
                   </div>
                 ) : null}
-                <div className="admin-home-preview-card" />
-                <div className="admin-home-preview-card short" />
+                <div className="admin-home-preview-card" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }} />
+                <div className="admin-home-preview-card short" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }} />
               </div>
             </aside>
-          </div>
+            </div>
+          </>
         )}
         <div className="admin-action-row">
           <button type="button" className="admin-btn" onClick={save} disabled={loading || saving || Boolean(uploadingKey)}>
