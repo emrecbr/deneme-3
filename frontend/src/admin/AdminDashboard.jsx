@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
+import { useAdminAuth } from '../context/AdminAuthContext';
 import { sanitizeAdminErrorMessage } from './adminErrorUtils';
 
 const SUMMARY_TIMEOUT_MS = 10000;
@@ -32,6 +34,7 @@ const formatPercent = (value, total) => {
 const resolveSummaryUrl = () => `${String(API_BASE_URL || '').replace(/\/$/, '')}/admin/dashboard/summary`;
 
 export default function AdminDashboard() {
+  const { admin } = useAdminAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
@@ -159,6 +162,7 @@ export default function AdminDashboard() {
   }, [error, loadRoleDistribution, loading, summary]);
 
   const stats = useMemo(() => summary?.stats || {}, [summary]);
+  const isAdmin = admin?.role === 'admin';
   const recentRfqs = summary?.recentRfqs || [];
   const moderationQueue = summary?.moderationQueue || [];
   const adminActions = summary?.recentAdminActions || [];
@@ -218,6 +222,18 @@ export default function AdminDashboard() {
       </div>
 
       {refreshNotice ? <div className="admin-info">{refreshNotice}</div> : null}
+
+      {isAdmin ? (
+        <div className="admin-card" style={{ marginBottom: 16 }}>
+          <div className="admin-card-label">Ana Sayfa Görsel Yönetimi</div>
+          <div className="admin-muted" style={{ margin: '8px 0 14px' }}>
+            Uygulama ana sayfasındaki hero banner, kategori kısa yolları ve mobil görsel alanları buradan yönetilir.
+          </div>
+          <Link to="/admin/content/home" className="admin-btn" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+            Görselleri Yönet
+          </Link>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="admin-warning">

@@ -47,6 +47,14 @@ const MENU_SECTIONS = [
     items: [{ label: 'Konum Sorunlari', to: '/admin/locations/issues' }]
   },
   {
+    title: 'İçerik Yönetimi',
+    items: [
+      { label: 'Ana Sayfa Görselleri', to: '/admin/content/home' },
+      { label: 'Onboarding Metinleri', to: '/admin/content/onboarding' },
+      { label: 'Arayüz Metinleri', to: '/admin/content/ui-texts' }
+    ]
+  },
+  {
     title: 'Moderasyon',
     items: [
       { label: 'Gelismis Kuyruk', to: '/admin/moderation/queue-advanced' },
@@ -117,9 +125,6 @@ const MENU_SECTIONS = [
   {
     title: 'Ayarlar',
     items: [
-      { label: 'Arayuz Metinleri', to: '/admin/content/ui-texts' },
-      { label: 'Ana Sayfa Icerigi', to: '/admin/content/home' },
-      { label: 'Onboarding Metinleri', to: '/admin/content/onboarding' },
       { label: 'Admin Kullanicilari', to: '/admin/admins' },
       { label: 'Harita Ayarlari', to: '/admin/map/settings' },
       { label: 'Arama Onerileri', to: '/admin/search/suggestions' },
