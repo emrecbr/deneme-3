@@ -29,7 +29,19 @@ const HOME_HERO_TARGET_HEIGHT = 600;
 const HOME_HERO_TARGET_SIZE_BYTES = 1024 * 1024;
 const HOME_HERO_WEBP_QUALITIES = [0.82, 0.75, 0.68];
 const HOME_ASSET_ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const APP_HOME_PREVIEW_HREF = buildSurfaceHref('app', '/app') || '/app';
+const resolveAppHomePreviewHref = () => {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location?.hostname || '';
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return '/app';
+    }
+    if (hostname === 'admin.talepet.net.tr') {
+      return 'https://app.talepet.net.tr/app';
+    }
+  }
+  return buildSurfaceHref('app', '/app') || '/app';
+};
+const APP_HOME_PREVIEW_HREF = resolveAppHomePreviewHref();
 
 const presetQuickCategories = (items) =>
   items.map((item, index) => ({
@@ -410,6 +422,9 @@ export default function AdminContentHome() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
+  const [previewReloadKey, setPreviewReloadKey] = useState(Date.now());
+  const [livePreviewLoading, setLivePreviewLoading] = useState(true);
+  const [livePreviewError, setLivePreviewError] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -439,20 +454,30 @@ export default function AdminContentHome() {
     }
   }, [heroPreviewUrl]);
 
-  const enabledQuickCategories = useMemo(
-    () => [...(form.quickCategories || [])].filter((item) => item.enabled !== false).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)),
-    [form.quickCategories]
-  );
+  useEffect(() => {
+    if (!livePreviewLoading) return undefined;
+    const timer = window.setTimeout(() => {
+      setLivePreviewLoading(false);
+      setLivePreviewError(true);
+    }, 20000);
+    return () => window.clearTimeout(timer);
+  }, [livePreviewLoading, previewReloadKey]);
 
-  const enabledSections = useMemo(
-    () => [...(form.homeSections || [])].filter((item) => item.enabled !== false).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0)),
-    [form.homeSections]
-  );
   const selectedPreset = useMemo(
     () => HOME_VISUAL_PRESETS.find((preset) => preset.key === selectedPresetKey) || HOME_VISUAL_PRESETS[0],
     [selectedPresetKey]
   );
   const heroPreviewImage = heroPreviewUrl || buildAssetUrl(form.heroBanner.imageUrl);
+  const livePreviewSrc = useMemo(() => {
+    const separator = APP_HOME_PREVIEW_HREF.includes('?') ? '&' : '?';
+    return `${APP_HOME_PREVIEW_HREF}${separator}homePreviewTs=${previewReloadKey}`;
+  }, [previewReloadKey]);
+
+  const refreshLivePreview = () => {
+    setLivePreviewError(false);
+    setLivePreviewLoading(true);
+    setPreviewReloadKey(Date.now());
+  };
 
   const updateHero = (key, value) => {
     setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, [key]: value } }));
@@ -684,6 +709,7 @@ export default function AdminContentHome() {
           ? 'Kaydedildi. Public ana sayfa içeriği güncel. App yüzeyinde kontrol edebilirsiniz.'
           : 'Kaydedildi ancak public içerik henüz güncel görünmüyor. Cache veya deploy kontrolü gerekebilir.'
       );
+      refreshLivePreview();
     } catch (err) {
       setError(err?.response?.data?.message || 'İçerik güncellenemedi veya public içerik doğrulanamadı.');
     } finally {
@@ -851,52 +877,6 @@ export default function AdminContentHome() {
                   <small>Örn: /create</small>
                 </label>
 
-                <div className="admin-home-edit-label">
-                  <strong>Önizleme (Mobil)</strong>
-                </div>
-
-                <div
-                  className="admin-home-live-phone"
-                  style={{ background: form.visualTheme.background || '#F5F1EA' }}
-                >
-                  <div className="admin-home-live-top">
-                    <strong>Talepet</strong>
-                    <span>Kocaeli</span>
-                    <i aria-hidden="true">•</i>
-                  </div>
-                  {form.heroBanner.enabled ? (
-                    <div
-                      className={`admin-home-live-hero ${form.heroBanner.overlayEnabled ? 'with-overlay' : ''}`}
-                      style={heroPreviewImage ? { backgroundImage: `url(${heroPreviewImage})` } : undefined}
-                    >
-                      <div>
-                        <h3>{form.heroBanner.title}</h3>
-                        <p>{form.heroBanner.subtitle}</p>
-                        {form.heroBanner.ctaLabel ? <span>{form.heroBanner.ctaLabel}</span> : null}
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="admin-home-live-categories">
-                    {enabledQuickCategories.slice(0, 4).map((item) => (
-                      <div key={item.key || item.label} style={{ background: item.backgroundColor || '#F8F6F2' }}>
-                        {item.iconUrl ? <img src={buildAssetUrl(item.iconUrl)} alt="" /> : <span>{String(item.label || '?').slice(0, 1)}</span>}
-                        <small>{item.label}</small>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="admin-home-live-section">
-                    <strong>{enabledSections[0]?.title || 'Yakındaki Talepler'}</strong>
-                    <span>{enabledSections[0]?.subtitle || 'Sana yakın güncel talepler.'}</span>
-                  </div>
-                  <div className="admin-home-live-rfq" style={{ borderRadius: Number(form.visualTheme.cardRadius || 28) }}>
-                    <div className="admin-home-live-rfq-thumb" />
-                    <div>
-                      <strong>Boya badana ihtiyacım var</strong>
-                      <span>Kocaeli • Hizmet / Usta</span>
-                    </div>
-                  </div>
-                </div>
-
                 <button type="button" className="admin-btn admin-home-save-button" onClick={save} disabled={loading || saving || Boolean(uploadingKey)}>
                   {saving ? 'Kaydediliyor…' : uploadingKey ? 'Görsel yükleniyor…' : 'Kaydet ve Yayınla'}
                 </button>
@@ -914,6 +894,45 @@ export default function AdminContentHome() {
                     </a>
                   </div>
                 ) : null}
+
+                <div className="admin-home-live-preview-card">
+                  <div className="admin-home-live-preview-head">
+                    <div>
+                      <strong>Canlı Mobil Önizleme</strong>
+                      <span>Uygulama ana sayfası gerçek mobil görünümle burada gösterilir.</span>
+                    </div>
+                    <button type="button" className="admin-btn admin-btn-secondary" onClick={refreshLivePreview}>
+                      Önizlemeyi Yenile
+                    </button>
+                  </div>
+                  <div className="admin-home-live-preview-actions">
+                    <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
+                      App’te Aç
+                    </a>
+                  </div>
+                  <div className="admin-home-live-frame">
+                    {livePreviewLoading ? (
+                      <div className="admin-home-live-frame-status">Canlı önizleme yükleniyor...</div>
+                    ) : null}
+                    {livePreviewError ? (
+                      <div className="admin-home-live-frame-error">
+                        Canlı önizleme yüklenemedi. App’i yeni sekmede açarak kontrol edin.
+                      </div>
+                    ) : null}
+                    <iframe
+                      key={previewReloadKey}
+                      title="Talepet canlı mobil önizleme"
+                      src={livePreviewSrc}
+                      className="admin-home-live-iframe"
+                      loading="lazy"
+                      onLoad={() => setLivePreviewLoading(false)}
+                      onError={() => {
+                        setLivePreviewLoading(false);
+                        setLivePreviewError(true);
+                      }}
+                    />
+                  </div>
+                </div>
               </aside>
             </div>
 

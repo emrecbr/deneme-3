@@ -810,6 +810,97 @@ html[data-surface="admin"] .admin-home-sync-check a {
   text-decoration: none;
 }
 
+html[data-surface="admin"] .admin-home-live-preview-card {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 14px;
+}
+
+html[data-surface="admin"] .admin-home-live-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html[data-surface="admin"] .admin-home-live-preview-head div {
+  display: grid;
+  gap: 4px;
+}
+
+html[data-surface="admin"] .admin-home-live-preview-head strong {
+  color: #111827;
+  font-size: 1rem;
+}
+
+html[data-surface="admin"] .admin-home-live-preview-head span {
+  color: #6b7280;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+html[data-surface="admin"] .admin-home-live-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+html[data-surface="admin"] .admin-home-live-frame {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 390px);
+  height: min(760px, 78vh);
+  min-height: 620px;
+  overflow: hidden;
+  border: 10px solid #0f172a;
+  border-radius: 42px;
+  background: #0f172a;
+  box-shadow: 0 24px 58px rgba(15, 23, 42, 0.24);
+}
+
+html[data-surface="admin"] .admin-home-live-frame::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 3;
+  width: 112px;
+  height: 22px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #0f172a;
+  pointer-events: none;
+}
+
+html[data-surface="admin"] .admin-home-live-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 30px;
+  background: #f5f1ea;
+}
+
+html[data-surface="admin"] .admin-home-live-frame-status,
+html[data-surface="admin"] .admin-home-live-frame-error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+html[data-surface="admin"] .admin-home-live-frame-error {
+  background: rgba(15, 23, 42, 0.9);
+  color: #ffffff;
+}
+
 html[data-surface="admin"] .admin-home-advanced {
   margin-top: 20px;
   border: 1px solid #e5e7eb;
@@ -1001,6 +1092,7 @@ html[data-surface="admin"] .admin-home-preview-card.short {
 @media (max-width: 980px) {
   html[data-surface="admin"] .admin-home-builder-header,
   html[data-surface="admin"] .admin-home-editor-panel-head,
+  html[data-surface="admin"] .admin-home-live-preview-head,
   html[data-surface="admin"] .admin-home-section-heading {
     flex-direction: column;
   }
@@ -1029,6 +1121,10 @@ html[data-surface="admin"] .admin-home-preview-card.short {
 @media (max-width: 640px) {
   html[data-surface="admin"] .admin-home-template-grid {
     grid-template-columns: 1fr;
+  }
+
+  html[data-surface="admin"] .admin-home-live-frame {
+    min-height: 560px;
   }
 }
 
