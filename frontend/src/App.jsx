@@ -33,6 +33,7 @@ const AdminFeatureFlags = lazy(() => import('./admin/AdminFeatureFlags'));
 const AdminMaintenance = lazy(() => import('./admin/AdminMaintenance'));
 const AdminListingExpiry = lazy(() => import('./admin/AdminListingExpiry'));
 const AdminListingQuota = lazy(() => import('./admin/AdminListingQuota'));
+const AdminApiRateLimits = lazy(() => import('./admin/AdminApiRateLimits'));
 const AdminMonetizationPlans = lazy(() => import('./admin/AdminMonetizationPlans'));
 const AdminMapSettings = lazy(() => import('./admin/AdminMapSettings'));
 const AdminMapTest = lazy(() => import('./admin/AdminMapTest'));
@@ -524,6 +525,7 @@ function App() {
         <Route path="system/maintenance" element={<AdminMaintenance />} />
         <Route path="system/listing-expiry" element={<AdminListingExpiry />} />
         <Route path="system/listing-quota" element={<AdminListingQuota />} />
+        <Route path="system/api-rate-limits" element={<AdminApiRateLimits />} />
         <Route path="system/monetization-plans" element={<AdminMonetizationPlans />} />
         <Route path="admins" element={<AdminAdmins />} />
         <Route path="roles" element={<AdminPermissions />} />
@@ -1006,8 +1008,8 @@ function App() {
               {renderWebsiteProfileShell(
                 <FavoritesPage surfaceVariant="web" />,
                 {
-                  title: 'Favoriler',
-                  description: 'Favori talepler website shell içinde gerçek içerikle açılır.',
+                  title: 'İlan Takiplerim',
+                  description: 'Takip ettiğin ilanlar website shell içinde gerçek içerikle açılır.',
                   fallbackTo: '/favorites'
                 }
               )}

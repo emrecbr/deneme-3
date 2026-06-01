@@ -38,7 +38,7 @@ export default function RFQDiscoveryCard({
           <button
             type="button"
             className="rfq-discovery-card__favorite"
-            aria-label={isFavorite ? 'Favorilerden cikar' : 'Favorilere ekle'}
+            aria-label={isFavorite ? 'İlan takiplerinden çıkar' : 'İlanı takip et'}
             onClick={onFavoriteToggle}
           >
             <FavoriteIcon size={18} active={isFavorite} className={favoriteAnimating ? 'favorite-animating' : ''} />

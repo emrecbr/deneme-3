@@ -112,9 +112,9 @@ function WebsiteProfileHome() {
         note: loading ? 'Sohbetler alınıyor' : summary.chats ? 'Aktif sohbetlerin' : 'Henüz aktif sohbet yok'
       },
       {
-        label: 'Favoriler',
+        label: 'İlan Takipleri',
         value: loading ? '-' : summary.favorites,
-        note: loading ? 'Favoriler alınıyor' : summary.favorites ? 'Kaydettiğin talepler' : 'Henüz favori eklemedin'
+        note: loading ? 'İlan takipleri alınıyor' : summary.favorites ? 'Takip ettiğin ilanlar' : 'Henüz ilan takip etmedin'
       },
       {
         label: 'Kalan hak',
@@ -260,7 +260,7 @@ function WebsiteProfileHome() {
               <span>Yayındaki ve bekleyen taleplerini tek yerden yönet.</span>
             </Link>
             <Link to={WEBSITE_PROFILE_FAVORITES_PATH} className="website-profile-home__quick-link">
-              <strong>Favorilerini düzenle</strong>
+              <strong>İlan takiplerini düzenle</strong>
               <span>Kaydettiğin RFQ kayıtlarını temizle veya tekrar incele.</span>
             </Link>
           </div>

@@ -335,7 +335,7 @@ function Profile() {
 
             <section className="profile-big-card" onClick={() => navigate('/favorites')}>
               <div className="profile-card-header">
-                <h2>Favorilerim</h2>
+                <h2>İlan Takiplerim</h2>
                 <span className="chevron">›</span>
               </div>
               <div className="profile-card-items">
@@ -343,7 +343,7 @@ function Profile() {
                   event.stopPropagation();
                   navigate('/favorites?type=rfq');
                 }}>
-                  <span>Favori Talepler</span>
+                  <span>Takip Ettiğim İlanlar</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>

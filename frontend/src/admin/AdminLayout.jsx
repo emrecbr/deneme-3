@@ -130,6 +130,7 @@ const MENU_SECTIONS = [
       { label: 'Arama Onerileri', to: '/admin/search/suggestions' },
       { label: 'Push Loglari', to: '/admin/notifications/push-logs' },
       { label: 'Push Tercihleri', to: '/admin/notifications/push-preferences' },
+      { label: 'Guvenlik & API Limitleri', to: '/admin/system/api-rate-limits' },
       { label: 'Sifre Degistir', to: '/admin/account/password' }
     ]
   }

@@ -3328,7 +3328,7 @@ function RFQList({ surfaceVariant = 'app' }) {
 
             return prev.filter((item) => String(item._id) !== String(rfq._id));
           });
-          setToast(isNowFavorite ? 'Favorilere eklendi' : 'Favorilerden çıkarıldı');
+          setToast(isNowFavorite ? 'İlan takiplerine eklendi' : 'İlan takiplerinden çıkarıldı');
           window.setTimeout(() => {
             setToast(null);
           }, 3000);
@@ -3340,7 +3340,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             prev.map((item) => (item._id === rfq._id ? { ...item, favoriteCount: nextFavoriteCount } : item))
           );
         } catch (toggleError) {
-          setToast(toggleError.response?.data?.message || 'Favori işlemi başarısız.');
+          setToast(toggleError.response?.data?.message || 'İlan takip işlemi başarısız.');
           window.setTimeout(() => {
             setToast(null);
           }, 3000);

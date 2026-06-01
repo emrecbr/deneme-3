@@ -86,6 +86,8 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   const [counterOfferId, setCounterOfferId] = useState(null);
   const [featureLoading, setFeatureLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [isFollowed, setIsFollowed] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [monetizationPlans, setMonetizationPlans] = useState([]);
   const [recommendedRfqs, setRecommendedRfqs] = useState([]);
   const [recommendationImageMap, setRecommendationImageMap] = useState({});
@@ -255,6 +257,35 @@ function RFQDetail({ surfaceVariant = 'app' }) {
   useEffect(() => {
     fetchRecommendations();
   }, [id]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchFollowState = async () => {
+      if (!currentUserId || !id) {
+        setIsFollowed(false);
+        return;
+      }
+
+      try {
+        const response = await api.get('/users/favorites');
+        if (!active) {
+          return;
+        }
+        const favoriteItems = response.data?.data || response.data?.items || [];
+        setIsFollowed(favoriteItems.some((item) => String(item?._id || item) === String(id)));
+      } catch (_error) {
+        if (active) {
+          setIsFollowed(false);
+        }
+      }
+    };
+
+    fetchFollowState();
+    return () => {
+      active = false;
+    };
+  }, [currentUserId, id]);
 
   useEffect(() => {
     let active = true;
@@ -1236,6 +1267,34 @@ function RFQDetail({ surfaceVariant = 'app' }) {
     }
   };
 
+  const handleToggleFollow = async () => {
+    if (!currentUserId) {
+      navigate('/login');
+      return;
+    }
+
+    if (!id || followLoading) {
+      return;
+    }
+
+    try {
+      setFollowLoading(true);
+      const response = await api.post(`/users/favorite/${id}`);
+      const serverFavorites = (response.data?.favorites || []).map((item) => String(item));
+      const isNowFollowed = serverFavorites.includes(String(id));
+      const nextFavoriteCount = Number(response.data?.favoriteCount || 0);
+      setIsFollowed(isNowFollowed);
+      setRfq((prev) => (prev ? { ...prev, favoriteCount: nextFavoriteCount } : prev));
+      setChatToast(isNowFollowed ? 'İlan takiplerine eklendi.' : 'İlan takiplerinden çıkarıldı.');
+      window.setTimeout(() => setChatToast(''), 3000);
+    } catch (requestError) {
+      setChatToast(requestError.response?.data?.message || 'İlan takip işlemi başarısız.');
+      window.setTimeout(() => setChatToast(''), 3000);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   return (
     <div className={`rfq-detail-page ${isWebSurface ? 'rfq-detail-page--web' : ''}`}>
       <div className={`detail-head ${isWebSurface ? 'detail-head--web' : ''}`}>
@@ -1371,6 +1430,14 @@ function RFQDetail({ surfaceVariant = 'app' }) {
 
             {!isOwner ? (
               <div className="detail-actions-row">
+                <button
+                  type="button"
+                  className={isFollowed ? 'secondary-btn follow-toggle-btn is-active' : 'secondary-btn follow-toggle-btn'}
+                  onClick={handleToggleFollow}
+                  disabled={followLoading}
+                >
+                  {followLoading ? 'İşleniyor...' : isFollowed ? 'Takipten Çıkar' : 'İlanı Takip Et'}
+                </button>
                 <button
                   type="button"
                   className="primary-btn offer-submit-btn"

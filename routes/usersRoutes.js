@@ -3,10 +3,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { apiRateLimit } from '../middleware/apiRateLimit.js';
 import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
-import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
+import { backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import PaymentMethod from '../models/PaymentMethod.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 
@@ -274,7 +275,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/me/avatar', authMiddleware, avatarUpload.single('avatar'), async (req, res) => {
+router.post('/me/avatar', authMiddleware, apiRateLimit('upload'), avatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Dosya bulunamadı.' });
@@ -375,6 +376,9 @@ router.post('/favorite/:rfqId', authMiddleware, async (req, res) => {
 
     await user.save();
     await RFQ.updateOne({ _id: rfq._id }, { $inc: { favoriteCount: isFavorited ? -1 : 1 } });
+    if (isFavorited) {
+      await RFQ.updateOne({ _id: rfq._id }, { $max: { favoriteCount: 0 } });
+    }
     const updatedRFQ = await RFQ.findById(rfq._id).select('favoriteCount');
 
     return res.json({
@@ -388,17 +392,50 @@ router.post('/favorite/:rfqId', authMiddleware, async (req, res) => {
   }
 });
 
+router.delete('/favorite/:rfqId', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const rfq = await RFQ.findById(req.params.rfqId).select('_id favoriteCount');
+
+    if (!rfq) {
+      return res.status(404).json({ message: 'RFQ bulunamadı' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'Kullanici bulunamadi' });
+    }
+
+    const originalLength = user.favorites.length;
+    user.favorites = user.favorites.filter((item) => item.toString() !== rfq._id.toString());
+    const removed = user.favorites.length !== originalLength;
+
+    if (removed) {
+      await user.save();
+      await RFQ.updateOne({ _id: rfq._id }, { $inc: { favoriteCount: -1 } });
+      await RFQ.updateOne({ _id: rfq._id }, { $max: { favoriteCount: 0 } });
+    }
+
+    const updatedRFQ = await RFQ.findById(rfq._id).select('favoriteCount');
+
+    return res.json({
+      success: true,
+      favorites: user.favorites,
+      favoriteCount: updatedRFQ?.favoriteCount || 0
+    });
+  } catch (error) {
+    console.error('FAVORITE REMOVE ERROR:', error);
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 router.get('/favorites', authMiddleware, async (req, res) => {
   try {
     const now = new Date();
     const listingExpiryDays = await getListingExpiryDays();
     await backfillMissingExpiresAt(listingExpiryDays);
     await markExpiredRfqs(now);
-    const favoriteMatch = {};
-    applyExpiryFilter(favoriteMatch, now);
     const user = await User.findById(req.user.id).populate({
       path: 'favorites',
-      match: favoriteMatch,
       populate: [
         {
           path: 'buyer',
@@ -417,7 +454,7 @@ router.get('/favorites', authMiddleware, async (req, res) => {
     }
 
     return res.json({
-      items: user.favorites || []
+      items: (user.favorites || []).filter(Boolean)
     });
   } catch (error) {
     console.error('FAVORITES ERROR:', error);
