@@ -1407,6 +1407,29 @@ function RFQList({ surfaceVariant = 'app' }) {
     window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
+  const applyCategoryFilter = useCallback(
+    ({ segment = '', categoryId = '', label = '', clearSearch = true, closeCategoryModal = true } = {}) => {
+      const nextSegment = segment ? String(segment) : '';
+      const nextCategoryId = categoryId ? String(categoryId) : '';
+      setFilters((prev) => ({
+        ...prev,
+        segment: nextSegment || null,
+        category: nextCategoryId || null
+      }));
+      syncCategoryFilterQuery(nextSegment, nextCategoryId);
+      localStorage.removeItem(RFQ_CACHE_KEY);
+      setPage(1);
+      setCategoryLabel(nextCategoryId ? label || '' : '');
+      if (clearSearch) {
+        setSearchQuery('');
+      }
+      if (closeCategoryModal) {
+        setIsCategoryModalOpen(false);
+      }
+    },
+    [syncCategoryFilterQuery]
+  );
+
   const handleRadiusChange = useCallback((value) => {
     const next = Math.min(
       Math.max(Number(value) || radiusConfig.default || DEFAULT_RADIUS_SETTINGS.default, minRadiusKm),
@@ -3122,18 +3145,13 @@ function RFQList({ surfaceVariant = 'app' }) {
     (category) => {
       const nextSegment = category?.segment || filters.segment || '';
       const nextCategoryId = String(category._id);
-      setFilters((prev) => ({
-        ...prev,
-        segment: nextSegment || null,
-        category: nextCategoryId
-      }));
-      syncCategoryFilterQuery(nextSegment, nextCategoryId);
-      localStorage.removeItem(RFQ_CACHE_KEY);
-      setPage(1);
-      setCategoryLabel(Array.isArray(category.path) ? category.path.join(' > ') : category.name || '');
-      setIsCategoryModalOpen(false);
+      applyCategoryFilter({
+        segment: nextSegment,
+        categoryId: nextCategoryId,
+        label: Array.isArray(category.path) ? category.path.join(' > ') : category.name || ''
+      });
     },
-    [filters.segment, syncCategoryFilterQuery]
+    [applyCategoryFilter, filters.segment]
   );
 
   const handleHomeQuickCategorySelect = useCallback(
@@ -3146,48 +3164,25 @@ function RFQList({ surfaceVariant = 'app' }) {
             homeMainCategories.find((category) => String(category._id || '') === nextCategoryId)
           : null) || null;
 
-      setFilters((prev) => ({
-        ...prev,
-        segment: nextSegment || null,
-        category: nextCategoryId || null
-      }));
-      syncCategoryFilterQuery(nextSegment, nextCategoryId);
-      localStorage.removeItem(RFQ_CACHE_KEY);
-      setPage(1);
-      setCategoryLabel(nextCategoryId ? match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '' : '');
-
-      setSearchQuery('');
-      setIsCategoryModalOpen(false);
+      applyCategoryFilter({
+        segment: nextSegment,
+        categoryId: nextCategoryId,
+        label: nextCategoryId ? match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '' : ''
+      });
       triggerHaptic('light');
     },
-    [categoryItems, homeMainCategories, syncCategoryFilterQuery]
+    [applyCategoryFilter, categoryItems, homeMainCategories]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
-    setFilters((prev) => ({ ...prev, category: null }));
-    syncCategoryFilterQuery(filters.segment, '');
-    localStorage.removeItem(RFQ_CACHE_KEY);
-    setPage(1);
-    setCategoryLabel('');
-    setIsCategoryModalOpen(false);
-  }, [filters.segment, syncCategoryFilterQuery]);
+    applyCategoryFilter({ segment: filters.segment || '', categoryId: '', label: '', clearSearch: false });
+  }, [applyCategoryFilter, filters.segment]);
 
   const handleSegmentSelect = useCallback(
     (segment) => {
-      const nextSegment = segment || '';
-      setFilters((prev) => ({
-        ...prev,
-        segment: nextSegment || null,
-        category: null
-      }));
-      syncCategoryFilterQuery(nextSegment, '');
-      localStorage.removeItem(RFQ_CACHE_KEY);
-      setPage(1);
-      setCategoryLabel('');
-      setSearchQuery('');
-      setIsCategoryModalOpen(false);
+      applyCategoryFilter({ segment: segment || '', categoryId: '', label: '' });
     },
-    [syncCategoryFilterQuery]
+    [applyCategoryFilter]
   );
 
   const activeParentName = useMemo(() => {
