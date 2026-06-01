@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const HERO_AUTOPLAY_INTERVAL_MS = 3000;
 const HERO_SCROLL_SETTLE_MS = 120;
@@ -34,12 +34,18 @@ export default function HomeHeroBanner({ banner, slides, assetBaseUrl, onNavigat
   const trackRef = useRef(null);
   const scrollSettleTimerRef = useRef(null);
   const autoplayTimerRef = useRef(null);
+  const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const heroSlides = useMemo(() => normalizeSlides(slides, banner), [slides, banner]);
 
+  const setSyncedActiveIndex = useCallback((nextIndex) => {
+    activeIndexRef.current = nextIndex;
+    setActiveIndex(nextIndex);
+  }, []);
+
   useEffect(() => {
-    setActiveIndex((currentIndex) => Math.min(currentIndex, Math.max(heroSlides.length - 1, 0)));
-  }, [heroSlides.length]);
+    setSyncedActiveIndex(Math.min(activeIndexRef.current, Math.max(heroSlides.length - 1, 0)));
+  }, [heroSlides.length, setSyncedActiveIndex]);
 
   useEffect(() => () => {
     window.clearTimeout(scrollSettleTimerRef.current);
@@ -52,23 +58,24 @@ export default function HomeHeroBanner({ banner, slides, assetBaseUrl, onNavigat
     window.clearTimeout(scrollSettleTimerRef.current);
     scrollSettleTimerRef.current = window.setTimeout(() => {
       const nextIndex = Math.round(node.scrollLeft / Math.max(node.clientWidth, 1));
-      setActiveIndex(Math.min(Math.max(nextIndex, 0), heroSlides.length - 1));
+      setSyncedActiveIndex(Math.min(Math.max(nextIndex, 0), heroSlides.length - 1));
     }, HERO_SCROLL_SETTLE_MS);
   };
 
-  const scrollToSlide = (index, behavior = 'smooth', syncState = true) => {
+  const scrollToSlide = useCallback((index, behavior = 'smooth', syncState = true) => {
     const node = trackRef.current;
     if (!node) return;
-    const target = node.children[index];
-    if (target?.scrollIntoView) {
-      target.scrollIntoView({ behavior, inline: 'start', block: 'nearest' });
-    } else {
-      node.scrollTo({ left: node.clientWidth * index, behavior });
-    }
+    const safeIndex = Math.min(Math.max(index, 0), Math.max(heroSlides.length - 1, 0));
+    const target = node.children[safeIndex];
+    const targetLeft = target ? target.offsetLeft - node.offsetLeft : node.clientWidth * safeIndex;
+    node.scrollTo({
+      left: Number.isFinite(targetLeft) ? targetLeft : node.clientWidth * safeIndex,
+      behavior
+    });
     if (syncState) {
-      setActiveIndex(index);
+      setSyncedActiveIndex(safeIndex);
     }
-  };
+  }, [heroSlides.length, setSyncedActiveIndex]);
 
   useEffect(() => {
     window.clearInterval(autoplayTimerRef.current);
@@ -80,17 +87,15 @@ export default function HomeHeroBanner({ banner, slides, assetBaseUrl, onNavigat
       if (document.visibilityState === 'hidden') {
         return;
       }
-      setActiveIndex((currentIndex) => {
-        const nextIndex = (currentIndex + 1) % heroSlides.length;
-        scrollToSlide(nextIndex, 'smooth', false);
-        return nextIndex;
-      });
+      const nextIndex = (activeIndexRef.current + 1) % heroSlides.length;
+      scrollToSlide(nextIndex, 'smooth', false);
+      setSyncedActiveIndex(nextIndex);
     }, HERO_AUTOPLAY_INTERVAL_MS);
 
     return () => {
       window.clearInterval(autoplayTimerRef.current);
     };
-  }, [heroSlides.length, activeIndex]);
+  }, [heroSlides.length, scrollToSlide, setSyncedActiveIndex]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -102,7 +107,7 @@ export default function HomeHeroBanner({ banner, slides, assetBaseUrl, onNavigat
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [activeIndex, heroSlides.length]);
+  }, [activeIndex, heroSlides.length, scrollToSlide]);
 
   if (!heroSlides.length) {
     return null;
