@@ -1,26 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 
-const SEGMENT_OPTIONS = [
-  { value: '', label: 'Tüm segmentler / Belirtilmedi' },
-  { value: 'goods', label: 'Esya' },
-  { value: 'service', label: 'Hizmet / Usta' },
-  { value: 'auto', label: 'Otomobil' },
-  { value: 'jobseeker', label: 'İş Arayan Kişi' }
+const MAIN_CATEGORY_CARDS = [
+  { segment: 'goods', label: 'Eşya', backgroundColor: '#FFF4DE' },
+  { segment: 'service', label: 'Hizmet / Usta', backgroundColor: '#EAF2FF' },
+  { segment: 'auto', label: 'Otomobil', backgroundColor: '#EEFDF8' },
+  { segment: 'jobseeker', label: 'İş Arayan', backgroundColor: '#F3EFFF' }
 ];
-
-const emptyForm = {
-  name: '',
-  slug: '',
-  order: 0,
-  isActive: true,
-  segment: '',
-  imageUrl: '',
-  imageProvider: '',
-  imagePublicId: '',
-  imageEnabled: true
-};
 
 const CATEGORY_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const CATEGORY_IMAGE_INPUT_MAX_BYTES = 15 * 1024 * 1024;
@@ -62,7 +49,7 @@ const loadImageFromFile = (file) =>
     image.src = objectUrl;
   });
 
-const resizeCategoryImage = async (file) => {
+const resizeMainCategoryImage = async (file) => {
   const image = await loadImageFromFile(file);
   const canvas = document.createElement('canvas');
   canvas.width = CATEGORY_IMAGE_SIZE;
@@ -75,17 +62,16 @@ const resizeCategoryImage = async (file) => {
   context.imageSmoothingQuality = 'high';
 
   const sourceRatio = image.width / image.height;
-  const targetRatio = 1;
   let sourceWidth = image.width;
   let sourceHeight = image.height;
   let sourceX = 0;
   let sourceY = 0;
 
-  if (sourceRatio > targetRatio) {
-    sourceWidth = image.height * targetRatio;
+  if (sourceRatio > 1) {
+    sourceWidth = image.height;
     sourceX = (image.width - sourceWidth) / 2;
   } else {
-    sourceHeight = image.width / targetRatio;
+    sourceHeight = image.width;
     sourceY = (image.height - sourceHeight) / 2;
   }
 
@@ -97,90 +83,76 @@ const resizeCategoryImage = async (file) => {
   return blob;
 };
 
+const buildDraftFromCategory = (category = {}) => ({
+  imageUrl: category.imageUrl || '',
+  imageProvider: category.imageProvider || '',
+  imagePublicId: category.imagePublicId || '',
+  imageEnabled: category.imageEnabled !== false,
+  dirty: false,
+  markedForRemoval: false,
+  status: category.imageUrl ? 'Yayınlandı' : ''
+});
+
 export default function AdminCategories() {
   const [items, setItems] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [drafts, setDrafts] = useState({});
+  const [busyById, setBusyById] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [segmentFilter, setSegmentFilter] = useState('');
-  const currentImageUrl = useMemo(() => buildAssetUrl(form.imageUrl), [form.imageUrl]);
 
-  const getSegmentLabel = (value) =>
-    SEGMENT_OPTIONS.find((item) => item.value === String(value || ''))?.label || 'Belirtilmedi';
-
-  const load = async () => {
+  const load = useCallback(async ({ resetDrafts = false } = {}) => {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams({
         parent: 'none',
         includeInactive: 'true',
-        page: String(page),
         limit: '50'
       });
-      if (segmentFilter) {
-        params.set('segment', segmentFilter);
-      }
       const response = await api.get(`/admin/categories?${params.toString()}`);
-      setItems(response.data?.items || []);
-      setHasMore(Boolean(response.data?.pagination?.hasMore));
+      const nextItems = response.data?.items || [];
+      setItems(nextItems);
+      setDrafts((prev) => {
+        const next = resetDrafts ? {} : { ...prev };
+        nextItems.forEach((category) => {
+          if (!category?._id) return;
+          if (!next[category._id] || !next[category._id].dirty || resetDrafts) {
+            next[category._id] = buildDraftFromCategory(category);
+          }
+        });
+        return next;
+      });
     } catch (err) {
-      setError(err?.response?.data?.message || 'Kategori listesi alinamadi.');
+      setError(err?.response?.data?.message || 'Kategori listesi alınamadı.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    load();
-  }, [page, segmentFilter]);
+    load({ resetDrafts: true });
+  }, [load]);
 
-  const submit = async () => {
-    setMessage('');
-    try {
-      const payload = {
-        name: form.name,
-        slug: form.slug,
-        order: form.order,
-        isActive: form.isActive,
-        segment: form.segment,
-        imageEnabled: form.imageEnabled,
-        parent: null
-      };
-      if (editingId) {
-        const response = await api.patch(`/admin/categories/${editingId}`, payload);
-        setForm((prev) => ({ ...prev, ...(response.data?.data || {}) }));
-        setMessage('Kategori güncellendi.');
-      } else {
-        await api.post('/admin/categories', payload);
-        setMessage('Kategori eklendi. Görsel yüklemek için kategoriyi düzenleyin.');
-        setForm(emptyForm);
-        setEditingId(null);
+  const categoryBySegment = useMemo(() => {
+    const map = new Map();
+    items.forEach((item) => {
+      if (item?.segment && !map.has(item.segment)) {
+        map.set(item.segment, item);
       }
-      setPage(1);
-      load();
-    } catch (err) {
-      setMessage(err?.response?.data?.message || 'İşlem başarısız.');
-    }
+    });
+    return map;
+  }, [items]);
+
+  const setCardBusy = (categoryId, value) => {
+    setBusyById((prev) => ({ ...prev, [categoryId]: value || '' }));
   };
 
-  const startEdit = (item) => {
-    setEditingId(item._id);
-    setForm({
-      name: item.name || '',
-      slug: item.slug || '',
-      order: item.order || 0,
-      isActive: item.isActive !== false,
-      segment: item.segment || '',
-      imageUrl: item.imageUrl || '',
-      imageProvider: item.imageProvider || '',
-      imagePublicId: item.imagePublicId || '',
-      imageEnabled: item.imageEnabled !== false
+  const updateDraft = (categoryId, updater) => {
+    setDrafts((prev) => {
+      const current = prev[categoryId] || buildDraftFromCategory();
+      const next = typeof updater === 'function' ? updater(current) : { ...current, ...updater };
+      return { ...prev, [categoryId]: next };
     });
   };
 
@@ -195,21 +167,21 @@ export default function AdminCategories() {
 
     setMessage('');
     if (!CATEGORY_IMAGE_TYPES.has(file.type)) {
-      setMessage('Sadece JPG, PNG veya WebP görsel kullanabilirsiniz.');
+      updateDraft(categoryId, { status: 'Sadece JPG, PNG veya WebP görsel kullanabilirsiniz.' });
       return;
     }
     if (file.size > CATEGORY_IMAGE_INPUT_MAX_BYTES) {
-      setMessage('Bu görsel çok büyük. Lütfen daha küçük bir görsel seçin.');
+      updateDraft(categoryId, { status: 'Bu görsel çok büyük. Lütfen daha küçük bir görsel seçin.' });
       return;
     }
 
-    setUploadingImage(true);
+    setCardBusy(categoryId, 'uploading');
     try {
-      setMessage('Görsel hazırlanıyor...');
-      const resizedBlob = await resizeCategoryImage(file);
+      updateDraft(categoryId, { status: 'Görsel hazırlanıyor...' });
+      const resizedBlob = await resizeMainCategoryImage(file);
       const formData = new FormData();
       formData.append('file', resizedBlob, `main-category-${Date.now()}.webp`);
-      setMessage('Görsel yükleniyor...');
+      updateDraft(categoryId, { status: 'Görsel yükleniyor...' });
       const response = await api.post(`/admin/categories/${categoryId}/image`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000
@@ -218,44 +190,85 @@ export default function AdminCategories() {
       if (!uploaded.url) {
         throw new Error('Görsel URL alınamadı.');
       }
-      const imageFields = {
+      updateDraft(categoryId, {
         imageUrl: uploaded.url,
         imageProvider: uploaded.provider || '',
         imagePublicId: uploaded.publicId || '',
-        imageEnabled: true
-      };
-      setForm((prev) => ({ ...prev, ...imageFields }));
-      updateItemImage(categoryId, imageFields);
-      setMessage('Görsel yüklendi ve ana kategoriye kaydedildi.');
+        imageEnabled: true,
+        dirty: true,
+        markedForRemoval: false,
+        status: 'Yayınlanmamış değişiklik var'
+      });
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout');
-      setMessage(
-        isTimeout
+      updateDraft(categoryId, {
+        status: isTimeout
           ? 'Görsel yükleme zaman aşımına uğradı. Lütfen tekrar deneyin.'
           : err?.response?.data?.message || err?.message || 'Görsel yüklenemedi.'
-      );
+      });
     } finally {
-      setUploadingImage(false);
+      setCardBusy(categoryId, '');
     }
   };
 
-  const handleMainCategoryImageRemove = async (categoryId) => {
+  const handleMainCategoryImageRemove = (categoryId) => {
     if (!categoryId) return;
+    updateDraft(categoryId, {
+      imageUrl: '',
+      imageProvider: '',
+      imagePublicId: '',
+      imageEnabled: false,
+      dirty: true,
+      markedForRemoval: true,
+      status: 'Görsel kaldırıldı, yayınlamak için kaydet'
+    });
+  };
+
+  const handleMainCategoryImageEnabledChange = (categoryId, checked) => {
+    if (!categoryId) return;
+    updateDraft(categoryId, (current) => ({
+      ...current,
+      imageEnabled: checked,
+      dirty: true,
+      status: 'Yayınlanmamış değişiklik var'
+    }));
+  };
+
+  const publishMainCategoryImage = async (categoryId) => {
+    if (!categoryId) return;
+    const draft = drafts[categoryId] || buildDraftFromCategory();
+    setCardBusy(categoryId, 'publishing');
     setMessage('');
     try {
-      const response = await api.delete(`/admin/categories/${categoryId}/image`);
-      const next = response.data?.data || {};
+      const response = draft.markedForRemoval
+        ? await api.delete(`/admin/categories/${categoryId}/image`)
+        : await api.patch(`/admin/categories/${categoryId}/image`, {
+            imageUrl: draft.imageUrl,
+            imageProvider: draft.imageProvider,
+            imagePublicId: draft.imagePublicId,
+            imageEnabled: draft.imageEnabled
+          });
+
+      const nextCategory = response.data?.data || {};
       const imageFields = {
-        imageUrl: next.imageUrl || '',
-        imageProvider: next.imageProvider || '',
-        imagePublicId: next.imagePublicId || '',
-        imageEnabled: next.imageEnabled !== false
+        imageUrl: nextCategory.imageUrl || '',
+        imageProvider: nextCategory.imageProvider || '',
+        imagePublicId: nextCategory.imagePublicId || '',
+        imageEnabled: nextCategory.imageEnabled !== false
       };
-      setForm((prev) => ({ ...prev, ...imageFields }));
       updateItemImage(categoryId, imageFields);
-      setMessage('Görsel kaldırıldı.');
+      setDrafts((prev) => ({
+        ...prev,
+        [categoryId]: {
+          ...buildDraftFromCategory(imageFields),
+          status: 'Yayınlandı'
+        }
+      }));
+      setMessage('Kategori görseli yayınlandı.');
     } catch (err) {
-      setMessage(err?.response?.data?.message || 'Görsel kaldırılamadı.');
+      updateDraft(categoryId, { status: err?.response?.data?.message || 'Görsel yayınlanamadı.' });
+    } finally {
+      setCardBusy(categoryId, '');
     }
   };
 
@@ -264,150 +277,77 @@ export default function AdminCategories() {
       <div className="admin-panel-title">Ana Kategoriler</div>
       <div className="admin-panel-body">
         {error ? <div className="admin-error">{error}</div> : null}
-
-        <div className="admin-filter-grid">
-          <label>
-            Segment Filtresi
-            <select
-              className="admin-input"
-              value={segmentFilter}
-              onChange={(e) => {
-                setSegmentFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              {SEGMENT_OPTIONS.map((option) => (
-                <option key={option.value || 'all'} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="admin-form-grid">
-          <label>
-            Kategori Adi
-            <input className="admin-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </label>
-          <label>
-            Slug
-            <input className="admin-input" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-          </label>
-          <label>
-            Segment
-            <select className="admin-input" value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })}>
-              {SEGMENT_OPTIONS.map((option) => (
-                <option key={option.value || 'empty'} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Sira
-            <input className="admin-input" type="number" value={form.order} onChange={(e) => setForm({ ...form, order: Number(e.target.value) })} />
-          </label>
-          <label>
-            Aktif
-            <select className="admin-input" value={form.isActive ? '1' : '0'} onChange={(e) => setForm({ ...form, isActive: e.target.value === '1' })}>
-              <option value="1">Aktif</option>
-              <option value="0">Pasif</option>
-            </select>
-          </label>
-        </div>
-        {editingId ? (
-          <div className="admin-main-category-image-panel">
-            <div className="admin-main-category-image-header">
-              <span>Kategori</span>
-              <strong>{form.name || 'Ana kategori'}</strong>
-            </div>
-            <div className="admin-main-category-image-preview">
-              {currentImageUrl ? (
-                <img src={currentImageUrl} alt={`${form.name || 'Ana kategori'} görseli`} />
-              ) : (
-                <span>Görsel yok</span>
-              )}
-            </div>
-            <div className="admin-main-category-image-controls">
-              <div className="admin-row-actions">
-                <label className={`admin-btn ${uploadingImage ? 'disabled' : ''}`}>
-                  {uploadingImage ? 'Yükleniyor...' : currentImageUrl ? 'Değiştir' : 'Görsel Yükle'}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="admin-hidden-file-input"
-                    disabled={uploadingImage}
-                    onChange={(event) => handleMainCategoryImageUpload(editingId, event)}
-                  />
-                </label>
-                <button type="button" className="admin-btn admin-btn-secondary" disabled={!form.imageUrl || uploadingImage} onClick={() => handleMainCategoryImageRemove(editingId)}>
-                  Kaldır
-                </button>
-              </div>
-              <label className="admin-main-category-image-switch">
-                <input
-                  type="checkbox"
-                  checked={form.imageEnabled}
-                  onChange={(e) => setForm({ ...form, imageEnabled: e.target.checked })}
-                />
-                <span>Görsel Aktif</span>
-              </label>
-            </div>
-          </div>
-        ) : null}
-        <div className="admin-action-row">
-          <button type="button" className="admin-btn" onClick={submit}>
-            {editingId ? 'Güncelle' : 'Ekle'}
-          </button>
-          {message ? <span className="admin-muted">{message}</span> : null}
-        </div>
+        {message ? <div className="admin-success">{message}</div> : null}
 
         {loading ? (
           <div className="admin-empty">Yükleniyor...</div>
         ) : (
-          <div className="admin-table">
-            <div className="admin-table-row admin-table-head no-checkbox admin-category-table-row">
-              <div>Görsel</div>
-              <div>Ad</div>
-              <div>Segment</div>
-              <div>Slug</div>
-              <div>Sira</div>
-              <div>Aktif</div>
-              <div></div>
-            </div>
-            {items.map((item) => (
-              <div key={item._id} className="admin-table-row no-checkbox admin-category-table-row">
-                <div>
-                  {item.imageUrl ? (
-                    <img className="admin-category-thumb" src={buildAssetUrl(item.imageUrl)} alt="" loading="lazy" />
-                  ) : (
-                    <span className="admin-category-thumb admin-category-thumb--empty">Yok</span>
-                  )}
-                </div>
-                <div>{item.name}</div>
-                <div>{getSegmentLabel(item.segment)}</div>
-                <div>{item.slug}</div>
-                <div>{item.order ?? 0}</div>
-                <div>{item.isActive === false ? 'Pasif' : 'Aktif'}</div>
-                <div>
-                  <button type="button" className="admin-btn" onClick={() => startEdit(item)}>
-                    Duzenle
+          <div className="admin-main-category-card-grid">
+            {MAIN_CATEGORY_CARDS.map((definition) => {
+              const category = categoryBySegment.get(definition.segment);
+              const categoryId = category?._id || '';
+              const draft = categoryId ? drafts[categoryId] || buildDraftFromCategory(category) : buildDraftFromCategory();
+              const imageUrl = buildAssetUrl(draft.imageUrl);
+              const busy = categoryId ? busyById[categoryId] : '';
+              const isBusy = Boolean(busy);
+              const hasImage = Boolean(draft.imageUrl);
+              return (
+                <article
+                  key={definition.segment}
+                  className="admin-main-category-card"
+                  style={{ '--category-card-bg': definition.backgroundColor }}
+                >
+                  <div className="admin-main-category-card__header">
+                    <span>Kategori</span>
+                    <strong>{category?.name || definition.label}</strong>
+                  </div>
+                  <div className={`admin-main-category-card__preview ${hasImage ? 'has-image' : ''}`}>
+                    {imageUrl ? <img src={imageUrl} alt={`${category?.name || definition.label} görseli`} /> : <span>Görsel yok</span>}
+                  </div>
+                  <div className="admin-main-category-card__actions">
+                    <label className={`admin-btn ${isBusy || !categoryId ? 'disabled' : ''}`}>
+                      {busy === 'uploading' ? 'Yükleniyor...' : hasImage ? 'Değiştir' : 'Görsel Seç'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="admin-hidden-file-input"
+                        disabled={isBusy || !categoryId}
+                        onChange={(event) => handleMainCategoryImageUpload(categoryId, event)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-secondary"
+                      disabled={!hasImage || isBusy || !categoryId}
+                      onClick={() => handleMainCategoryImageRemove(categoryId)}
+                    >
+                      Kaldır
+                    </button>
+                  </div>
+                  <label className="admin-main-category-image-switch">
+                    <input
+                      type="checkbox"
+                      checked={draft.imageEnabled}
+                      disabled={isBusy || !categoryId}
+                      onChange={(event) => handleMainCategoryImageEnabledChange(categoryId, event.target.checked)}
+                    />
+                    <span>Görsel Aktif</span>
+                  </label>
+                  {draft.status ? <div className="admin-main-category-card__status">{draft.status}</div> : null}
+                  {!categoryId ? <div className="admin-main-category-card__status is-warning">Kategori kaydı bulunamadı.</div> : null}
+                  <button
+                    type="button"
+                    className="admin-btn admin-main-category-card__publish"
+                    disabled={!categoryId || isBusy || !draft.dirty}
+                    onClick={() => publishMainCategoryImage(categoryId)}
+                  >
+                    {busy === 'publishing' ? 'Yayınlanıyor...' : 'Kaydet ve Yayınla'}
                   </button>
-                </div>
-              </div>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
-        <div className="admin-pagination">
-          <button type="button" className="admin-btn" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(prev - 1, 1))}>
-            Önceki
-          </button>
-          <span className="admin-muted">Sayfa {page}</span>
-          <button type="button" className="admin-btn" disabled={!hasMore} onClick={() => setPage((prev) => prev + 1)}>
-            Sonraki
-          </button>
-        </div>
       </div>
     </div>
   );

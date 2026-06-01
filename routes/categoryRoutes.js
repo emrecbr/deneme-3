@@ -18,7 +18,8 @@ const serializePublicCategory = (cat) => {
   if (!parentId) {
     return {
       ...safeCategory,
-      imageUrl: imageEnabled === false ? '' : imageUrl || ''
+      imageUrl: imageEnabled === false ? '' : imageUrl || '',
+      imageEnabled: imageEnabled !== false
     };
   }
 

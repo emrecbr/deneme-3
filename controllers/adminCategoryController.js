@@ -243,13 +243,7 @@ export const uploadMainCategoryImage = async (req, res, next) => {
       size: req.file.size
     });
 
-    category.imageUrl = uploaded.url || '';
-    category.imageProvider = uploaded.provider || '';
-    category.imagePublicId = uploaded.publicId || '';
-    category.imageEnabled = true;
-    await category.save();
-
-    await logAdminAction(req, 'main_category_image_upload', {
+    await logAdminAction(req, 'main_category_image_asset_upload', {
       categoryId: category._id,
       provider: uploaded.provider,
       publicId: uploaded.publicId,
@@ -264,6 +258,44 @@ export const uploadMainCategoryImage = async (req, res, next) => {
         categoryId: category._id
       }
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const publishMainCategoryImage = async (req, res, next) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ success: false, message: 'Kategori bulunamadı.' });
+    }
+    if (!isMainCategory(category)) {
+      return res.status(400).json({ success: false, message: 'Sadece ana kategorilerde görsel yayınlanabilir.' });
+    }
+
+    const { imageUrl, imageProvider, imagePublicId, imageEnabled } = req.body || {};
+    const nextImageUrl = normalize(imageUrl);
+    const previousProvider = category.imageProvider || '';
+    const previousPublicId = category.imagePublicId || '';
+
+    if (previousPublicId && previousPublicId !== normalize(imagePublicId) && previousProvider === 'cloudinary') {
+      await deleteMediaAsset(previousPublicId).catch(() => false);
+    }
+
+    category.imageUrl = nextImageUrl;
+    category.imageProvider = nextImageUrl ? normalize(imageProvider) : '';
+    category.imagePublicId = nextImageUrl ? normalize(imagePublicId) : '';
+    category.imageEnabled = imageEnabled !== false;
+    await category.save();
+
+    await logAdminAction(req, 'main_category_image_upload', {
+      categoryId: category._id,
+      provider: category.imageProvider,
+      publicId: category.imagePublicId,
+      imageEnabled: category.imageEnabled
+    });
+
+    return res.status(200).json({ success: true, data: category });
   } catch (error) {
     return next(error);
   }

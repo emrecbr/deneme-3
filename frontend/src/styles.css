@@ -6068,6 +6068,86 @@ img.admin-category-thumb {
   object-fit: cover;
 }
 
+.admin-main-category-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-main-category-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.09), transparent),
+    var(--category-card-bg, rgba(15, 23, 42, 0.62));
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+}
+
+.admin-main-category-card__header {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-main-category-card__header span {
+  color: rgba(226, 232, 240, 0.62);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-main-category-card__header strong {
+  color: #f8fafc;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.admin-main-category-card__preview {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1.6 / 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: rgba(226, 232, 240, 0.74);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.admin-main-category-card__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-main-category-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-main-category-card__status {
+  min-height: 18px;
+  color: rgba(226, 232, 240, 0.78);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-main-category-card__status.is-warning {
+  color: #fbbf24;
+}
+
+.admin-main-category-card__publish {
+  width: 100%;
+}
+
 .admin-status-pill {
   display: inline-flex;
   align-items: center;
@@ -6463,6 +6543,10 @@ img.admin-category-thumb {
 
 @media (max-width: 900px) {
   .admin-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-main-category-card-grid {
     grid-template-columns: 1fr;
   }
 
@@ -10657,6 +10741,29 @@ html[data-surface="admin"] .admin-main-category-image-header strong {
 
 html[data-surface="admin"] .admin-main-category-image-switch {
   color: #495057;
+}
+
+html[data-surface="admin"] .admin-main-category-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.94)),
+    var(--category-card-bg, #f8fafc);
+  border-color: #e5e7eb;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+html[data-surface="admin"] .admin-main-category-card__header span,
+html[data-surface="admin"] .admin-main-category-card__status {
+  color: #6c757d;
+}
+
+html[data-surface="admin"] .admin-main-category-card__header strong {
+  color: #111827;
+}
+
+html[data-surface="admin"] .admin-main-category-card__preview {
+  background: #eef2f7;
+  border-color: #dbe2ea;
+  color: #64748b;
 }
 
 html[data-surface="admin"] .admin-empty,
