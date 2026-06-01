@@ -1,6 +1,5 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
 import { adminRoleMiddleware, requireAdminOnly } from '../middleware/adminRoleMiddleware.js';
 import { getDashboardSummary, refreshDashboardSummary } from '../controllers/adminDashboardController.js';
 import {
@@ -97,20 +96,8 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
 });
-const homeAssetStorage = multer.diskStorage({
-  destination: 'uploads',
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    const safeBase = path
-      .basename(file.originalname || 'home-asset', ext)
-      .replace(/[^a-z0-9-_]+/gi, '-')
-      .replace(/-+/g, '-')
-      .slice(0, 48);
-    cb(null, `${Date.now()}-${safeBase || 'home-asset'}${ext}`);
-  }
-});
 const homeAssetUpload = multer({
-  storage: homeAssetStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);

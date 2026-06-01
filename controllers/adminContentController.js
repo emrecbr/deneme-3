@@ -1,5 +1,6 @@
 import AppSetting from '../models/AppSetting.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
+import { uploadHomeHeroImage } from '../src/services/mediaStorageService.js';
 
 const DEFAULT_CONTENT = {
   home: {
@@ -161,16 +162,23 @@ export const uploadHomeContentAsset = async (req, res, next) => {
     if (!file) {
       return res.status(400).json({ success: false, message: 'Görsel dosyası gerekli.' });
     }
+    if (!file.buffer?.length) {
+      return res.status(400).json({ success: false, message: 'Görsel dosyası okunamadı.' });
+    }
 
-    const url = `/uploads/${file.filename}`;
-    const data = {
-      url,
-      filename: file.filename,
+    const data = await uploadHomeHeroImage(file.buffer, {
+      originalName: file.originalname,
       mimeType: file.mimetype,
       size: file.size
-    };
+    });
 
-    await logAdminAction(req, 'content_home_asset_upload', data);
+    await logAdminAction(req, 'content_home_asset_upload', {
+      provider: data.provider,
+      publicId: data.publicId || null,
+      filename: data.filename || null,
+      mimeType: data.mimeType,
+      size: data.size
+    });
     return res.status(201).json({ success: true, data });
   } catch (error) {
     return next(error);

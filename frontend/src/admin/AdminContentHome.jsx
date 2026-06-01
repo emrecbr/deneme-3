@@ -310,6 +310,11 @@ const buildAssetUrl = (url) => {
   return `${API_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`;
 };
 
+const inferMediaProvider = (url) => {
+  if (!url) return '';
+  return /res\.cloudinary\.com/i.test(url) ? 'cloudinary' : 'local';
+};
+
 const resolveUploadErrorMessage = (err) => {
   const message = String(err?.message || '');
   if (err?.code === 'ECONNABORTED' || /timeout/i.test(message)) {
@@ -420,6 +425,7 @@ export default function AdminContentHome() {
   const [uploadStage, setUploadStage] = useState('');
   const [heroPreviewUrl, setHeroPreviewUrl] = useState('');
   const [publicContentCheck, setPublicContentCheck] = useState(null);
+  const [lastUploadProvider, setLastUploadProvider] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
@@ -437,6 +443,7 @@ export default function AdminContentHome() {
         if (!active) return;
         const nextForm = normalizeForm(response.data?.data || {});
         latestHeroImageUrlRef.current = nextForm.heroBanner?.imageUrl || '';
+        setLastUploadProvider(inferMediaProvider(nextForm.heroBanner?.imageUrl));
         setForm(nextForm);
       } catch (err) {
         if (!active) return;
@@ -593,6 +600,7 @@ export default function AdminContentHome() {
     updateHero('imageUrl', '');
     setHeroPreviewUrl('');
     setUploadStage('');
+    setLastUploadProvider('');
     setPublicContentCheck(null);
     setSuccess('Hero görseli kaldırıldı. Canlıya yansıtmak için Kaydet butonuna basın.');
   };
@@ -604,17 +612,19 @@ export default function AdminContentHome() {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: HOME_ASSET_UPLOAD_TIMEOUT_MS
     });
-    const url = response.data?.data?.url || '';
+    const uploadData = response.data?.data || {};
+    const url = uploadData.url || '';
     if (!url) {
       throw new Error('Upload URL alınamadı.');
     }
     if (target === 'hero') {
       latestHeroImageUrlRef.current = url;
+      setLastUploadProvider(uploadData.provider || inferMediaProvider(url));
       setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, imageUrl: url } }));
     } else if (target === 'quickCategory') {
       updateQuickCategory(index, 'iconUrl', url);
     }
-    return url;
+    return { ...uploadData, url };
   };
 
   const uploadAsset = async (file, target, index = null) => {
@@ -672,9 +682,9 @@ export default function AdminContentHome() {
       setHeroPreviewUrl(localPreviewUrl);
       setPublicContentCheck(null);
       setUploadStage('Görsel yükleniyor...');
-      const uploadedUrl = await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
+      const uploadedAsset = await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
       setUploadStage('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
-      setSuccess(`Görsel hazır: ${uploadedUrl}. Yayına almak için Kaydet ve Yayınla butonuna basın.`);
+      setSuccess(`Görsel hazır: ${uploadedAsset.url}. Yayına almak için Kaydet ve Yayınla butonuna basın.`);
     } catch (err) {
       setHeroPreviewUrl('');
       setUploadStage('');
@@ -712,6 +722,7 @@ export default function AdminContentHome() {
       const publicTitle = publicForm.heroBanner?.title || '';
       const savedImageUrl = savedForm.heroBanner?.imageUrl || '';
       const publicImageUrl = publicForm.heroBanner?.imageUrl || '';
+      const publicImageProvider = lastUploadProvider || inferMediaProvider(publicImageUrl);
       const savedCategoryCount = Array.isArray(savedForm.quickCategories) ? savedForm.quickCategories.length : 0;
       const publicCategoryCount = Array.isArray(publicForm.quickCategories) ? publicForm.quickCategories.length : 0;
       const publicMatches =
@@ -727,6 +738,7 @@ export default function AdminContentHome() {
         savedImageUrl,
         publicImageUrl,
         publicImageFullUrl: buildAssetUrl(publicImageUrl),
+        provider: publicImageProvider,
         publicCategoryCount
       });
       if (savedImageUrl && !publicImageUrl) {
@@ -918,6 +930,7 @@ export default function AdminContentHome() {
                     <span>Kaydedilen görsel URL: {publicContentCheck.savedImageUrl || '-'}</span>
                     <span>Public görsel URL: {publicContentCheck.publicImageUrl || '-'}</span>
                     <span>Public tam görsel URL: {publicContentCheck.publicImageFullUrl || '-'}</span>
+                    <span>Provider: {publicContentCheck.provider || '-'}</span>
                     <span>Kategori kısa yolu: {publicContentCheck.publicCategoryCount}</span>
                     <small>Kontrol zamanı: {publicContentCheck.checkedAt}</small>
                     <a href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
