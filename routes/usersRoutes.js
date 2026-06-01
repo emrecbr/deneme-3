@@ -3,7 +3,6 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { authMiddleware } from '../middleware/authMiddleware.js';
-import { apiRateLimit } from '../middleware/apiRateLimit.js';
 import User from '../models/User.js';
 import RFQ from '../models/RFQ.js';
 import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/listingQuota.js';
@@ -275,7 +274,7 @@ router.patch('/me', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/me/avatar', authMiddleware, apiRateLimit('upload'), avatarUpload.single('avatar'), async (req, res) => {
+router.post('/me/avatar', authMiddleware, avatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Dosya bulunamadı.' });
