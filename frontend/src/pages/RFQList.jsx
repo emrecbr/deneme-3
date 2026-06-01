@@ -416,6 +416,12 @@ const escapeHtml = (value) => String(value || '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+const getInitialFilterParam = (key) => {
+  if (typeof window === 'undefined') return null;
+  const value = new URLSearchParams(window.location.search || '').get(key);
+  return value ? String(value) : null;
+};
+
 function RFQList({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
   const isNativeRuntime = isNativeCapacitorRuntime();
@@ -519,10 +525,10 @@ function RFQList({ surfaceVariant = 'app' }) {
   const [featureFlags, setFeatureFlags] = useState(DEFAULT_FEATURE_FLAGS);
   const [filters, setFilters] = useState({
     radius: DEFAULT_RADIUS_SETTINGS.default,
-    segment: null,
+    segment: getInitialFilterParam('segment'),
     cityId: null,
     districtId: null,
-    category: null,
+    category: getInitialFilterParam('category'),
     city: null,
     district: null,
     sort: 'date_desc',
@@ -1383,6 +1389,22 @@ function RFQList({ surfaceVariant = 'app' }) {
       ...prev,
       [key]: value
     }));
+  }, []);
+
+  const syncCategoryFilterQuery = useCallback((nextSegment, nextCategoryId) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (nextSegment) {
+      url.searchParams.set('segment', String(nextSegment));
+    } else {
+      url.searchParams.delete('segment');
+    }
+    if (nextCategoryId) {
+      url.searchParams.set('category', String(nextCategoryId));
+    } else {
+      url.searchParams.delete('category');
+    }
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
   const handleRadiusChange = useCallback((value) => {
@@ -3098,58 +3120,74 @@ function RFQList({ surfaceVariant = 'app' }) {
 
   const handleCategorySelect = useCallback(
     (category) => {
-      if (category?.segment && category.segment !== filters.segment) {
-        updateFilter('segment', category.segment);
-      }
-      updateFilter('category', String(category._id));
+      const nextSegment = category?.segment || filters.segment || '';
+      const nextCategoryId = String(category._id);
+      setFilters((prev) => ({
+        ...prev,
+        segment: nextSegment || null,
+        category: nextCategoryId
+      }));
+      syncCategoryFilterQuery(nextSegment, nextCategoryId);
+      localStorage.removeItem(RFQ_CACHE_KEY);
+      setPage(1);
       setCategoryLabel(Array.isArray(category.path) ? category.path.join(' > ') : category.name || '');
       setIsCategoryModalOpen(false);
     },
-    [filters.segment, updateFilter]
+    [filters.segment, syncCategoryFilterQuery]
   );
 
   const handleHomeQuickCategorySelect = useCallback(
     (item) => {
       const nextSegment = item?.segment || '';
       const nextCategoryId = item?.categoryId ? String(item.categoryId) : '';
+      const match =
+        (nextCategoryId
+          ? categoryItems.find((category) => String(category._id || '') === nextCategoryId) ||
+            homeMainCategories.find((category) => String(category._id || '') === nextCategoryId)
+          : null) || null;
 
-      if (nextSegment && nextSegment !== filters.segment) {
-        updateFilter('segment', nextSegment);
-      }
-
-      if (nextCategoryId) {
-        updateFilter('category', nextCategoryId);
-        const match =
-          categoryItems.find((category) => String(category._id || '') === nextCategoryId) ||
-          homeMainCategories.find((category) => String(category._id || '') === nextCategoryId);
-        setCategoryLabel(match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '');
-      } else {
-        updateFilter('category', null);
-        setCategoryLabel('');
-      }
+      setFilters((prev) => ({
+        ...prev,
+        segment: nextSegment || null,
+        category: nextCategoryId || null
+      }));
+      syncCategoryFilterQuery(nextSegment, nextCategoryId);
+      localStorage.removeItem(RFQ_CACHE_KEY);
+      setPage(1);
+      setCategoryLabel(nextCategoryId ? match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '' : '');
 
       setSearchQuery('');
       setIsCategoryModalOpen(false);
       triggerHaptic('light');
     },
-    [categoryItems, filters.segment, homeMainCategories, updateFilter]
+    [categoryItems, homeMainCategories, syncCategoryFilterQuery]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
-    updateFilter('category', null);
+    setFilters((prev) => ({ ...prev, category: null }));
+    syncCategoryFilterQuery(filters.segment, '');
+    localStorage.removeItem(RFQ_CACHE_KEY);
+    setPage(1);
     setCategoryLabel('');
     setIsCategoryModalOpen(false);
-  }, [updateFilter]);
+  }, [filters.segment, syncCategoryFilterQuery]);
 
   const handleSegmentSelect = useCallback(
     (segment) => {
-      updateFilter('segment', segment || null);
-      updateFilter('category', null);
+      const nextSegment = segment || '';
+      setFilters((prev) => ({
+        ...prev,
+        segment: nextSegment || null,
+        category: null
+      }));
+      syncCategoryFilterQuery(nextSegment, '');
+      localStorage.removeItem(RFQ_CACHE_KEY);
+      setPage(1);
       setCategoryLabel('');
       setSearchQuery('');
       setIsCategoryModalOpen(false);
     },
-    [updateFilter]
+    [syncCategoryFilterQuery]
   );
 
   const activeParentName = useMemo(() => {
@@ -3158,6 +3196,28 @@ function RFQList({ surfaceVariant = 'app' }) {
     const match = categoryItems.find((item) => String(item._id) === selectedId);
     return match?.parentName || '';
   }, [categoryItems, filters.category]);
+
+  useEffect(() => {
+    const selectedId = String(filters.category || '');
+    if (!selectedId) {
+      if (categoryLabel) {
+        setCategoryLabel('');
+      }
+      return;
+    }
+    const match =
+      categoryItems.find((item) => String(item._id || '') === selectedId) ||
+      homeMainCategories.find((item) => String(item._id || '') === selectedId);
+    if (!match) return;
+    const nextLabel = Array.isArray(match.path) && match.path.length
+      ? match.path.join(' > ')
+      : match.parentName
+        ? `${match.parentName} > ${match.name || ''}`.trim()
+        : match.name || '';
+    if (nextLabel && nextLabel !== categoryLabel) {
+      setCategoryLabel(nextLabel);
+    }
+  }, [categoryItems, categoryLabel, filters.category, homeMainCategories]);
 
   const suggestionResults = useMemo(() => {
     const query = normalizeSearch(deferredSearchQuery);
