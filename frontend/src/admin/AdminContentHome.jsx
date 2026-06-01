@@ -739,7 +739,7 @@ export default function AdminContentHome() {
               </a>
             </div>
 
-            <div className="admin-home-builder-layout">
+            <div className="admin-home-builder-layout admin-home-builder-layout--with-preview">
               <section className="admin-home-template-area" id="home-visual-presets">
                 <div className="admin-home-section-heading">
                   <div>
@@ -898,41 +898,43 @@ export default function AdminContentHome() {
               </aside>
 
               <aside className="admin-home-live-preview-panel">
-                <div className="admin-home-live-preview-head">
+                <div className="admin-home-live-preview-header">
                   <div>
-                    <strong>Canlı Mobil Önizleme</strong>
-                    <span>Uygulama ana sayfası gerçek mobil görünümle burada gösterilir.</span>
+                    <h3>Canlı Mobil Önizleme</h3>
+                    <p>Uygulama ana sayfası gerçek mobil görünümle burada gösterilir.</p>
                   </div>
-                  <button type="button" className="admin-btn admin-btn-secondary" onClick={refreshLivePreview}>
-                    Önizlemeyi Yenile
-                  </button>
+                  <div className="admin-home-live-preview-actions">
+                    <button type="button" className="admin-btn admin-btn-secondary" onClick={refreshLivePreview}>
+                      Önizlemeyi Yenile
+                    </button>
+                    <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
+                      App’te Aç
+                    </a>
+                  </div>
                 </div>
-                <div className="admin-home-live-preview-actions">
-                  <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
-                    App’te Aç
-                  </a>
-                </div>
-                <div className="admin-home-live-frame">
-                  {livePreviewLoading ? (
-                    <div className="admin-home-live-frame-status">Canlı önizleme yükleniyor...</div>
-                  ) : null}
-                  {livePreviewError ? (
-                    <div className="admin-home-live-frame-error">
-                      Canlı önizleme yüklenemedi. App’i yeni sekmede açarak kontrol edin.
-                    </div>
-                  ) : null}
-                  <iframe
-                    key={previewReloadKey}
-                    title="Talepet canlı mobil önizleme"
-                    src={livePreviewSrc}
-                    className="admin-home-live-iframe"
-                    loading="lazy"
-                    onLoad={() => setLivePreviewLoading(false)}
-                    onError={() => {
-                      setLivePreviewLoading(false);
-                      setLivePreviewError(true);
-                    }}
-                  />
+                <div className="admin-home-live-preview-stage">
+                  <div className="admin-home-live-device-frame">
+                    {livePreviewLoading ? (
+                      <div className="admin-home-live-frame-status">Canlı önizleme yükleniyor...</div>
+                    ) : null}
+                    {livePreviewError ? (
+                      <div className="admin-home-live-frame-error">
+                        Canlı önizleme yüklenemedi. App’i yeni sekmede açarak kontrol edin.
+                      </div>
+                    ) : null}
+                    <iframe
+                      key={previewReloadKey}
+                      title="Talepet canlı mobil önizleme"
+                      src={livePreviewSrc}
+                      className="admin-home-live-iframe"
+                      loading="lazy"
+                      onLoad={() => setLivePreviewLoading(false)}
+                      onError={() => {
+                        setLivePreviewLoading(false);
+                        setLivePreviewError(true);
+                      }}
+                    />
+                  </div>
                 </div>
               </aside>
             </div>
