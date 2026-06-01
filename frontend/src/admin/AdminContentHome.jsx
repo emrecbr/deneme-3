@@ -266,6 +266,7 @@ const defaultForm = {
     overlayEnabled: true,
     sortOrder: 10
   },
+  heroSlides: [],
   quickCategories: [],
   homeSections: [],
   visualTheme: {
@@ -295,14 +296,68 @@ const emptySection = (index = 0) => ({
   sortOrder: (index + 1) * 10
 });
 
-const normalizeForm = (payload = {}) => ({
-  ...defaultForm,
-  ...payload,
-  heroBanner: { ...defaultForm.heroBanner, ...(payload.heroBanner || {}) },
-  visualTheme: { ...defaultForm.visualTheme, ...(payload.visualTheme || {}) },
-  quickCategories: Array.isArray(payload.quickCategories) ? payload.quickCategories : defaultForm.quickCategories,
-  homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : defaultForm.homeSections
+const makeHeroSlide = (banner = {}, index = 0) => ({
+  key: banner.key || `hero-slide-${Date.now()}-${index}`,
+  enabled: banner.enabled !== false,
+  tabLabel: banner.tabLabel || banner.title || `Hero ${index + 1}`,
+  title: banner.title || '',
+  subtitle: banner.subtitle || '',
+  ctaLabel: banner.ctaLabel || '',
+  ctaPath: banner.ctaPath || '',
+  imageUrl: banner.imageUrl || '',
+  overlayEnabled: banner.overlayEnabled !== false,
+  sortOrder: Number.isFinite(Number(banner.sortOrder)) ? Number(banner.sortOrder) : (index + 1) * 10
 });
+
+const getSortedHeroSlides = (slides = []) =>
+  [...slides].sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+
+const normalizeHeroSlides = (payload = {}) => {
+  if (Array.isArray(payload.heroSlides) && payload.heroSlides.length) {
+    return payload.heroSlides.map((slide, index) => makeHeroSlide(slide, index));
+  }
+  return [makeHeroSlide({ ...defaultForm.heroBanner, ...(payload.heroBanner || {}) }, 0)];
+};
+
+const getPrimaryHeroSlide = (slides = []) => {
+  const sorted = getSortedHeroSlides(slides);
+  return sorted.find((slide) => slide.enabled !== false) || sorted[0] || makeHeroSlide(defaultForm.heroBanner, 0);
+};
+
+const syncHeroBannerFromSlides = (formValue) => {
+  const primarySlide = getPrimaryHeroSlide(formValue.heroSlides);
+  return {
+    ...formValue,
+    heroTitle: primarySlide.title ?? formValue.heroTitle ?? '',
+    heroSubtitle: primarySlide.subtitle ?? formValue.heroSubtitle ?? '',
+    heroBanner: {
+      ...formValue.heroBanner,
+      enabled: primarySlide.enabled !== false,
+      title: primarySlide.title ?? formValue.heroBanner?.title ?? '',
+      subtitle: primarySlide.subtitle ?? formValue.heroBanner?.subtitle ?? '',
+      ctaLabel: primarySlide.ctaLabel ?? formValue.heroBanner?.ctaLabel ?? '',
+      ctaPath: primarySlide.ctaPath ?? formValue.heroBanner?.ctaPath ?? '',
+      imageUrl: primarySlide.imageUrl ?? formValue.heroBanner?.imageUrl ?? '',
+      overlayEnabled: primarySlide.overlayEnabled !== false,
+      sortOrder: Number.isFinite(Number(primarySlide.sortOrder)) ? Number(primarySlide.sortOrder) : formValue.heroBanner?.sortOrder || 10
+    }
+  };
+};
+
+const normalizeForm = (payload = {}) => {
+  const baseForm = {
+    ...defaultForm,
+    ...payload,
+    heroBanner: { ...defaultForm.heroBanner, ...(payload.heroBanner || {}) },
+    visualTheme: { ...defaultForm.visualTheme, ...(payload.visualTheme || {}) },
+    quickCategories: Array.isArray(payload.quickCategories) ? payload.quickCategories : defaultForm.quickCategories,
+    homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : defaultForm.homeSections
+  };
+  return syncHeroBannerFromSlides({
+    ...baseForm,
+    heroSlides: normalizeHeroSlides(baseForm)
+  });
+};
 
 const buildAssetUrl = (url) => {
   if (!url) return '';
@@ -429,6 +484,7 @@ export default function AdminContentHome() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedPresetKey, setSelectedPresetKey] = useState(HOME_VISUAL_PRESETS[0]?.key || '');
+  const [selectedHeroSlideKey, setSelectedHeroSlideKey] = useState('');
   const [previewReloadKey, setPreviewReloadKey] = useState(Date.now());
   const [livePreviewLoading, setLivePreviewLoading] = useState(true);
   const [livePreviewError, setLivePreviewError] = useState(false);
@@ -445,6 +501,7 @@ export default function AdminContentHome() {
         latestHeroImageUrlRef.current = nextForm.heroBanner?.imageUrl || '';
         setLastUploadProvider(inferMediaProvider(nextForm.heroBanner?.imageUrl));
         setForm(nextForm);
+        setSelectedHeroSlideKey(nextForm.heroSlides?.[0]?.key || '');
       } catch (err) {
         if (!active) return;
         setError(err?.response?.data?.message || 'İçerik alınamadı.');
@@ -477,7 +534,11 @@ export default function AdminContentHome() {
     () => HOME_VISUAL_PRESETS.find((preset) => preset.key === selectedPresetKey) || HOME_VISUAL_PRESETS[0],
     [selectedPresetKey]
   );
-  const heroPreviewImage = heroPreviewUrl || buildAssetUrl(form.heroBanner.imageUrl);
+  const selectedHeroSlide = useMemo(() => {
+    const slides = Array.isArray(form.heroSlides) && form.heroSlides.length ? form.heroSlides : normalizeHeroSlides(form);
+    return slides.find((slide) => slide.key === selectedHeroSlideKey) || slides[0] || makeHeroSlide(defaultForm.heroBanner, 0);
+  }, [form, selectedHeroSlideKey]);
+  const heroPreviewImage = heroPreviewUrl || buildAssetUrl(selectedHeroSlide.imageUrl || form.heroBanner.imageUrl);
   const livePreviewSrc = useMemo(() => {
     const separator = APP_HOME_PREVIEW_HREF.includes('?') ? '&' : '?';
     return `${APP_HOME_PREVIEW_HREF}${separator}homePreviewTs=${previewReloadKey}`;
@@ -489,27 +550,37 @@ export default function AdminContentHome() {
     setPreviewReloadKey(Date.now());
   };
 
+  const updateHeroSlide = (slideKey, changes) => {
+    setForm((prev) => {
+      const heroSlides = (prev.heroSlides || []).map((slide) =>
+        slide.key === slideKey ? { ...slide, ...changes } : slide
+      );
+      return syncHeroBannerFromSlides({ ...prev, heroSlides });
+    });
+  };
+
   const updateHero = (key, value) => {
+    if (
+      key === 'enabled' &&
+      value === false &&
+      selectedHeroSlide.enabled !== false &&
+      (form.heroSlides || []).filter((slide) => slide.enabled !== false).length <= 1
+    ) {
+      setError('En az bir aktif hero sekmesi kalmalı.');
+      return;
+    }
     if (key === 'imageUrl') {
       latestHeroImageUrlRef.current = value || '';
     }
-    setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, [key]: value } }));
+    updateHeroSlide(selectedHeroSlide.key, { [key]: value });
   };
 
   const updateHeroTitle = (value) => {
-    setForm((prev) => ({
-      ...prev,
-      heroTitle: value,
-      heroBanner: { ...prev.heroBanner, title: value }
-    }));
+    updateHeroSlide(selectedHeroSlide.key, { title: value, tabLabel: selectedHeroSlide.tabLabel || value });
   };
 
   const updateHeroSubtitle = (value) => {
-    setForm((prev) => ({
-      ...prev,
-      heroSubtitle: value,
-      heroBanner: { ...prev.heroBanner, subtitle: value }
-    }));
+    updateHeroSlide(selectedHeroSlide.key, { subtitle: value });
   };
 
   const updateTheme = (key, value) => {
@@ -569,6 +640,12 @@ export default function AdminContentHome() {
     }
     setForm((prev) => {
       const preservedImageUrl = prev.heroBanner?.imageUrl || latestHeroImageUrlRef.current || '';
+      const presetHeroSlide = makeHeroSlide({
+        ...preset.form.heroBanner,
+        imageUrl: preset.form.heroBanner?.imageUrl || preservedImageUrl,
+        tabLabel: preset.name,
+        key: `${preset.key}-hero-1`
+      }, 0);
       const nextForm = normalizeForm({
         ...prev,
         ...preset.form,
@@ -578,6 +655,7 @@ export default function AdminContentHome() {
           ...preset.form.heroBanner,
           imageUrl: preset.form.heroBanner?.imageUrl || preservedImageUrl
         },
+        heroSlides: [presetHeroSlide],
         quickCategories: (preset.form.quickCategories || []).map((item) => ({ ...item })),
         homeSections: (preset.form.homeSections || []).map((item) => ({ ...item })),
         visualTheme: {
@@ -586,6 +664,7 @@ export default function AdminContentHome() {
         }
       });
       latestHeroImageUrlRef.current = nextForm.heroBanner?.imageUrl || '';
+      setSelectedHeroSlideKey(nextForm.heroSlides?.[0]?.key || '');
       return nextForm;
     });
     setSelectedPresetKey(preset.key);
@@ -597,12 +676,50 @@ export default function AdminContentHome() {
 
   const removeHeroImage = () => {
     latestHeroImageUrlRef.current = '';
-    updateHero('imageUrl', '');
+    updateHeroSlide(selectedHeroSlide.key, { imageUrl: '' });
     setHeroPreviewUrl('');
     setUploadStage('');
     setLastUploadProvider('');
     setPublicContentCheck(null);
     setSuccess('Hero görseli kaldırıldı. Canlıya yansıtmak için Kaydet butonuna basın.');
+  };
+
+  const addHeroSlide = () => {
+    setForm((prev) => {
+      const nextIndex = prev.heroSlides?.length || 0;
+      const newSlide = makeHeroSlide({
+        key: `hero-slide-${Date.now()}-${nextIndex}`,
+        tabLabel: `Sekme ${nextIndex + 1}`,
+        title: '',
+        subtitle: '',
+        ctaLabel: 'Talep Oluştur',
+        ctaPath: '/create',
+        sortOrder: (nextIndex + 1) * 10
+      }, nextIndex);
+      setSelectedHeroSlideKey(newSlide.key);
+      return syncHeroBannerFromSlides({ ...prev, heroSlides: [...(prev.heroSlides || []), newSlide] });
+    });
+    setHeroPreviewUrl('');
+    setPublicContentCheck(null);
+  };
+
+  const removeHeroSlide = (slideKey) => {
+    setForm((prev) => {
+      const currentSlides = prev.heroSlides || [];
+      if (currentSlides.length <= 1) {
+        setError('En az bir hero sekmesi kalmalı.');
+        return prev;
+      }
+      const nextSlides = currentSlides.filter((slide) => slide.key !== slideKey);
+      if (!nextSlides.some((slide) => slide.enabled !== false) && nextSlides[0]) {
+        nextSlides[0] = { ...nextSlides[0], enabled: true };
+      }
+      const nextSelected = nextSlides[0]?.key || '';
+      setSelectedHeroSlideKey(nextSelected);
+      setHeroPreviewUrl('');
+      setPublicContentCheck(null);
+      return syncHeroBannerFromSlides({ ...prev, heroSlides: nextSlides });
+    });
   };
 
   const postAssetFile = async (file, target, index = null, fileName = file?.name || 'home-asset.webp') => {
@@ -620,7 +737,12 @@ export default function AdminContentHome() {
     if (target === 'hero') {
       latestHeroImageUrlRef.current = url;
       setLastUploadProvider(uploadData.provider || inferMediaProvider(url));
-      setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, imageUrl: url } }));
+      setForm((prev) => {
+        const heroSlides = (prev.heroSlides || []).map((slide) =>
+          slide.key === selectedHeroSlide.key ? { ...slide, imageUrl: url } : slide
+        );
+        return syncHeroBannerFromSlides({ ...prev, heroSlides });
+      });
     } else if (target === 'quickCategory') {
       updateQuickCategory(index, 'iconUrl', url);
     }
@@ -702,13 +824,7 @@ export default function AdminContentHome() {
     setError('');
     setSuccess('');
     try {
-      const payload = normalizeForm({
-        ...form,
-        heroBanner: {
-          ...form.heroBanner,
-          imageUrl: latestHeroImageUrlRef.current || form.heroBanner?.imageUrl || ''
-        }
-      });
+      const payload = syncHeroBannerFromSlides(normalizeForm(form));
       if (window.localStorage?.getItem('talepet:debug-home-content') === '1') {
         console.info('HOME_CONTENT_SAVE_PAYLOAD', payload);
       }
@@ -723,6 +839,9 @@ export default function AdminContentHome() {
       const savedImageUrl = savedForm.heroBanner?.imageUrl || '';
       const publicImageUrl = publicForm.heroBanner?.imageUrl || '';
       const publicImageProvider = lastUploadProvider || inferMediaProvider(publicImageUrl);
+      const publicHeroSlides = Array.isArray(publicForm.heroSlides) ? publicForm.heroSlides : [];
+      const activePublicHeroSlides = publicHeroSlides.filter((slide) => slide.enabled !== false);
+      const firstActivePublicHeroSlide = getPrimaryHeroSlide(publicHeroSlides);
       const savedCategoryCount = Array.isArray(savedForm.quickCategories) ? savedForm.quickCategories.length : 0;
       const publicCategoryCount = Array.isArray(publicForm.quickCategories) ? publicForm.quickCategories.length : 0;
       const publicMatches =
@@ -739,6 +858,10 @@ export default function AdminContentHome() {
         publicImageUrl,
         publicImageFullUrl: buildAssetUrl(publicImageUrl),
         provider: publicImageProvider,
+        publicHeroSlideCount: publicHeroSlides.length,
+        publicActiveHeroSlideCount: activePublicHeroSlides.length,
+        firstActiveSlideTitle: firstActivePublicHeroSlide?.title || '',
+        firstActiveSlideImageUrl: firstActivePublicHeroSlide?.imageUrl || '',
         publicCategoryCount
       });
       if (savedImageUrl && !publicImageUrl) {
@@ -832,6 +955,73 @@ export default function AdminContentHome() {
 
                 <div className="admin-home-edit-block">
                   <div className="admin-home-edit-label">
+                    <strong>Hero Sekmeleri</strong>
+                    <span>Birden fazla hero mesajı ekleyin, sıralayın ve aktif/pasif yönetin.</span>
+                  </div>
+                  <div className="admin-home-slide-tabs">
+                    {getSortedHeroSlides(form.heroSlides || []).map((slide, index) => (
+                      <button
+                        type="button"
+                        key={slide.key}
+                        className={`admin-home-slide-tab ${slide.key === selectedHeroSlide.key ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedHeroSlideKey(slide.key);
+                          setHeroPreviewUrl('');
+                        }}
+                      >
+                        <span className="admin-home-slide-thumb" style={slide.imageUrl ? { backgroundImage: `url(${buildAssetUrl(slide.imageUrl)})` } : undefined} />
+                        <span>
+                          <strong>{slide.tabLabel || slide.title || `Sekme ${index + 1}`}</strong>
+                          <small>{slide.enabled === false ? 'Pasif' : 'Aktif'} · Sıra {slide.sortOrder || (index + 1) * 10}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="admin-home-button-row">
+                    <button type="button" className="admin-btn admin-btn-secondary" onClick={addHeroSlide}>
+                      Sekme Ekle
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-secondary"
+                      onClick={() => removeHeroSlide(selectedHeroSlide.key)}
+                      disabled={(form.heroSlides || []).length <= 1}
+                    >
+                      Seçili Sekmeyi Sil
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-home-edit-block">
+                  <div className="admin-home-edit-label">
+                    <strong>Seçili Sekmeyi Düzenle</strong>
+                    <span>Görsel, metin, CTA ve sıralama sadece seçili sekme için güncellenir.</span>
+                  </div>
+                  <label className="admin-home-field">
+                    <span>Sekme Adı</span>
+                    <input
+                      className="admin-input"
+                      value={selectedHeroSlide.tabLabel || ''}
+                      onChange={(e) => updateHero('tabLabel', e.target.value)}
+                    />
+                  </label>
+                  <div className="admin-form-grid">
+                    <label>
+                      <span>Aktif</span>
+                      <select className="admin-input" value={selectedHeroSlide.enabled === false ? '0' : '1'} onChange={(e) => updateHero('enabled', e.target.value === '1')}>
+                        <option value="1">Aktif</option>
+                        <option value="0">Pasif</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>Sıra</span>
+                      <input className="admin-input" type="number" value={selectedHeroSlide.sortOrder || 10} onChange={(e) => updateHero('sortOrder', Number(e.target.value))} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="admin-home-edit-block">
+                  <div className="admin-home-edit-label">
                     <strong>Hero Görseli</strong>
                     <span>Ana banner görseli (önerilen boyut: 1200x600)</span>
                   </div>
@@ -878,10 +1068,10 @@ export default function AdminContentHome() {
                   <input
                     className="admin-input"
                     maxLength={HERO_TITLE_LIMIT}
-                    value={form.heroBanner.title || ''}
+                    value={selectedHeroSlide.title || ''}
                     onChange={(e) => updateHeroTitle(e.target.value)}
                   />
-                  <small>{String(form.heroBanner.title || '').length} / {HERO_TITLE_LIMIT}</small>
+                  <small>{String(selectedHeroSlide.title || '').length} / {HERO_TITLE_LIMIT}</small>
                 </label>
 
                 <label className="admin-home-field">
@@ -890,10 +1080,10 @@ export default function AdminContentHome() {
                     className="admin-textarea"
                     rows={3}
                     maxLength={HERO_SUBTITLE_LIMIT}
-                    value={form.heroBanner.subtitle || ''}
+                    value={selectedHeroSlide.subtitle || ''}
                     onChange={(e) => updateHeroSubtitle(e.target.value)}
                   />
-                  <small>{String(form.heroBanner.subtitle || '').length} / {HERO_SUBTITLE_LIMIT}</small>
+                  <small>{String(selectedHeroSlide.subtitle || '').length} / {HERO_SUBTITLE_LIMIT}</small>
                 </label>
 
                 <label className="admin-home-field">
@@ -901,10 +1091,10 @@ export default function AdminContentHome() {
                   <input
                     className="admin-input"
                     maxLength={HERO_CTA_LIMIT}
-                    value={form.heroBanner.ctaLabel || ''}
+                    value={selectedHeroSlide.ctaLabel || ''}
                     onChange={(e) => updateHero('ctaLabel', e.target.value)}
                   />
-                  <small>{String(form.heroBanner.ctaLabel || '').length} / {HERO_CTA_LIMIT}</small>
+                  <small>{String(selectedHeroSlide.ctaLabel || '').length} / {HERO_CTA_LIMIT}</small>
                 </label>
 
                 <label className="admin-home-field">
@@ -912,7 +1102,7 @@ export default function AdminContentHome() {
                   <input
                     className="admin-input"
                     placeholder="/create"
-                    value={form.heroBanner.ctaPath || ''}
+                    value={selectedHeroSlide.ctaPath || ''}
                     onChange={(e) => updateHero('ctaPath', e.target.value)}
                   />
                   <small>Örn: /create</small>
@@ -931,6 +1121,10 @@ export default function AdminContentHome() {
                     <span>Public görsel URL: {publicContentCheck.publicImageUrl || '-'}</span>
                     <span>Public tam görsel URL: {publicContentCheck.publicImageFullUrl || '-'}</span>
                     <span>Provider: {publicContentCheck.provider || '-'}</span>
+                    <span>Hero sekme sayısı: {publicContentCheck.publicHeroSlideCount ?? 0}</span>
+                    <span>Aktif hero sekmesi: {publicContentCheck.publicActiveHeroSlideCount ?? 0}</span>
+                    <span>İlk aktif slide: {publicContentCheck.firstActiveSlideTitle || '-'}</span>
+                    <span>İlk aktif slide görsel URL: {publicContentCheck.firstActiveSlideImageUrl || '-'}</span>
                     <span>Kategori kısa yolu: {publicContentCheck.publicCategoryCount}</span>
                     <small>Kontrol zamanı: {publicContentCheck.checkedAt}</small>
                     <a href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">

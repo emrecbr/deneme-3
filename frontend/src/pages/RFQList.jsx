@@ -101,6 +101,7 @@ const DEFAULT_HOME_CONTENT = {
     overlayEnabled: true,
     sortOrder: 10
   },
+  heroSlides: [],
   quickCategories: DEFAULT_HOME_QUICK_CATEGORIES,
   homeSections: [],
   visualTheme: {
@@ -110,17 +111,38 @@ const DEFAULT_HOME_CONTENT = {
   }
 };
 
-const normalizeHomeContent = (payload = {}) => ({
-  ...DEFAULT_HOME_CONTENT,
-  ...payload,
-  heroBanner: { ...DEFAULT_HOME_CONTENT.heroBanner, ...(payload.heroBanner || {}) },
-  visualTheme: { ...DEFAULT_HOME_CONTENT.visualTheme, ...(payload.visualTheme || {}) },
-  quickCategories:
-    Array.isArray(payload.quickCategories) && payload.quickCategories.length
-      ? payload.quickCategories
-      : DEFAULT_HOME_QUICK_CATEGORIES,
-  homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : []
+const normalizeHomeSlide = (slide, index = 0, fallbackBanner = DEFAULT_HOME_CONTENT.heroBanner) => ({
+  key: slide?.key || `hero-slide-${index + 1}`,
+  enabled: slide?.enabled !== false,
+  tabLabel: slide?.tabLabel || slide?.title || `Hero ${index + 1}`,
+  title: slide?.title || fallbackBanner.title,
+  subtitle: slide?.subtitle || fallbackBanner.subtitle,
+  ctaLabel: slide?.ctaLabel || fallbackBanner.ctaLabel,
+  ctaPath: slide?.ctaPath || fallbackBanner.ctaPath,
+  imageUrl: slide?.imageUrl || '',
+  overlayEnabled: slide?.overlayEnabled !== false,
+  sortOrder: Number.isFinite(Number(slide?.sortOrder)) ? Number(slide.sortOrder) : (index + 1) * 10
 });
+
+const normalizeHomeContent = (payload = {}) => {
+  const heroBanner = { ...DEFAULT_HOME_CONTENT.heroBanner, ...(payload.heroBanner || {}) };
+  const heroSlides =
+    Array.isArray(payload.heroSlides) && payload.heroSlides.length
+      ? payload.heroSlides.map((slide, index) => normalizeHomeSlide(slide, index, heroBanner))
+      : [normalizeHomeSlide(heroBanner, 0, heroBanner)];
+  return {
+    ...DEFAULT_HOME_CONTENT,
+    ...payload,
+    heroBanner,
+    heroSlides,
+    visualTheme: { ...DEFAULT_HOME_CONTENT.visualTheme, ...(payload.visualTheme || {}) },
+    quickCategories:
+      Array.isArray(payload.quickCategories) && payload.quickCategories.length
+        ? payload.quickCategories
+        : DEFAULT_HOME_QUICK_CATEGORIES,
+    homeSections: Array.isArray(payload.homeSections) ? payload.homeSections : []
+  };
+};
 
 const normalizeSortNumber = (value) => {
   if (value == null || value === '') {
@@ -3367,6 +3389,7 @@ function RFQList({ surfaceVariant = 'app' }) {
         <div className="home-managed-visuals">
           <HomeHeroBanner
             banner={homeContent.heroBanner}
+            slides={homeContent.heroSlides}
             assetBaseUrl={BACKEND_ORIGIN}
             onNavigate={handleHomeBannerNavigate}
           />

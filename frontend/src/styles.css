@@ -73,6 +73,50 @@ html:not([data-surface="admin"]) .rfq-list-page:not(.rfq-list-page--web) {
   padding: 6px 16px 2px;
 }
 
+.home-hero-carousel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.home-hero-carousel__track {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.home-hero-carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-hero-carousel__track .home-hero-banner {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+}
+
+.home-hero-carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+}
+
+.home-hero-carousel__dots button {
+  width: 7px;
+  height: 7px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: rgba(17, 24, 39, 0.22);
+}
+
+.home-hero-carousel__dots button.is-active {
+  width: 20px;
+  background: #3478f6;
+}
+
 .home-hero-banner {
   position: relative;
   min-height: 190px;
@@ -565,6 +609,55 @@ html[data-surface="admin"] .admin-home-edit-block,
 html[data-surface="admin"] .admin-home-field {
   display: grid;
   gap: 8px;
+}
+
+html[data-surface="admin"] .admin-home-slide-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+html[data-surface="admin"] .admin-home-slide-tab {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px;
+  background: #ffffff;
+  color: #111827;
+  text-align: left;
+}
+
+html[data-surface="admin"] .admin-home-slide-tab.is-selected {
+  border-color: #3478f6;
+  box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.12);
+}
+
+html[data-surface="admin"] .admin-home-slide-tab strong,
+html[data-surface="admin"] .admin-home-slide-tab small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-surface="admin"] .admin-home-slide-tab small {
+  color: #6b7280;
+  font-size: 0.76rem;
+}
+
+html[data-surface="admin"] .admin-home-slide-thumb {
+  width: 54px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.72), transparent 34%),
+    linear-gradient(135deg, #3478f6, #7c5cff);
+  background-position: center;
+  background-size: cover;
 }
 
 html[data-surface="admin"] .admin-home-field > span {
