@@ -113,12 +113,25 @@ export const logAdminAction = async (req, action, meta = {}) => {
 
 const getKey = (section) => `content_${section}`;
 
+const mergeContentValue = (section, ...sources) => {
+  const merged = {};
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    Object.assign(merged, source);
+    if (section === 'home') {
+      merged.heroBanner = { ...(merged.heroBanner || {}), ...(source.heroBanner || {}) };
+      merged.visualTheme = { ...(merged.visualTheme || {}), ...(source.visualTheme || {}) };
+    }
+  }
+  return merged;
+};
+
 export const getAdminContent = async (req, res, next) => {
   try {
     const section = String(req.params.section || '').trim();
     const defaults = DEFAULT_CONTENT[section] || {};
     const doc = await AppSetting.findOne({ key: getKey(section) }).lean();
-    return res.status(200).json({ success: true, data: { ...defaults, ...(doc?.value || {}) } });
+    return res.status(200).json({ success: true, data: mergeContentValue(section, defaults, doc?.value || {}) });
   } catch (error) {
     return next(error);
   }
@@ -128,7 +141,8 @@ export const updateAdminContent = async (req, res, next) => {
   try {
     const section = String(req.params.section || '').trim();
     const defaults = DEFAULT_CONTENT[section] || {};
-    const nextValue = { ...defaults, ...(req.body || {}) };
+    const existing = await AppSetting.findOne({ key: getKey(section) }).lean();
+    const nextValue = mergeContentValue(section, defaults, existing?.value || {}, req.body || {});
     const saved = await AppSetting.findOneAndUpdate(
       { key: getKey(section) },
       { key: getKey(section), value: nextValue, updatedBy: req.admin?.id || null },

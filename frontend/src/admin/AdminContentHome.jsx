@@ -412,6 +412,7 @@ const resizeHeroImage = async (file) => {
 
 export default function AdminContentHome() {
   const heroFileInputRef = useRef(null);
+  const latestHeroImageUrlRef = useRef(defaultForm.heroBanner.imageUrl);
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -434,7 +435,9 @@ export default function AdminContentHome() {
       try {
         const response = await api.get('/admin/content/home');
         if (!active) return;
-        setForm(normalizeForm(response.data?.data || {}));
+        const nextForm = normalizeForm(response.data?.data || {});
+        latestHeroImageUrlRef.current = nextForm.heroBanner?.imageUrl || '';
+        setForm(nextForm);
       } catch (err) {
         if (!active) return;
         setError(err?.response?.data?.message || 'İçerik alınamadı.');
@@ -480,6 +483,9 @@ export default function AdminContentHome() {
   };
 
   const updateHero = (key, value) => {
+    if (key === 'imageUrl') {
+      latestHeroImageUrlRef.current = value || '';
+    }
     setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, [key]: value } }));
   };
 
@@ -554,14 +560,16 @@ export default function AdminContentHome() {
     if (!window.confirm('Mevcut ana sayfa ayarları bu şablonla değiştirilecek. Devam edilsin mi?')) {
       return;
     }
-    setForm((prev) =>
-      normalizeForm({
+    setForm((prev) => {
+      const preservedImageUrl = prev.heroBanner?.imageUrl || latestHeroImageUrlRef.current || '';
+      const nextForm = normalizeForm({
         ...prev,
         ...preset.form,
         layoutVariant: 'premium_mobile_v1',
         heroBanner: {
           ...defaultForm.heroBanner,
-          ...preset.form.heroBanner
+          ...preset.form.heroBanner,
+          imageUrl: preset.form.heroBanner?.imageUrl || preservedImageUrl
         },
         quickCategories: (preset.form.quickCategories || []).map((item) => ({ ...item })),
         homeSections: (preset.form.homeSections || []).map((item) => ({ ...item })),
@@ -569,8 +577,10 @@ export default function AdminContentHome() {
           ...defaultForm.visualTheme,
           ...(preset.form.visualTheme || {})
         }
-      })
-    );
+      });
+      latestHeroImageUrlRef.current = nextForm.heroBanner?.imageUrl || '';
+      return nextForm;
+    });
     setSelectedPresetKey(preset.key);
     setHeroPreviewUrl('');
     setUploadStage('');
@@ -579,6 +589,7 @@ export default function AdminContentHome() {
   };
 
   const removeHeroImage = () => {
+    latestHeroImageUrlRef.current = '';
     updateHero('imageUrl', '');
     setHeroPreviewUrl('');
     setUploadStage('');
@@ -598,7 +609,8 @@ export default function AdminContentHome() {
       throw new Error('Upload URL alınamadı.');
     }
     if (target === 'hero') {
-      updateHero('imageUrl', url);
+      latestHeroImageUrlRef.current = url;
+      setForm((prev) => ({ ...prev, heroBanner: { ...prev.heroBanner, imageUrl: url } }));
     } else if (target === 'quickCategory') {
       updateQuickCategory(index, 'iconUrl', url);
     }
@@ -660,9 +672,9 @@ export default function AdminContentHome() {
       setHeroPreviewUrl(localPreviewUrl);
       setPublicContentCheck(null);
       setUploadStage('Görsel yükleniyor...');
-      await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
+      const uploadedUrl = await postAssetFile(optimizedBlob, 'hero', null, `home-hero-${Date.now()}.webp`);
       setUploadStage('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
-      setSuccess('Görsel hazır. Yayına almak için Kaydet ve Yayınla butonuna basın.');
+      setSuccess(`Görsel hazır: ${uploadedUrl}. Yayına almak için Kaydet ve Yayınla butonuna basın.`);
     } catch (err) {
       setHeroPreviewUrl('');
       setUploadStage('');
@@ -680,8 +692,19 @@ export default function AdminContentHome() {
     setError('');
     setSuccess('');
     try {
-      const response = await api.patch('/admin/content/home', form);
-      const savedForm = normalizeForm(response.data?.data || form);
+      const payload = normalizeForm({
+        ...form,
+        heroBanner: {
+          ...form.heroBanner,
+          imageUrl: latestHeroImageUrlRef.current || form.heroBanner?.imageUrl || ''
+        }
+      });
+      if (window.localStorage?.getItem('talepet:debug-home-content') === '1') {
+        console.info('HOME_CONTENT_SAVE_PAYLOAD', payload);
+      }
+      const response = await api.patch('/admin/content/home', payload);
+      const savedForm = normalizeForm(response.data?.data || payload);
+      latestHeroImageUrlRef.current = savedForm.heroBanner?.imageUrl || '';
       setForm(savedForm);
       const publicResponse = await api.get(`/content/home?ts=${Date.now()}`);
       const publicForm = normalizeForm(publicResponse.data?.data || {});
@@ -701,14 +724,20 @@ export default function AdminContentHome() {
         checkedAt: new Date().toLocaleString('tr-TR'),
         savedTitle,
         publicTitle,
+        savedImageUrl,
         publicImageUrl,
+        publicImageFullUrl: buildAssetUrl(publicImageUrl),
         publicCategoryCount
       });
-      setSuccess(
-        publicMatches
-          ? 'Kaydedildi. Public ana sayfa içeriği güncel. App yüzeyinde kontrol edebilirsiniz.'
-          : 'Kaydedildi ancak public içerik henüz güncel görünmüyor. Cache veya deploy kontrolü gerekebilir.'
-      );
+      if (savedImageUrl && !publicImageUrl) {
+        setSuccess('Metinler kaydedildi ancak hero görsel URL public içerikte görünmüyor.');
+      } else {
+        setSuccess(
+          publicMatches
+            ? 'Kaydedildi. Public ana sayfa içeriği güncel. App yüzeyinde kontrol edebilirsiniz.'
+            : 'Kaydedildi ancak public içerik henüz güncel görünmüyor. Cache veya deploy kontrolü gerekebilir.'
+        );
+      }
       refreshLivePreview();
     } catch (err) {
       setError(err?.response?.data?.message || 'İçerik güncellenemedi veya public içerik doğrulanamadı.');
@@ -886,7 +915,9 @@ export default function AdminContentHome() {
                     <strong>Yansıma Kontrolü</strong>
                     <span>Son kaydedilen başlık: {publicContentCheck.savedTitle || '-'}</span>
                     <span>Public content başlığı: {publicContentCheck.publicTitle || '-'}</span>
+                    <span>Kaydedilen görsel URL: {publicContentCheck.savedImageUrl || '-'}</span>
                     <span>Public görsel URL: {publicContentCheck.publicImageUrl || '-'}</span>
+                    <span>Public tam görsel URL: {publicContentCheck.publicImageFullUrl || '-'}</span>
                     <span>Kategori kısa yolu: {publicContentCheck.publicCategoryCount}</span>
                     <small>Kontrol zamanı: {publicContentCheck.checkedAt}</small>
                     <a href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
