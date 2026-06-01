@@ -1,4 +1,5 @@
 ﻿import { Suspense, lazy, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { useNavigate } from 'react-router-dom';
 import api, { API_BASE_URL } from '../api/axios';
 import CategorySelector from '../components/CategorySelector';
@@ -411,7 +412,8 @@ const escapeHtml = (value) => String(value || '')
 
 function RFQList({ surfaceVariant = 'app' }) {
   const BACKEND_ORIGIN = API_BASE_URL.replace('/api', '');
-  const isWebSurface = surfaceVariant === 'web';
+  const isNativeRuntime = isNativeCapacitorRuntime();
+  const isWebSurface = !isNativeRuntime && surfaceVariant === 'web';
   const { selectedCity, setSelectedCity, selectedDistrict, setSelectedDistrict } = useAuth();
   const navigate = useNavigate();
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -2684,30 +2686,46 @@ function RFQList({ surfaceVariant = 'app' }) {
     };
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    const loadHomeContent = async () => {
-      try {
-        const response = await api.get(`/content/home?ts=${Date.now()}`);
-        if (!active) return;
-        const nextHomeContent = normalizeHomeContent(response.data?.data || {});
-        setHomeContent(nextHomeContent);
-        if (window.localStorage?.getItem('talepet:debug-home-content') === '1') {
-          console.info('HOME_CONTENT_LOADED', {
-            isWebSurface,
-            heroBanner: nextHomeContent.heroBanner,
-            quickCategories: nextHomeContent.quickCategories?.length || 0
-          });
-        }
-      } catch (_error) {
-        // ignore content errors
+  const loadHomeContent = useCallback(async () => {
+    try {
+      const response = await api.get(`/content/home?ts=${Date.now()}`);
+      const nextHomeContent = normalizeHomeContent(response.data?.data || {});
+      setHomeContent(nextHomeContent);
+      if (isNativeRuntime || window.localStorage?.getItem('talepet:debug-home-content') === '1') {
+        const firstHeroSlide = nextHomeContent.heroSlides?.[0] || null;
+        console.info('HOME_CONTENT_LOADED', {
+          isNativeCapacitorRuntime: isNativeRuntime,
+          isWebSurface,
+          heroSlidesCount: nextHomeContent.heroSlides?.length || 0,
+          firstHeroSlideTitle: firstHeroSlide?.title || '',
+          firstHeroSlideImageUrl: firstHeroSlide?.imageUrl || '',
+          apiBaseUrl: API_BASE_URL,
+          quickCategories: nextHomeContent.quickCategories?.length || 0
+        });
       }
-    };
+    } catch (_error) {
+      // ignore content errors
+    }
+  }, [isNativeRuntime, isWebSurface]);
+
+  useEffect(() => {
     loadHomeContent();
+  }, [loadHomeContent]);
+
+  useEffect(() => {
+    if (!isNativeRuntime) {
+      return undefined;
+    }
+    let resumeListener;
+    CapacitorApp.addListener('resume', () => {
+      loadHomeContent();
+    }).then((listener) => {
+      resumeListener = listener;
+    });
     return () => {
-      active = false;
+      resumeListener?.remove?.();
     };
-  }, [isWebSurface]);
+  }, [isNativeRuntime, loadHomeContent]);
 
   const normalizeSearch = useCallback((value) => String(value || '').toLowerCase().trim(), []);
 
