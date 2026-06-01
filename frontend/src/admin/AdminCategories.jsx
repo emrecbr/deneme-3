@@ -188,10 +188,10 @@ export default function AdminCategories() {
     setItems((prev) => prev.map((item) => (item._id === categoryId ? { ...item, ...imageFields } : item)));
   };
 
-  const handleImageUpload = async (event) => {
+  const handleMainCategoryImageUpload = async (categoryId, event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file || !editingId) return;
+    if (!file || !categoryId) return;
 
     setMessage('');
     if (!CATEGORY_IMAGE_TYPES.has(file.type)) {
@@ -210,7 +210,7 @@ export default function AdminCategories() {
       const formData = new FormData();
       formData.append('file', resizedBlob, `main-category-${Date.now()}.webp`);
       setMessage('Görsel yükleniyor...');
-      const response = await api.post(`/admin/categories/${editingId}/image`, formData, {
+      const response = await api.post(`/admin/categories/${categoryId}/image`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000
       });
@@ -225,7 +225,7 @@ export default function AdminCategories() {
         imageEnabled: true
       };
       setForm((prev) => ({ ...prev, ...imageFields }));
-      updateItemImage(editingId, imageFields);
+      updateItemImage(categoryId, imageFields);
       setMessage('Görsel yüklendi ve ana kategoriye kaydedildi.');
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout');
@@ -239,11 +239,11 @@ export default function AdminCategories() {
     }
   };
 
-  const handleImageRemove = async () => {
-    if (!editingId) return;
+  const handleMainCategoryImageRemove = async (categoryId) => {
+    if (!categoryId) return;
     setMessage('');
     try {
-      const response = await api.delete(`/admin/categories/${editingId}/image`);
+      const response = await api.delete(`/admin/categories/${categoryId}/image`);
       const next = response.data?.data || {};
       const imageFields = {
         imageUrl: next.imageUrl || '',
@@ -252,7 +252,7 @@ export default function AdminCategories() {
         imageEnabled: next.imageEnabled !== false
       };
       setForm((prev) => ({ ...prev, ...imageFields }));
-      updateItemImage(editingId, imageFields);
+      updateItemImage(categoryId, imageFields);
       setMessage('Görsel kaldırıldı.');
     } catch (err) {
       setMessage(err?.response?.data?.message || 'Görsel kaldırılamadı.');
@@ -338,10 +338,10 @@ export default function AdminCategories() {
                     accept="image/jpeg,image/png,image/webp"
                     className="admin-hidden-file-input"
                     disabled={uploadingImage}
-                    onChange={handleImageUpload}
+                    onChange={(event) => handleMainCategoryImageUpload(editingId, event)}
                   />
                 </label>
-                <button type="button" className="admin-btn admin-btn-secondary" disabled={!form.imageUrl || uploadingImage} onClick={handleImageRemove}>
+                <button type="button" className="admin-btn admin-btn-secondary" disabled={!form.imageUrl || uploadingImage} onClick={() => handleMainCategoryImageRemove(editingId)}>
                   Kaldır
                 </button>
               </div>

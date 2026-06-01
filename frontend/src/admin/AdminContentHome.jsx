@@ -897,6 +897,10 @@ export default function AdminContentHome() {
                   Uygulama ana sayfasının nasıl görüneceğini buradan seç. Bir şablon seç, görselini yükle, başlığı
                   düzenle ve kaydet.
                 </p>
+                <p>
+                  Bu alan sadece ana sayfa üst hero slider tasarımını yönetir. Kategori görselleri Kategoriler → Ana
+                  Kategoriler ekranından yönetilir.
+                </p>
               </div>
               <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
                 Siteyi Görüntüle
@@ -931,7 +935,7 @@ export default function AdminContentHome() {
                       <strong>{preset.name}</strong>
                       <p>{preset.description}</p>
                       <button type="button" className="admin-btn" onClick={() => applyPreset(preset)}>
-                        Seç ve Düzenle
+                        Bu Ana Sayfa Tasarımını Kullan
                       </button>
                     </article>
                   ))}

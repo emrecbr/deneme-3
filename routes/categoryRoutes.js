@@ -4,6 +4,26 @@ import Category from '../models/Category.js';
 const router = express.Router();
 const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
 const normalizeSegment = (value) => String(value || '').trim().toLowerCase();
+const getParentId = (cat) => (cat.parent ? String(typeof cat.parent === 'object' ? cat.parent._id : cat.parent) : null);
+const serializePublicCategory = (cat) => {
+  const parentId = getParentId(cat);
+  const {
+    imageProvider: _imageProvider,
+    imagePublicId: _imagePublicId,
+    imageEnabled,
+    imageUrl,
+    ...safeCategory
+  } = cat;
+
+  if (!parentId) {
+    return {
+      ...safeCategory,
+      imageUrl: imageEnabled === false ? '' : imageUrl || ''
+    };
+  }
+
+  return safeCategory;
+};
 
 router.get('/', async (_req, res) => {
   try {
@@ -18,7 +38,7 @@ router.get('/', async (_req, res) => {
       query.segment = segment;
     }
 
-    const categories = await Category.find(query).sort({ level: 1, order: 1, name: 1 }).lean();
+    const categories = (await Category.find(query).sort({ level: 1, order: 1, name: 1 }).lean()).map(serializePublicCategory);
     const map = new Map();
     const roots = [];
 
@@ -27,7 +47,7 @@ router.get('/', async (_req, res) => {
     });
 
     categories.forEach((cat) => {
-      const parentId = cat.parent ? String(typeof cat.parent === 'object' ? cat.parent._id : cat.parent) : null;
+      const parentId = getParentId(cat);
       if (parentId && map.has(parentId)) {
         map.get(parentId).children.push(map.get(String(cat._id)));
       } else {
