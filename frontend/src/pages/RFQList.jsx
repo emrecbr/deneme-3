@@ -3489,25 +3489,6 @@ function RFQList({ surfaceVariant = 'app' }) {
 
       <section className={`home-filters ${isWebSurface ? 'home-filters--web' : ''}`}>
         <div className="cats-header-row">
-          <div className="cats-inline-wrap">
-            <div className="cats-inline-scroll">
-              {SEGMENT_OPTIONS.map((segment) => {
-                const isActive = String(filters.segment || '') === segment.value;
-                return (
-                  <button
-                    key={segment.value}
-                    type="button"
-                    className={`cats-inline-chip ${isActive ? 'active' : ''}`}
-                    onClick={() => handleSegmentSelect(isActive ? '' : segment.value)}
-                  >
-                    {segment.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="cats-header-row">
           <button
             type="button"
             className="secondary-btn home-filter-btn cats-title-btn"
