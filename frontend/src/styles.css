@@ -6074,6 +6074,33 @@ img.admin-category-thumb {
   gap: 16px;
 }
 
+.admin-main-category-quick-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-main-category-quick-editor__header {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-main-category-quick-editor__header strong {
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.admin-main-category-quick-editor__header span {
+  color: #6b7280;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.admin-home-category-quick-block {
+  padding-top: 4px;
+  border-top: 1px solid #eef2f7;
+}
+
 .admin-main-category-card {
   display: grid;
   gap: 12px;

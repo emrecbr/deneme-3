@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/adminApi';
 import { API_BASE_URL } from '../api/axios';
 import { buildSurfaceHref } from '../config/surfaces';
+import MainCategoryImageQuickEditor from './components/MainCategoryImageQuickEditor';
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 const SEGMENTS = [
@@ -898,8 +899,7 @@ export default function AdminContentHome() {
                   düzenle ve kaydet.
                 </p>
                 <p>
-                  Bu alan sadece ana sayfa üst hero slider tasarımını yönetir. Kategori görselleri Kategoriler → Ana
-                  Kategoriler ekranından yönetilir.
+                  Hero sekmeleri üst banner alanını yönetir. Kategori görselleri aşağıdaki ayrı panelden yönetilir.
                 </p>
               </div>
               <a className="admin-btn admin-btn-secondary" href={APP_HOME_PREVIEW_HREF} target="_blank" rel="noreferrer">
@@ -1136,6 +1136,10 @@ export default function AdminContentHome() {
                     </a>
                   </div>
                 ) : null}
+
+                <div className="admin-home-edit-block admin-home-category-quick-block">
+                  <MainCategoryImageQuickEditor onPublished={refreshLivePreview} />
+                </div>
 
               </aside>
 
