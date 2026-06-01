@@ -316,32 +316,23 @@ export default function AdminCategories() {
             </select>
           </label>
         </div>
-        <div className="admin-main-category-image-panel">
-          <div className="admin-main-category-image-preview">
-            {currentImageUrl ? (
-              <img src={currentImageUrl} alt={`${form.name || 'Ana kategori'} görseli`} />
-            ) : (
-              <span>Görsel yok</span>
-            )}
-          </div>
-          <div className="admin-main-category-image-controls">
-            <strong>Ana kategori görseli</strong>
-            <span className="admin-muted">Sadece ana kategorilerde kullanılır. Alt kategorilere görsel alanı eklenmez.</span>
-            <label>
-              Görsel Aktif/Pasif
-              <select
-                className="admin-input"
-                value={form.imageEnabled ? '1' : '0'}
-                onChange={(e) => setForm({ ...form, imageEnabled: e.target.value === '1' })}
-              >
-                <option value="1">Aktif</option>
-                <option value="0">Pasif</option>
-              </select>
-            </label>
-            {editingId ? (
+        {editingId ? (
+          <div className="admin-main-category-image-panel">
+            <div className="admin-main-category-image-header">
+              <span>Kategori</span>
+              <strong>{form.name || 'Ana kategori'}</strong>
+            </div>
+            <div className="admin-main-category-image-preview">
+              {currentImageUrl ? (
+                <img src={currentImageUrl} alt={`${form.name || 'Ana kategori'} görseli`} />
+              ) : (
+                <span>Görsel yok</span>
+              )}
+            </div>
+            <div className="admin-main-category-image-controls">
               <div className="admin-row-actions">
                 <label className={`admin-btn ${uploadingImage ? 'disabled' : ''}`}>
-                  {uploadingImage ? 'Yükleniyor...' : currentImageUrl ? 'Görseli Değiştir' : 'Görsel Yükle'}
+                  {uploadingImage ? 'Yükleniyor...' : currentImageUrl ? 'Değiştir' : 'Görsel Yükle'}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -351,14 +342,20 @@ export default function AdminCategories() {
                   />
                 </label>
                 <button type="button" className="admin-btn admin-btn-secondary" disabled={!form.imageUrl || uploadingImage} onClick={handleImageRemove}>
-                  Görseli Kaldır
+                  Kaldır
                 </button>
               </div>
-            ) : (
-              <span className="admin-muted">Görsel yüklemek için önce ana kategoriyi kaydedin.</span>
-            )}
+              <label className="admin-main-category-image-switch">
+                <input
+                  type="checkbox"
+                  checked={form.imageEnabled}
+                  onChange={(e) => setForm({ ...form, imageEnabled: e.target.checked })}
+                />
+                <span>Görsel Aktif</span>
+              </label>
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className="admin-action-row">
           <button type="button" className="admin-btn" onClick={submit}>
             {editingId ? 'Güncelle' : 'Ekle'}
