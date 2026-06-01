@@ -3157,21 +3157,14 @@ function RFQList({ surfaceVariant = 'app' }) {
   const handleHomeQuickCategorySelect = useCallback(
     (item) => {
       const nextSegment = item?.segment || '';
-      const nextCategoryId = item?.categoryId ? String(item.categoryId) : '';
-      const match =
-        (nextCategoryId
-          ? categoryItems.find((category) => String(category._id || '') === nextCategoryId) ||
-            homeMainCategories.find((category) => String(category._id || '') === nextCategoryId)
-          : null) || null;
-
       applyCategoryFilter({
         segment: nextSegment,
-        categoryId: nextCategoryId,
-        label: nextCategoryId ? match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '' : ''
+        categoryId: '',
+        label: ''
       });
       triggerHaptic('light');
     },
-    [applyCategoryFilter, categoryItems, homeMainCategories]
+    [applyCategoryFilter]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
