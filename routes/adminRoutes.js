@@ -27,6 +27,8 @@ import {
   listAdminCategories,
   createAdminCategory,
   updateAdminCategory,
+  uploadMainCategoryImage,
+  removeMainCategoryImage,
   listCategoryIssues,
   listSearchSuggestions,
   createSearchSuggestion,
@@ -134,6 +136,8 @@ router.get('/audit', adminRoleMiddleware, listAdminAuditLogs);
 router.get('/categories', adminRoleMiddleware, listAdminCategories);
 router.post('/categories', adminRoleMiddleware, requireAdminOnly, createAdminCategory);
 router.patch('/categories/:id', adminRoleMiddleware, requireAdminOnly, updateAdminCategory);
+router.post('/categories/:id/image', adminRoleMiddleware, requireAdminOnly, homeAssetUpload.single('file'), uploadMainCategoryImage);
+router.delete('/categories/:id/image', adminRoleMiddleware, requireAdminOnly, removeMainCategoryImage);
 router.get('/categories/issues', adminRoleMiddleware, listCategoryIssues);
 router.get('/categories/search-suggestions', adminRoleMiddleware, listSearchSuggestions);
 router.post('/categories/search-suggestions', adminRoleMiddleware, requireAdminOnly, createSearchSuggestion);

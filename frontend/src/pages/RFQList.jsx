@@ -88,6 +88,12 @@ const DEFAULT_HOME_QUICK_CATEGORIES = [
   { key: 'default-auto', label: 'Otomobil', segment: 'auto', backgroundColor: '#EEFDF8', enabled: true, sortOrder: 30 },
   { key: 'default-jobseeker', label: 'İş Arayan', segment: 'jobseeker', backgroundColor: '#F3EFFF', enabled: true, sortOrder: 40 }
 ];
+const HOME_MAIN_CATEGORY_SEGMENTS = [
+  { segment: 'goods', label: 'Eşya' },
+  { segment: 'service', label: 'Hizmet / Usta' },
+  { segment: 'auto', label: 'Otomobil' },
+  { segment: 'jobseeker', label: 'İş Arayan' }
+];
 const DEFAULT_HOME_CONTENT = {
   heroTitle: '',
   heroSubtitle: '',
@@ -477,6 +483,7 @@ function RFQList({ surfaceVariant = 'app' }) {
   const [createSheetRenderTranslate, setCreateSheetRenderTranslate] = useState(0);
   const [categoryLabel, setCategoryLabel] = useState('');
   const [categoryItems, setCategoryItems] = useState([]);
+  const [homeMainCategories, setHomeMainCategories] = useState([]);
   const [inlineSubcategories, setInlineSubcategories] = useState([]);
   const [flatSubcategories, setFlatSubcategories] = useState([]);
   const [filterCompact, setFilterCompact] = useState(false);
@@ -2713,6 +2720,33 @@ function RFQList({ surfaceVariant = 'app' }) {
   }, [loadHomeContent]);
 
   useEffect(() => {
+    let active = true;
+    const loadHomeMainCategories = async () => {
+      try {
+        const response = await api.get(`/categories?ts=${Date.now()}`);
+        const flat = response.data?.data || response.data?.items || [];
+        const roots = response.data?.tree?.length ? response.data.tree : buildCategoryTree(flat);
+        if (!active) return;
+        setHomeMainCategories(
+          roots.filter((item) => {
+            const parentId = item?.parent ? String(typeof item.parent === 'object' ? item.parent._id : item.parent) : '';
+            return !parentId && HOME_MAIN_CATEGORY_SEGMENTS.some((entry) => entry.segment === item?.segment);
+          })
+        );
+      } catch (_error) {
+        if (active) {
+          setHomeMainCategories([]);
+        }
+      }
+    };
+
+    loadHomeMainCategories();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isNativeRuntime) {
       return undefined;
     }
@@ -2726,6 +2760,38 @@ function RFQList({ surfaceVariant = 'app' }) {
       resumeListener?.remove?.();
     };
   }, [isNativeRuntime, loadHomeContent]);
+
+  const homeQuickCategoryItems = useMemo(() => {
+    const rootBySegment = new Map();
+    homeMainCategories.forEach((category) => {
+      if (category?.segment && !rootBySegment.has(category.segment)) {
+        rootBySegment.set(category.segment, category);
+      }
+    });
+
+    const contentBySegment = new Map();
+    (homeContent.quickCategories || []).forEach((item) => {
+      if (item?.segment && !contentBySegment.has(item.segment)) {
+        contentBySegment.set(item.segment, item);
+      }
+    });
+
+    return HOME_MAIN_CATEGORY_SEGMENTS.map((entry, index) => {
+      const rootCategory = rootBySegment.get(entry.segment);
+      const contentItem = contentBySegment.get(entry.segment) || DEFAULT_HOME_QUICK_CATEGORIES[index] || {};
+      return {
+        ...contentItem,
+        key: `main-${entry.segment}`,
+        label: entry.label,
+        segment: entry.segment,
+        categoryId: rootCategory?._id || contentItem.categoryId || '',
+        imageUrl: rootCategory?.imageEnabled !== false ? rootCategory?.imageUrl || '' : '',
+        imageProvider: rootCategory?.imageProvider || '',
+        sortOrder: (index + 1) * 10,
+        enabled: rootCategory ? rootCategory.isActive !== false : contentItem.enabled !== false
+      };
+    });
+  }, [homeContent.quickCategories, homeMainCategories]);
 
   const normalizeSearch = useCallback((value) => String(value || '').toLowerCase().trim(), []);
 
@@ -3053,7 +3119,9 @@ function RFQList({ surfaceVariant = 'app' }) {
 
       if (nextCategoryId) {
         updateFilter('category', nextCategoryId);
-        const match = categoryItems.find((category) => String(category._id || '') === nextCategoryId);
+        const match =
+          categoryItems.find((category) => String(category._id || '') === nextCategoryId) ||
+          homeMainCategories.find((category) => String(category._id || '') === nextCategoryId);
         setCategoryLabel(match?.path?.length ? match.path.join(' > ') : match?.name || item.label || '');
       } else {
         updateFilter('category', null);
@@ -3064,7 +3132,7 @@ function RFQList({ surfaceVariant = 'app' }) {
       setIsCategoryModalOpen(false);
       triggerHaptic('light');
     },
-    [categoryItems, filters.segment, updateFilter]
+    [categoryItems, filters.segment, homeMainCategories, updateFilter]
   );
 
   const handleClearCategoryFilter = useCallback(() => {
@@ -3412,7 +3480,7 @@ function RFQList({ surfaceVariant = 'app' }) {
             onNavigate={handleHomeBannerNavigate}
           />
           <HomeQuickCategories
-            items={homeContent.quickCategories}
+            items={homeQuickCategoryItems}
             assetBaseUrl={BACKEND_ORIGIN}
             onSelect={handleHomeQuickCategorySelect}
           />

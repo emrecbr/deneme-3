@@ -201,60 +201,56 @@ html:not([data-surface="admin"]) .rfq-list-page:not(.rfq-list-page--web) {
 }
 
 .home-quick-categories {
-  margin: 0 -16px;
-  overflow: hidden;
+  margin: 0;
 }
 
-.home-quick-categories__scroller {
-  display: flex;
+.home-quick-categories__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  overflow-x: auto;
-  padding: 0 16px 4px;
-  scrollbar-width: none;
-}
-
-.home-quick-categories__scroller::-webkit-scrollbar {
-  display: none;
 }
 
 .home-quick-category {
   display: grid;
-  min-width: 82px;
-  gap: 8px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.66);
-  border-radius: 22px;
-  padding: 12px 10px;
-  background: var(--home-quick-bg, rgba(255, 255, 255, 0.72));
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  min-width: 0;
+  min-height: 132px;
+  gap: 10px;
+  align-content: end;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 24px;
+  padding: 10px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.86), var(--home-quick-bg, rgba(255, 255, 255, 0.72)));
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
   color: #111827;
+  text-align: left;
 }
 
-.home-quick-category__icon {
+.home-quick-category__media {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 100%;
+  aspect-ratio: 1.6 / 1;
   place-items: center;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   color: #3478f6;
-  font-size: 19px;
+  font-size: 24px;
   font-weight: 800;
 }
 
-.home-quick-category__icon img {
+.home-quick-category__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
 .home-quick-category__label {
-  max-width: 72px;
+  width: 100%;
   overflow: hidden;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
-  text-align: center;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5968,6 +5964,82 @@ body.dark-mode .advanced-sort-current {
   align-items: center;
 }
 
+.admin-main-category-image-panel {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.admin-main-category-image-preview {
+  display: grid;
+  width: 132px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-main-category-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-main-category-image-controls {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-main-category-image-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.admin-hidden-file-input {
+  display: none;
+}
+
+.admin-btn.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.admin-table-row.no-checkbox.admin-category-table-row {
+  grid-template-columns: 72px 1.2fr 1fr 1fr 0.5fr 0.5fr 0.7fr;
+}
+
+.admin-category-thumb {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+  color: rgba(226, 232, 240, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+img.admin-category-thumb {
+  object-fit: cover;
+}
+
 .admin-status-pill {
   display: inline-flex;
   align-items: center;
@@ -10533,6 +10605,22 @@ html[data-surface="admin"] .admin-table-row:hover {
   transform: none;
   background: #f8f9fa;
   border-color: #d7dce1;
+}
+
+html[data-surface="admin"] .admin-main-category-image-panel {
+  background: #f8fafc;
+  border-color: #e5e7eb;
+}
+
+html[data-surface="admin"] .admin-main-category-image-preview,
+html[data-surface="admin"] .admin-category-thumb {
+  background: #eef2f7;
+  border-color: #dbe2ea;
+  color: #64748b;
+}
+
+html[data-surface="admin"] .admin-main-category-image-controls label {
+  color: #495057;
 }
 
 html[data-surface="admin"] .admin-empty,

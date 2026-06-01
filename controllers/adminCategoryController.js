@@ -3,10 +3,15 @@ import Category from '../models/Category.js';
 import RFQ from '../models/RFQ.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import SearchSuggestion from '../models/SearchSuggestion.js';
+import {
+  deleteMediaAsset,
+  uploadMainCategoryImage as uploadMainCategoryImageAsset
+} from '../src/services/mediaStorageService.js';
 
 const ALLOWED_SEGMENTS = new Set(['goods', 'service', 'auto', 'jobseeker']);
 const normalize = (value) => String(value || '').trim();
 const normalizeSegment = (value) => String(value || '').trim().toLowerCase();
+const isMainCategory = (category) => !category?.parent;
 const slugify = (value) =>
   normalize(value)
     .toLowerCase()
@@ -142,7 +147,8 @@ export const createAdminCategory = async (req, res, next) => {
       level: resolvedLevel,
       kind: resolvedKind,
       order: Number.isFinite(Number(order)) ? Number(order) : 0,
-      isActive: typeof isActive === 'boolean' ? isActive : true
+      isActive: typeof isActive === 'boolean' ? isActive : true,
+      imageEnabled: !resolvedParent
     };
 
     const category = await Category.create(payload);
@@ -156,7 +162,7 @@ export const createAdminCategory = async (req, res, next) => {
 
 export const updateAdminCategory = async (req, res, next) => {
   try {
-    const { name, slug, parent, order, isActive, segment } = req.body || {};
+    const { name, slug, parent, order, isActive, segment, imageEnabled } = req.body || {};
     const category = await Category.findById(req.params.id);
     if (!category) {
       return res.status(404).json({ success: false, message: 'Kategori bulunamadı.' });
@@ -198,10 +204,99 @@ export const updateAdminCategory = async (req, res, next) => {
     if (normalizedSegment !== undefined) {
       category.segment = normalizedSegment || undefined;
     }
+    if (isMainCategory(category)) {
+      if (imageEnabled !== undefined) {
+        category.imageEnabled = Boolean(imageEnabled);
+      }
+    } else {
+      category.imageUrl = '';
+      category.imageProvider = '';
+      category.imagePublicId = '';
+      category.imageEnabled = false;
+    }
 
     await category.save();
     await syncCategoryKinds([category._id, relatedParentId]);
     await logAdminAction(req, 'category_update', { categoryId: category._id });
+    return res.status(200).json({ success: true, data: category });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const uploadMainCategoryImage = async (req, res, next) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ success: false, message: 'Kategori bulunamadı.' });
+    }
+    if (!isMainCategory(category)) {
+      return res.status(400).json({ success: false, message: 'Sadece ana kategorilere görsel yüklenebilir.' });
+    }
+    if (!req.file?.buffer?.length) {
+      return res.status(400).json({ success: false, message: 'Görsel dosyası gerekli.' });
+    }
+
+    const uploaded = await uploadMainCategoryImageAsset(req.file.buffer, {
+      originalName: req.file.originalname || `${category.slug || category._id}.webp`,
+      mimeType: req.file.mimetype,
+      size: req.file.size
+    });
+
+    category.imageUrl = uploaded.url || '';
+    category.imageProvider = uploaded.provider || '';
+    category.imagePublicId = uploaded.publicId || '';
+    category.imageEnabled = true;
+    await category.save();
+
+    await logAdminAction(req, 'main_category_image_upload', {
+      categoryId: category._id,
+      provider: uploaded.provider,
+      publicId: uploaded.publicId,
+      mimeType: uploaded.mimeType,
+      size: uploaded.size
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...uploaded,
+        categoryId: category._id
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const removeMainCategoryImage = async (req, res, next) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ success: false, message: 'Kategori bulunamadı.' });
+    }
+    if (!isMainCategory(category)) {
+      return res.status(400).json({ success: false, message: 'Sadece ana kategorilerde görsel kaldırılabilir.' });
+    }
+
+    const previousProvider = category.imageProvider || '';
+    const previousPublicId = category.imagePublicId || '';
+    if (previousPublicId && previousProvider === 'cloudinary') {
+      await deleteMediaAsset(previousPublicId).catch(() => false);
+    }
+
+    category.imageUrl = '';
+    category.imageProvider = '';
+    category.imagePublicId = '';
+    category.imageEnabled = false;
+    await category.save();
+
+    await logAdminAction(req, 'main_category_image_remove', {
+      categoryId: category._id,
+      provider: previousProvider,
+      publicId: previousPublicId
+    });
+
     return res.status(200).json({ success: true, data: category });
   } catch (error) {
     return next(error);
