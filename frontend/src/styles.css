@@ -369,7 +369,7 @@ html[data-surface="admin"] .admin-home-builder-header p {
 
 html[data-surface="admin"] .admin-home-builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px) minmax(430px, 460px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px) minmax(450px, 480px);
   gap: 24px;
   align-items: start;
 }
@@ -864,12 +864,14 @@ html[data-surface="admin"] .admin-home-live-preview-actions {
 html[data-surface="admin"] .admin-home-live-frame {
   position: relative;
   justify-self: center;
-  width: min(100%, 410px);
-  height: 864px;
-  max-height: calc(100vh - 90px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: min(100%, 424px);
+  height: 902px;
   overflow: hidden;
-  border: 10px solid #0f172a;
-  border-radius: 42px;
+  border: 11px solid #0f172a;
+  border-radius: 44px;
   background: #0f172a;
   box-shadow: 0 24px 58px rgba(15, 23, 42, 0.24);
 }
@@ -890,11 +892,12 @@ html[data-surface="admin"] .admin-home-live-frame::before {
 
 html[data-surface="admin"] .admin-home-live-iframe {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 402px;
+  max-width: 100%;
+  height: 874px;
   border: 0;
-  border-radius: 32px;
-  background: #f5f1ea;
+  border-radius: 34px;
+  background: #ffffff;
 }
 
 html[data-surface="admin"] .admin-home-live-frame-status,
@@ -1106,7 +1109,7 @@ html[data-surface="admin"] .admin-home-preview-card.short {
   margin-top: 10px;
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 1500px) {
   html[data-surface="admin"] .admin-home-builder-layout {
     grid-template-columns: minmax(0, 1fr) minmax(430px, 460px);
   }
@@ -1156,8 +1159,8 @@ html[data-surface="admin"] .admin-home-preview-card.short {
   }
 
   html[data-surface="admin"] .admin-home-live-frame {
-    height: min(864px, 86vh);
-    min-height: 640px;
+    height: min(902px, 88vh);
+    min-height: 680px;
   }
 }
 
