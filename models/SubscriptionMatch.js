@@ -33,7 +33,15 @@ const subscriptionMatchSchema = new mongoose.Schema(
     },
     matchedBy: {
       type: String,
-      enum: ['category', 'category_city', 'category_city_district', 'keyword'],
+      enum: [
+        'category',
+        'category_city',
+        'category_city_district',
+        'keyword',
+        'category_keyword',
+        'category_city_keyword',
+        'category_city_district_keyword'
+      ],
       required: true
     },
     isSeen: {

@@ -101,7 +101,10 @@ const loadCategoryContext = async () => {
 const resolveCategoryDescriptor = (rawCategory, context) => {
   if (!rawCategory) return null;
 
-  const directId = toIdString(rawCategory);
+  const directId =
+    typeof rawCategory === 'object' && !mongoose.isValidObjectId(rawCategory)
+      ? toIdString(rawCategory._id || rawCategory.id || rawCategory.categoryId || rawCategory.value)
+      : toIdString(rawCategory);
   if (directId && mongoose.isValidObjectId(directId) && context.byId.has(directId)) {
     return context.byId.get(directId);
   }
@@ -124,6 +127,19 @@ const resolveCategoryDescriptor = (rawCategory, context) => {
         : '';
   if (nameCandidate && context.byName.has(nameCandidate)) {
     return context.byName.get(nameCandidate);
+  }
+
+  if (typeof rawCategory === 'string') {
+    const pathParts = rawCategory
+      .split(/\s*(?:>|\/|»|›)\s*/g)
+      .map((part) => normalizeText(part))
+      .filter(Boolean);
+    for (let index = pathParts.length - 1; index >= 0; index -= 1) {
+      const match = context.byName.get(pathParts[index]);
+      if (match) {
+        return match;
+      }
+    }
   }
 
   return null;
@@ -324,6 +340,12 @@ export const listUserSubscriptionsWithMatches = async (userId, limit = 10) => {
   await ensureRfqLifecycle();
   const subs = await listUserSubscriptions(userId);
   if (!subs.length) return [];
+
+  await Promise.all(
+    subs
+      .filter((subscription) => subscription.isActive !== false)
+      .map((subscription) => backfillSubscriptionMatches(subscription))
+  );
 
   const subIds = subs.map((s) => s._id);
   const matches = await SubscriptionMatch.find({ user: userId, subscription: { $in: subIds } })
