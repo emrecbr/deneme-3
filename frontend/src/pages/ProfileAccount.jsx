@@ -73,7 +73,7 @@ const inferAlertType = ({ categoryId, cityId, districtId, keyword }) => {
 
 function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
   const isWebSurface = surfaceVariant === 'web';
-  const alertsOnlyView = isWebSurface && focusSection === 'alerts';
+  const alertsOnlyView = focusSection === 'alerts';
   const { checkAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -122,6 +122,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
     districtId: '',
     keyword: ''
   });
+  const [editingAlertId, setEditingAlertId] = useState('');
   const [alertFormLoading, setAlertFormLoading] = useState(false);
   const [alertFormError, setAlertFormError] = useState('');
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -566,8 +567,23 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       districtId: '',
       keyword: ''
     });
+    setEditingAlertId('');
     setAlertFormError('');
     setDistricts([]);
+  };
+
+  const handleEditAlert = (item) => {
+    const nextCityId = String(item?.city?._id || item?.city || '');
+    setEditingAlertId(item?._id || '');
+    setAlertForm({
+      segment: item?.category?.segment || '',
+      categoryId: String(item?.category?._id || item?.category || ''),
+      categoryName: item?.categoryName || item?.category?.name || '',
+      cityId: nextCityId,
+      districtId: String(item?.district?._id || item?.district || ''),
+      keyword: item?.keyword || ''
+    });
+    setAlertFormError('');
   };
 
   const handleAlertCategorySelect = (selection) => {
@@ -611,13 +627,22 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         districtId: alertForm.districtId || undefined,
         keyword: alertForm.keyword.trim() || undefined
       };
-      const response = await api.post('/me/alerts', payload);
+      const response = editingAlertId
+        ? await api.patch(`/me/alerts/${editingAlertId}`, payload)
+        : await api.post('/me/alerts', payload);
       if (response.data?.data) {
-        setAlerts((prev) => [response.data.data, ...prev]);
+        setAlerts((prev) => {
+          if (!editingAlertId) {
+            return [response.data.data, ...prev];
+          }
+          return prev.map((item) => (String(item._id) === String(editingAlertId) ? response.data.data : item));
+        });
       }
       const backfilledCount = Number(response.data?.backfilledCount || 0);
       showToast(
-        backfilledCount > 0
+        editingAlertId
+          ? 'Takip güncellendi.'
+          : backfilledCount > 0
           ? `Takip eklendi. ${backfilledCount} uygun talep listene eklendi.`
           : 'Takip eklendi.'
       );
@@ -638,9 +663,9 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
     <section className="card account-card website-profile-inline-card">
       <div className="website-profile-inline-card__head">
         <div>
-          <h2>Takiplerim</h2>
+          <h2>İlan Takiplerim</h2>
           <p className="account-muted">
-            İlgilendiğin kategori, şehir ve anahtar kelimeler için yeni talepleri buradan yönet.
+            Anahtar kelime, kategori ve şehir seçerek ilan takip kurallarını buradan yönet.
           </p>
         </div>
         {!alertsOnlyView ? (
@@ -651,7 +676,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       </div>
 
       <div className="alert-form website-profile-inline-panel" data-rb-no-drag="true">
-        <div className="alert-form-title">Yeni takip ekle</div>
+        <div className="alert-form-title">{editingAlertId ? 'Takip kuralını düzenle' : 'Yeni takip kuralı ekle'}</div>
         <div className="alert-form-grid">
           <div className="alert-form-segment-block">
             <span className="alert-form-label">Segment</span>
@@ -742,9 +767,16 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
           ) : null}
         </div>
         {alertFormError ? <div className="error">{alertFormError}</div> : null}
-        <button type="button" className="primary-btn" onClick={handleCreateAlert} disabled={alertFormLoading}>
-          {alertFormLoading ? 'Ekleniyor…' : 'Takip Ekle'}
-        </button>
+        <div className="website-profile-inline-actions">
+          <button type="button" className="primary-btn" onClick={handleCreateAlert} disabled={alertFormLoading}>
+            {alertFormLoading ? 'Kaydediliyor…' : editingAlertId ? 'Takibi Güncelle' : 'Takip Kuralı Oluştur'}
+          </button>
+          {editingAlertId ? (
+            <button type="button" className="secondary-btn" onClick={resetAlertForm}>
+              Vazgeç
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <CategorySelector
@@ -795,10 +827,13 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
                       ))}
                     </div>
                   ) : (
-                    <div className="alert-empty">Henüz bu takip için yeni talep yok.</div>
+                    <div className="alert-empty">Bu takip kuralına uygun ilan bulunamadı.</div>
                   )}
                 </div>
                 <div className="alert-actions">
+                  <button type="button" className="secondary-btn" onClick={() => handleEditAlert(item)}>
+                    Düzenle
+                  </button>
                   <button type="button" className="secondary-btn" onClick={() => toggleAlert(item._id, item.isActive)}>
                     {item.isActive ? 'Pasif Yap' : 'Aktif Et'}
                   </button>
@@ -810,7 +845,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
             ))}
           </div>
         ) : (
-          <div className="account-muted">Henüz takip kaydın yok.</div>
+          <div className="account-muted">Henüz ilan takip kuralı oluşturmadınız.</div>
         )
       ) : null}
     </section>
@@ -945,10 +980,10 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
         <div className="website-profile-module__header">
           <div>
             <p className="landing-eyebrow">Profil modülü</p>
-            <h2>{alertsOnlyView ? 'Takiplerim' : 'Hesap'}</h2>
+            <h2>{alertsOnlyView ? 'İlan Takiplerim' : 'Hesap'}</h2>
             <p>
               {alertsOnlyView
-                ? 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde yönet.'
+                ? 'Anahtar kelime, kategori ve şehir takip kurallarını yönet.'
                 : 'Bilgilerin, paket durumun, ilan hakkın ve hesap aksiyonların website shell içinde erişilebilir.'}
             </p>
           </div>
@@ -956,7 +991,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
       ) : (
         <div className="account-header">
           <BackIconButton />
-          <h1>HesabÄ±m</h1>
+          <h1>{alertsOnlyView ? 'İlan Takiplerim' : 'Hesabım'}</h1>
         </div>
       )}
 
@@ -1349,7 +1384,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
               ))}
             </div>
           ) : (
-            <div className="account-muted">Henüz takip kaydın yok.</div>
+            <div className="account-muted">Henüz ilan takip kuralı oluşturmadınız.</div>
           )
         ) : null}
       </ReusableBottomSheet>

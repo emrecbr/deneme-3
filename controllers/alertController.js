@@ -92,7 +92,8 @@ export const createMyAlert = async (req, res, next) => {
 export const updateMyAlert = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { isActive, notifyPush, notifyInApp } = req.body || {};
+    const body = req.body || {};
+    const { isActive, notifyPush, notifyInApp } = body;
 
     const subscription = await NotificationSubscription.findOne({
       _id: id,
@@ -104,13 +105,71 @@ export const updateMyAlert = async (req, res, next) => {
     }
 
     const wasInactive = subscription.isActive === false;
+    const hasRuleUpdate = ['type', 'categoryId', 'category', 'cityId', 'city', 'districtId', 'district', 'keyword']
+      .some((key) => Object.prototype.hasOwnProperty.call(body, key));
+
+    if (hasRuleUpdate) {
+      const type = body.type;
+      const categoryId = body.categoryId?._id || body.categoryId || body.category?._id || body.category;
+      const cityId = body.cityId?._id || body.cityId || body.city?._id || body.city;
+      const districtId = body.districtId?._id || body.districtId || body.district?._id || body.district;
+      const keyword = body.keyword;
+
+      if (categoryId && !mongoose.isValidObjectId(categoryId)) {
+        return res.status(400).json({ success: false, message: 'Kategori gecersiz.' });
+      }
+      if (cityId && !mongoose.isValidObjectId(cityId)) {
+        return res.status(400).json({ success: false, message: 'Sehir gecersiz.' });
+      }
+      if (districtId && !mongoose.isValidObjectId(districtId)) {
+        return res.status(400).json({ success: false, message: 'Ilce gecersiz.' });
+      }
+
+      const payload = buildSubscriptionPayload({ type, categoryId, cityId, districtId, keyword, notifyPush, notifyInApp });
+      if (payload.error === 'keyword_required') {
+        return res.status(400).json({ success: false, message: 'Anahtar kelime zorunludur.' });
+      }
+      if (payload.error === 'category_required') {
+        return res.status(400).json({ success: false, message: 'Kategori zorunludur.' });
+      }
+      if (payload.error === 'city_required') {
+        return res.status(400).json({ success: false, message: 'Sehir zorunludur.' });
+      }
+      if (payload.error === 'district_required') {
+        return res.status(400).json({ success: false, message: 'Ilce zorunludur.' });
+      }
+      if (payload.error) {
+        return res.status(400).json({ success: false, message: 'Takip tipi gecersiz.' });
+      }
+
+      const duplicate = await NotificationSubscription.findOne({
+        _id: { $ne: subscription._id },
+        user: req.user.id,
+        key: payload.key
+      }).select('_id');
+      if (duplicate) {
+        return res.status(409).json({ success: false, message: 'Bu takip zaten mevcut.' });
+      }
+
+      subscription.type = payload.type;
+      subscription.category = payload.category;
+      subscription.city = payload.city;
+      subscription.district = payload.district;
+      subscription.keyword = payload.keyword;
+      subscription.keywordNormalized = payload.keywordNormalized;
+      subscription.key = payload.key;
+      subscription.notifyPush = payload.notifyPush;
+      subscription.notifyInApp = payload.notifyInApp;
+      await SubscriptionMatch.deleteMany({ subscription: subscription._id });
+    }
+
     if (typeof isActive === 'boolean') subscription.isActive = isActive;
     if (typeof notifyPush === 'boolean') subscription.notifyPush = notifyPush;
     if (typeof notifyInApp === 'boolean') subscription.notifyInApp = notifyInApp;
 
     await subscription.save();
     let backfillCount = 0;
-    if (wasInactive && subscription.isActive) {
+    if (subscription.isActive && (wasInactive || hasRuleUpdate)) {
       const backfill = await backfillSubscriptionMatches(subscription._id);
       backfillCount = backfill.inserted || 0;
     }

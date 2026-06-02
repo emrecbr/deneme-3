@@ -46,7 +46,7 @@ function BottomNav() {
   const { user } = useAuth();
   const currentPath = location.pathname;
   const homePaths = ['/', APP_HOME_PATH];
-  const followedListingsPaths = ['/favorites'];
+  const followedListingsPaths = ['/listing-follows'];
 
   const isActive = (paths, { exact = false } = {}) =>
     paths.some((path) => currentPath === path || (!exact && currentPath.startsWith(`${path}/`)));
@@ -140,8 +140,8 @@ function BottomNav() {
         type="button"
         className={isActive(followedListingsPaths, { exact: true }) ? 'nav-item active' : 'nav-item'}
         onClick={() => {
-          if (currentPath !== '/favorites') {
-            navigate('/favorites');
+          if (currentPath !== '/listing-follows') {
+            navigate('/listing-follows');
           }
         }}
         aria-label="İlan Takiplerim"

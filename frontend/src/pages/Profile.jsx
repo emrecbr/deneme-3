@@ -335,7 +335,7 @@ function Profile() {
 
             <section className="profile-big-card" onClick={() => navigate('/favorites')}>
               <div className="profile-card-header">
-                <h2>İlan Takiplerim</h2>
+                <h2>Favorilerim</h2>
                 <span className="chevron">›</span>
               </div>
               <div className="profile-card-items">
@@ -343,7 +343,7 @@ function Profile() {
                   event.stopPropagation();
                   navigate('/favorites?type=rfq');
                 }}>
-                  <span>Takip Ettiğim İlanlar</span>
+                  <span>Favori İlanlar</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>
@@ -351,22 +351,22 @@ function Profile() {
               </div>
             </section>
 
-            <section className="profile-big-card" onClick={() => navigate('/profile/account', { state: { openAlerts: true } })}>
+            <section className="profile-big-card" onClick={() => navigate('/listing-follows')}>
               <div className="profile-card-header">
-                <h2>Takiplerim</h2>
+                <h2>İlan Takiplerim</h2>
                 <span className="chevron">›</span>
               </div>
               <div className="profile-card-items">
                 <button type="button" className="profile-sub-item" onClick={(event) => {
                   event.stopPropagation();
-                  navigate('/profile/account', { state: { openAlerts: true } });
+                  navigate('/listing-follows');
                 }}>
-                  <span>Yeni İlan Takiplerim</span>
+                  <span>Takip Kuralı Oluştur</span>
                   <span className="sub-item-right">
                     <span className="chevron">›</span>
                   </span>
                 </button>
-                <div className="profile-sub-preview">İlgilendiğin kategoriler için bildirimleri yönet.</div>
+                <div className="profile-sub-preview">Anahtar kelime, kategori ve şehir kurallarını yönet.</div>
               </div>
             </section>
 

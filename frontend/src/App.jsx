@@ -882,6 +882,21 @@ function App() {
       />
 
       <Route
+        path="/listing-follows"
+        element={
+          webSurfacePreferred ? (
+            <SurfaceRedirect targetPath="/listing-follows" preserveCurrentPath surface="app" />
+          ) : (
+            <PrivateRoute>
+              <Layout theme={theme} onToggleTheme={toggleTheme}>
+                <ProfileAccount focusSection="alerts" />
+              </Layout>
+            </PrivateRoute>
+          )
+        }
+      />
+
+      <Route
         path="/premium"
         element={
           <PrivateRoute>
@@ -1008,8 +1023,8 @@ function App() {
               {renderWebsiteProfileShell(
                 <FavoritesPage surfaceVariant="web" />,
                 {
-                  title: 'İlan Takiplerim',
-                  description: 'Takip ettiğin ilanlar website shell içinde gerçek içerikle açılır.',
+                  title: 'Favorilerim',
+                  description: 'Kaydettiğin favori ilanlar website shell içinde gerçek içerikle açılır.',
                   fallbackTo: '/favorites'
                 }
               )}
@@ -1075,18 +1090,15 @@ function App() {
         path={WEBSITE_PROFILE_ALERTS_PATH}
         element={
           webSurfacePreferred ? (
-            <SurfaceRedirect targetPath="/profile/account" surface="app" />
+            <SurfaceRedirect targetPath="/listing-follows" surface="app" />
           ) : (
             <PrivateRoute>
               {renderWebsiteProfileShell(
-                <WebsiteProfilePlaceholder
-                  title="Takiplerim alanı hazırlanıyor"
-                  description="Kategori, şehir ve anahtar kelime takipleri website shell altında sonraki fazda taşınacak."
-                />,
+                <ProfileAccount surfaceVariant="web" focusSection="alerts" />,
                 {
-                  title: 'Takiplerim',
+                  title: 'İlan Takiplerim',
                   description: 'Kategori, şehir ve anahtar kelime takiplerini website shell içinde gerçek veriyle yönet.',
-                  fallbackTo: '/profile/account'
+                  fallbackTo: '/listing-follows'
                 }
               )}
             </PrivateRoute>
