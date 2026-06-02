@@ -502,17 +502,6 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
     setPaymentSheetOpen((prev) => !prev);
   };
 
-  const buildMatchReason = (match) => {
-    if (match?.matchedBy === 'category_city_district_keyword') return 'Kategori + şehir + ilçe + anahtar kelime eşleşti';
-    if (match?.matchedBy === 'category_city_keyword') return 'Kategori + şehir + anahtar kelime eşleşti';
-    if (match?.matchedBy === 'category_keyword') return 'Kategori + anahtar kelime eşleşti';
-    if (match?.matchedBy === 'keyword') return 'Anahtar kelime eşleşti';
-    if (match?.matchedBy === 'category_city_district') return 'Kategori + şehir + ilçe eşleşti';
-    if (match?.matchedBy === 'category_city') return 'Kategori + şehir eşleşti';
-    if (match?.matchedBy === 'category') return 'Kategori eşleşti';
-    return 'Takip eşleşmesi';
-  };
-
   const toggleAlert = async (alertId, isActive) => {
     try {
       const response = await api.patch(`/me/alerts/${alertId}`, { isActive: !isActive });
@@ -818,11 +807,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
                         >
                           <div className="alert-match-title">{match.title}</div>
                           {match.categoryName ? <div className="alert-match-meta">{match.categoryName}</div> : null}
-                          <div className="alert-match-meta">
-                            {match.cityName || match.districtName ? `${match.cityName}${match.districtName ? ` / ${match.districtName}` : ''}` : ''}
-                            {match.createdAt ? ` • ${new Date(match.createdAt).toLocaleDateString('tr-TR')}` : ''}
-                          </div>
-                          <div className="alert-match-meta">{buildMatchReason(match)}</div>
+                          <div className="alert-match-action">İlanı Gör</div>
                         </button>
                       ))}
                     </div>
@@ -1360,11 +1345,7 @@ function ProfileAccount({ surfaceVariant = 'app', focusSection = 'all' }) {
                           >
                             <div className="alert-match-title">{match.title}</div>
                             {match.categoryName ? <div className="alert-match-meta">{match.categoryName}</div> : null}
-                            <div className="alert-match-meta">
-                              {match.cityName || match.districtName ? `${match.cityName}${match.districtName ? ` / ${match.districtName}` : ''}` : ''}
-                              {match.createdAt ? ` • ${new Date(match.createdAt).toLocaleDateString('tr-TR')}` : ''}
-                            </div>
-                            <div className="alert-match-meta">{buildMatchReason(match)}</div>
+                            <div className="alert-match-action">İlanı Gör</div>
                           </button>
                         ))}
                       </div>
