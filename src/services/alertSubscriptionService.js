@@ -592,12 +592,13 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
       continue;
     }
 
-    const title = rfq?.title || 'Yeni ilan';
     const categoryName = rfqDescriptor.category?.name || subscription?.category?.name || '';
     const cityName = subscription?.city?.name || '';
-    const body = categoryName
+    const pushBody = categoryName
       ? `${categoryName}${cityName ? ` - ${cityName}` : ''} kategorisinde yeni ilan var.`
-      : 'Takip ettiÄŸin kriterle eÅŸleÅŸen yeni ilan var.';
+      : 'Takip ettiğiniz kriterle eşleşen yeni ilan var.';
+    const notificationTitle = 'Yeni eşleşen ilan bulundu';
+    const notificationBody = 'İlan takip kuralınıza uygun yeni bir talep bulundu.';
 
     const payload = {
       rfqId: String(rfq._id),
@@ -611,9 +612,9 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
 
     await Notification.create({
       user: userId,
-      title: `Yeni ilan: ${title}`,
-      body,
-      message: `Yeni ilan: ${title}`,
+      title: notificationTitle,
+      body: notificationBody,
+      message: notificationBody,
       type: 'new_matching_rfq',
       data: { ...payload, matchId: String(matchId) },
       relatedId: rfq._id,
@@ -642,7 +643,7 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
         const count = await getDailySentCount(userId);
         await logSkippedPush({
           userId,
-          payload: { ...payload, matchId: String(matchId), title: `Yeni ilan: ${title}`, body },
+          payload: { ...payload, matchId: String(matchId), title: notificationTitle, body: pushBody },
           reason: 'daily_limit',
           meta: { limit, count }
         });
@@ -650,8 +651,8 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
         const pushResult = await sendPushToUser({
           userId,
           type: 'new_matching_rfq',
-          title: `Yeni ilan: ${title}`,
-          body,
+          title: notificationTitle,
+          body: pushBody,
           payload: { ...payload, matchId: String(matchId) }
         });
         if (pushResult?.ok) {

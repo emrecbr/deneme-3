@@ -287,9 +287,14 @@ function Layout({ children, showBottomNav = true }) {
       data?.rfq;
     const chatId = item?.chatId || data?.chatId;
     const targetUrl = item?.targetUrl || data?.targetUrl;
+    const type = String(item?.type || data?.type || '').toLowerCase();
     handleCloseNotifications();
     if (targetUrl) {
       navigate(targetUrl);
+      return;
+    }
+    if (type === 'message' && chatId) {
+      navigate(`/messages/${chatId}`);
       return;
     }
     if (rfqId) {
@@ -298,6 +303,18 @@ function Layout({ children, showBottomNav = true }) {
     }
     if (chatId) {
       navigate(`/messages/${chatId}`);
+      return;
+    }
+    if (type === 'new_matching_rfq') {
+      navigate('/listing-follows');
+      return;
+    }
+    if (type === 'moderation_result' || type === 'listing_expiring' || type === 'listing_expired') {
+      navigate('/profile/requests');
+      return;
+    }
+    if (type === 'payment_success' || type === 'premium_activated' || type === 'featured_activated') {
+      navigate('/profile');
       return;
     }
     setNotifToast('Talep bulunamadı');

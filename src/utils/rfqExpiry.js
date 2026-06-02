@@ -61,9 +61,9 @@ const notifyExpiringRfqs = async (now = new Date()) => {
       if (existing) return;
       const notification = await Notification.create({
         user: rfq.buyer,
-        title: 'İlan süresi bitiyor',
-        body: `${rfq.title || 'İlanınız'} kısa süre içinde sona erecek.`,
-        message: `${rfq.title || 'İlanınız'} kısa süre içinde sona erecek.`,
+        title: 'Talebinizin süresi dolmak üzere',
+        body: 'Talebinizin yayından kalkmasına kısa süre kaldı.',
+        message: 'Talebinizin yayından kalkmasına kısa süre kaldı.',
         type: 'listing_expiring',
         relatedId: rfq._id,
         data: { rfqId: rfq._id },

@@ -506,13 +506,8 @@ export const updateAdminRfqModeration = async (req, res, next) => {
     await rfq.save();
 
     if (moderationStatus && rfq.buyer && normalize(moderationStatus) !== normalize(previousModerationStatus)) {
-      const title = 'Moderasyon sonucu';
-      const body =
-        rfq.moderationStatus === 'approved'
-          ? `${rfq.title || 'Talebiniz'} onaylandı.`
-          : rfq.moderationStatus === 'rejected'
-            ? `${rfq.title || 'Talebiniz'} reddedildi.`
-            : `${rfq.title || 'Talebiniz'} moderasyon durumu güncellendi.`;
+      const title = 'Talep durumunuz güncellendi';
+      const body = 'Talebinizin moderasyon durumu güncellendi.';
       const notification = await Notification.create({
         user: rfq.buyer,
         title,

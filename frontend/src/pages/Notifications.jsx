@@ -47,8 +47,9 @@ function Notifications() {
     if (item?.targetUrl || data?.targetUrl) {
       return item.targetUrl || data.targetUrl;
     }
+    const type = String(item?.type || data?.type || '').toLowerCase();
     const chatId = item?.chatId || data?.chatId;
-    if (chatId) {
+    if (type === 'message' && chatId) {
       return `/messages/${chatId}`;
     }
     const rfqId =
@@ -63,7 +64,22 @@ function Notifications() {
       data?.targetId ||
       data?.entityId ||
       data?.rfq;
-    return rfqId ? `/rfq/${rfqId}` : '';
+    if (rfqId) {
+      return `/rfq/${rfqId}`;
+    }
+    if (chatId) {
+      return `/messages/${chatId}`;
+    }
+    if (type === 'new_matching_rfq') {
+      return '/listing-follows';
+    }
+    if (type === 'moderation_result' || type === 'listing_expiring' || type === 'listing_expired') {
+      return '/profile/requests';
+    }
+    if (type === 'payment_success' || type === 'premium_activated' || type === 'featured_activated') {
+      return '/profile';
+    }
+    return '';
   };
 
   const formatNotificationDate = (value) => {

@@ -7,31 +7,83 @@ import { saveNotificationPreferences, upsertNotificationDevice } from '../src/se
 
 const notificationRoutes = Router();
 
-const getNotificationTitle = (item) => {
-  if (item?.title) return item.title;
-  const type = String(item?.type || '');
-  if (type === 'offer_created') return 'Yeni teklif';
-  if (type === 'offer_updated') return 'Teklif güncellendi';
-  if (type === 'offer_accepted') return 'Teklif kabul edildi';
-  if (type === 'offer_rejected') return 'Teklif reddedildi';
-  if (type === 'message') return 'Yeni mesaj';
-  if (type === 'rfq_updated') return 'Talep güncellendi';
-  if (type === 'new_matching_rfq') return 'Yeni eşleşen ilan';
-  if (type === 'listing_expiring') return 'İlan süresi bitiyor';
-  if (type === 'listing_expired') return 'İlan süresi doldu';
-  if (type === 'moderation_result') return 'Moderasyon sonucu';
-  if (type === 'payment_success') return 'Ödeme başarılı';
-  if (type === 'premium_activated') return 'Premium aktif';
-  if (type === 'featured_activated') return 'Öne çıkarma aktif';
-  if (type === 'report_resolved') return 'Sorun bildirimi güncellendi';
-  return 'Bildirim';
+const notificationDisplayMap = {
+  offer_created: {
+    title: 'Yeni teklif aldınız',
+    body: 'Talebinize yeni bir teklif geldi.'
+  },
+  offer_updated: {
+    title: 'Teklif durumunuz güncellendi',
+    body: 'Talebinizdeki teklif bilgisi güncellendi.'
+  },
+  offer_accepted: {
+    title: 'Teklif durumunuz güncellendi',
+    body: 'Teklifinizin durumu güncellendi.'
+  },
+  offer_rejected: {
+    title: 'Teklif durumunuz güncellendi',
+    body: 'Teklifinizin durumu güncellendi.'
+  },
+  message: {
+    title: 'Yeni mesajınız var',
+    body: 'Bir kullanıcı size yeni mesaj gönderdi.'
+  },
+  rfq_updated: {
+    title: 'Talep durumunuz güncellendi',
+    body: 'Talebinizle ilgili bir güncelleme var.'
+  },
+  new_matching_rfq: {
+    title: 'Yeni eşleşen ilan bulundu',
+    body: 'İlan takip kuralınıza uygun yeni bir talep bulundu.'
+  },
+  listing_expiring: {
+    title: 'Talebinizin süresi dolmak üzere',
+    body: 'Talebinizin yayından kalkmasına kısa süre kaldı.'
+  },
+  listing_expired: {
+    title: 'Talebinizin süresi doldu',
+    body: 'Talebinizin yayın süresi doldu.'
+  },
+  moderation_result: {
+    title: 'Talep durumunuz güncellendi',
+    body: 'Talebinizin moderasyon durumu güncellendi.'
+  },
+  payment_success: {
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
+  },
+  premium_activated: {
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
+  },
+  featured_activated: {
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
+  },
+  report_resolved: {
+    title: 'Talep durumunuz güncellendi',
+    body: 'Talebinizle ilgili bir güncelleme var.'
+  }
 };
 
-const serializeNotification = (item) => ({
-  ...item,
-  title: getNotificationTitle(item),
-  body: item.body || item.message || item.data?.preview || item.data?.note || ''
-});
+const getNotificationDisplay = (item) => {
+  const type = String(item?.type || '');
+  const display = notificationDisplayMap[type];
+  if (display) return display;
+  return {
+    title: item?.title || 'Bildirim',
+    body: item?.body || item?.message || item?.data?.preview || item?.data?.note || 'Yeni bir bildiriminiz var.'
+  };
+};
+
+const serializeNotification = (item) => {
+  const display = getNotificationDisplay(item);
+  return {
+    ...item,
+    title: display.title,
+    body: display.body
+  };
+};
 
 notificationRoutes.get('/', authMiddleware, async (req, res, next) => {
   try {
