@@ -11,15 +11,6 @@ function IconHome() {
   );
 }
 
-function IconSearch() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
-  );
-}
-
 function IconFollowedListings() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -36,6 +27,15 @@ function IconMessages() {
       <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6a8 8 0 1 1 18-5Z" />
       <path d="M8 11h8" />
       <path d="M8 15h5" />
+    </svg>
+  );
+}
+
+function IconProfile() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
     </svg>
   );
 }
@@ -67,18 +67,6 @@ function BottomNav() {
     }
   };
 
-  const openSearchFlow = () => {
-    if (!homePaths.includes(currentPath)) {
-      navigate(APP_HOME_PATH);
-      window.setTimeout(() => {
-        window.dispatchEvent(new Event('open-rfq-filter-sheet'));
-      }, 50);
-      return;
-    }
-
-    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
-  };
-
   return (
     <nav className="bottom-nav" aria-label="Ana gezinme">
       <button
@@ -99,12 +87,17 @@ function BottomNav() {
 
       <button
         type="button"
-        className="nav-item"
-        onClick={openSearchFlow}
-        aria-label="Ara"
+        className={isActive(followedListingsPaths, { exact: true }) ? 'nav-item active' : 'nav-item'}
+        onClick={() => {
+          if (currentPath !== '/listing-follows') {
+            navigate('/listing-follows');
+          }
+        }}
+        aria-label="İlan Takiplerim"
+        aria-current={isActive(followedListingsPaths, { exact: true }) ? 'page' : undefined}
       >
         <span className="icon">
-          <IconSearch />
+          <IconFollowedListings />
         </span>
       </button>
 
@@ -128,7 +121,7 @@ function BottomNav() {
             navigate('/messages');
           }
         }}
-        aria-label="Mesajlar"
+        aria-label="Mesajlaşma"
         aria-current={isActive(['/messages']) ? 'page' : undefined}
       >
         <span className="icon">
@@ -138,17 +131,17 @@ function BottomNav() {
 
       <button
         type="button"
-        className={isActive(followedListingsPaths, { exact: true }) ? 'nav-item active' : 'nav-item'}
+        className={isActive(['/profile']) ? 'nav-item active' : 'nav-item'}
         onClick={() => {
-          if (currentPath !== '/listing-follows') {
-            navigate('/listing-follows');
+          if (currentPath !== '/profile') {
+            navigate('/profile');
           }
         }}
-        aria-label="İlan Takiplerim"
-        aria-current={isActive(followedListingsPaths, { exact: true }) ? 'page' : undefined}
+        aria-label="Profil"
+        aria-current={isActive(['/profile']) ? 'page' : undefined}
       >
         <span className="icon">
-          <IconFollowedListings />
+          <IconProfile />
         </span>
       </button>
     </nav>
