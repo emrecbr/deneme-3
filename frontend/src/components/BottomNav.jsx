@@ -11,22 +11,21 @@ function IconHome() {
   );
 }
 
-function IconProfile() {
+function IconSearch() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c1.8-3.5 5-5.3 8-5.3S18.2 17.5 20 21" />
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
     </svg>
   );
 }
 
-function IconRequests() {
+function IconFollowedListings() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 4h8" />
-      <path d="M9 2h6a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V4a2 2 0 0 1 2-2Z" />
-      <path d="M8 11h8" />
-      <path d="M8 16h5" />
+      <path d="M6 4h12a2 2 0 0 1 2 2v15l-8-4-8 4V6a2 2 0 0 1 2-2Z" />
+      <path d="M9 9h6" />
+      <path d="M9 13h4" />
     </svg>
   );
 }
@@ -47,11 +46,10 @@ function BottomNav() {
   const { user } = useAuth();
   const currentPath = location.pathname;
   const homePaths = ['/', APP_HOME_PATH];
+  const followedListingsPaths = ['/favorites'];
 
   const isActive = (paths, { exact = false } = {}) =>
     paths.some((path) => currentPath === path || (!exact && currentPath.startsWith(`${path}/`)));
-  const isRequestsActive = isActive(['/profile/requests']);
-  const isProfileActive = isActive(['/profile']) && !isRequestsActive;
 
   const openCreateFlow = () => {
     if (!user) {
@@ -67,6 +65,18 @@ function BottomNav() {
     if (currentPath !== '/create') {
       navigate('/create');
     }
+  };
+
+  const openSearchFlow = () => {
+    if (!homePaths.includes(currentPath)) {
+      navigate(APP_HOME_PATH);
+      window.setTimeout(() => {
+        window.dispatchEvent(new Event('open-rfq-filter-sheet'));
+      }, 50);
+      return;
+    }
+
+    window.dispatchEvent(new Event('open-rfq-filter-sheet'));
   };
 
   return (
@@ -89,17 +99,12 @@ function BottomNav() {
 
       <button
         type="button"
-        className={isRequestsActive ? 'nav-item active' : 'nav-item'}
-        onClick={() => {
-          if (currentPath !== '/profile/requests') {
-            navigate('/profile/requests');
-          }
-        }}
-        aria-label="Taleplerim"
-        aria-current={isRequestsActive ? 'page' : undefined}
+        className="nav-item"
+        onClick={openSearchFlow}
+        aria-label="Ara"
       >
         <span className="icon">
-          <IconRequests />
+          <IconSearch />
         </span>
       </button>
 
@@ -133,17 +138,17 @@ function BottomNav() {
 
       <button
         type="button"
-        className={isProfileActive ? 'nav-item active' : 'nav-item'}
+        className={isActive(followedListingsPaths, { exact: true }) ? 'nav-item active' : 'nav-item'}
         onClick={() => {
-          if (currentPath !== '/profile') {
-            navigate('/profile');
+          if (currentPath !== '/favorites') {
+            navigate('/favorites');
           }
         }}
-        aria-label="Profilim"
-        aria-current={isProfileActive ? 'page' : undefined}
+        aria-label="İlan Takiplerim"
+        aria-current={isActive(followedListingsPaths, { exact: true }) ? 'page' : undefined}
       >
         <span className="icon">
-          <IconProfile />
+          <IconFollowedListings />
         </span>
       </button>
     </nav>
