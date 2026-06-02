@@ -42,6 +42,59 @@ function Notifications() {
     }
   }, []);
 
+  const resolveNotificationTarget = (item) => {
+    const data = item?.data || {};
+    if (item?.targetUrl || data?.targetUrl) {
+      return item.targetUrl || data.targetUrl;
+    }
+    const chatId = item?.chatId || data?.chatId;
+    if (chatId) {
+      return `/messages/${chatId}`;
+    }
+    const rfqId =
+      item?.requestId ||
+      item?.rfqId ||
+      item?.demandId ||
+      item?.targetId ||
+      item?.entityId ||
+      data?.requestId ||
+      data?.rfqId ||
+      data?.demandId ||
+      data?.targetId ||
+      data?.entityId ||
+      data?.rfq;
+    return rfqId ? `/rfq/${rfqId}` : '';
+  };
+
+  const formatNotificationDate = (value) => {
+    if (!value) {
+      return '';
+    }
+    return new Date(value).toLocaleString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getNotificationTitle = (item) => item?.title || item?.message || 'Bildirim';
+  const getNotificationBody = (item) =>
+    item?.body || item?.description || item?.data?.preview || item?.data?.note || '';
+
+  const markNotificationRead = async (item) => {
+    if (!item?._id) {
+      return;
+    }
+    setItems((prev) => prev.filter((entry) => entry._id !== item._id));
+    try {
+      await api.patch(`/notifications/${item._id}/read`);
+    } catch (_error) {
+      fetchNotifications();
+    }
+  };
+
   useEffect(() => {
     let active = true;
     fetchNotifications({ isActive: () => active });
@@ -62,7 +115,7 @@ function Notifications() {
           onClick={async () => {
             try {
               await api.patch('/notifications/read-all');
-              setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+              setItems([]);
             } catch (_error) {
               // ignore
             }
@@ -92,23 +145,18 @@ function Notifications() {
                   type="button"
                   className="notif-panel-item"
                   onClick={async () => {
-                    if (!item.isRead) {
-                      try {
-                        await api.patch(`/notifications/${item._id}/read`);
-                      } catch (_error) {
-                        // ignore
-                      }
-                    }
-                    const chatId = item?.data?.chatId;
-                    const rfqId = item?.data?.rfqId || item?.data?.rfq;
-                    if (chatId) {
-                      navigate(`/messages/${chatId}`);
-                    } else if (rfqId) {
-                      navigate(`/rfq/${rfqId}`);
+                    const target = resolveNotificationTarget(item);
+                    await markNotificationRead(item);
+                    if (target) {
+                      navigate(target);
                     }
                   }}
                 >
-                  {item.message}
+                  <span className="notif-panel-title">{getNotificationTitle(item)}</span>
+                  {getNotificationBody(item) ? (
+                    <span className="notif-panel-desc">{getNotificationBody(item)}</span>
+                  ) : null}
+                  <span className="notif-panel-date">{formatNotificationDate(item.createdAt)}</span>
                 </button>
               ))}
             </div>
@@ -117,7 +165,7 @@ function Notifications() {
               <div className="empty-icon">
                 <NotificationIcon size={22} />
               </div>
-              <p>Bildirim yok.</p>
+              <p>Yeni bildiriminiz yok.</p>
               <button type="button" className="secondary-btn" onClick={() => navigate('/app')}>
                 Ana sayfaya don
               </button>

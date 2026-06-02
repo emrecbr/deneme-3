@@ -1,6 +1,8 @@
 import AppSetting from '../../models/AppSetting.js';
 import RFQ from '../../models/RFQ.js';
 import AdminAuditLog from '../../models/AdminAuditLog.js';
+import Notification from '../../models/Notification.js';
+import { emitToRoom } from '../../config/socket.js';
 
 const DEFAULT_LISTING_EXPIRY_DAYS = 30;
 
@@ -34,6 +36,50 @@ const isValidDateValue = (value) => {
   return Number.isFinite(date.getTime());
 };
 
+const notifyExpiringRfqs = async (now = new Date()) => {
+  const soon = new Date(new Date(now).getTime() + 24 * 60 * 60 * 1000);
+  const rfqs = await RFQ.find({
+    status: 'open',
+    isDeleted: { $ne: true },
+    $or: [
+      { expiresAt: { $gt: now, $lte: soon } },
+      { deadline: { $gt: now, $lte: soon } }
+    ]
+  })
+    .select('_id title buyer')
+    .limit(200)
+    .lean();
+
+  await Promise.all(
+    rfqs.map(async (rfq) => {
+      if (!rfq?.buyer) return;
+      const existing = await Notification.exists({
+        user: rfq.buyer,
+        type: 'listing_expiring',
+        relatedId: rfq._id
+      });
+      if (existing) return;
+      const notification = await Notification.create({
+        user: rfq.buyer,
+        title: 'İlan süresi bitiyor',
+        body: `${rfq.title || 'İlanınız'} kısa süre içinde sona erecek.`,
+        message: `${rfq.title || 'İlanınız'} kısa süre içinde sona erecek.`,
+        type: 'listing_expiring',
+        relatedId: rfq._id,
+        data: { rfqId: rfq._id },
+        targetType: 'rfq',
+        targetId: rfq._id,
+        targetUrl: `/rfq/${rfq._id}`
+      });
+      emitToRoom(`user:${String(rfq.buyer)}`, 'notification:new', {
+        notificationId: notification._id.toString(),
+        type: 'listing_expiring',
+        rfqId: rfq._id.toString()
+      });
+    })
+  );
+};
+
 export const isRfqExpired = (rfq, now = new Date()) => {
   if (!rfq) return false;
   if (rfq.status === 'expired') return true;
@@ -64,6 +110,7 @@ export const applyExpiryFilter = (query, now = new Date()) => {
 };
 
 export const markExpiredRfqs = async (now = new Date()) => {
+  await notifyExpiringRfqs(now);
   const result = await RFQ.updateMany(
     {
       status: 'open',

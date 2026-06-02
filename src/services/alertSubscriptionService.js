@@ -609,15 +609,18 @@ export const triggerMatchingAlertsForRfq = async (rfq) => {
       screen: 'subscriptions'
     };
 
-    if (subscription.notifyInApp) {
-      await Notification.create({
-        user: userId,
-        message: `Yeni ilan: ${title}`,
-        type: 'system',
-        data: { ...payload, matchId: String(matchId) },
-        relatedId: rfq._id
-      });
-    }
+    await Notification.create({
+      user: userId,
+      title: `Yeni ilan: ${title}`,
+      body,
+      message: `Yeni ilan: ${title}`,
+      type: 'new_matching_rfq',
+      data: { ...payload, matchId: String(matchId) },
+      relatedId: rfq._id,
+      targetType: 'rfq',
+      targetId: rfq._id,
+      targetUrl: `/rfq/${rfq._id}`
+    });
 
     if (subscription.notifyPush) {
       if (shouldThrottle(subscription)) {

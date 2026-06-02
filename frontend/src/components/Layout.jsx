@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import ReusableBottomSheet from './ReusableBottomSheet';
@@ -63,7 +63,7 @@ function Layout({ children, showBottomNav = true }) {
     };
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications');
       setNotifications(response.data?.data || []);
@@ -72,7 +72,7 @@ function Layout({ children, showBottomNav = true }) {
       setNotifications([]);
       setUnreadCount(0);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -158,13 +158,9 @@ function Layout({ children, showBottomNav = true }) {
           setUnreadCount((prev) => Math.max(0, prev - 1));
         }
         if (payload?.notificationId && payload.notificationId !== 'all') {
-          setNotifications((prev) =>
-            prev.map((item) =>
-              item._id === payload.notificationId ? { ...item, isRead: true, readAt: new Date().toISOString() } : item
-            )
-          );
+          setNotifications((prev) => prev.filter((item) => item._id !== payload.notificationId));
         } else if (payload?.notificationId === 'all') {
-          setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true, readAt: new Date().toISOString() })));
+          setNotifications([]);
         }
       };
       socket.on('notification:new', onNotification);
@@ -180,7 +176,7 @@ function Layout({ children, showBottomNav = true }) {
         socket.off('notification:read', onNotificationRead);
       }
     };
-  }, [user]);
+  }, [fetchNotifications, user]);
 
   useEffect(() => {
     const onHide = () => setHideBottomNav(true);
@@ -270,11 +266,7 @@ function Layout({ children, showBottomNav = true }) {
         } else {
           setUnreadCount((prev) => Math.max(0, prev - 1));
         }
-        setNotifications((prev) =>
-          prev.map((entry) =>
-            entry._id === item._id ? { ...entry, isRead: true, readAt: new Date().toISOString() } : entry
-          )
-        );
+        setNotifications((prev) => prev.filter((entry) => entry._id !== item._id));
       } catch (_error) {
         // ignore
       }
@@ -294,7 +286,12 @@ function Layout({ children, showBottomNav = true }) {
       data?.entityId ||
       data?.rfq;
     const chatId = item?.chatId || data?.chatId;
+    const targetUrl = item?.targetUrl || data?.targetUrl;
     handleCloseNotifications();
+    if (targetUrl) {
+      navigate(targetUrl);
+      return;
+    }
     if (rfqId) {
       navigate(`/rfq/${rfqId}`);
       return;
@@ -322,6 +319,16 @@ function Layout({ children, showBottomNav = true }) {
   const getNotifTitle = (item) => item?.title || item?.message || 'Bildirim';
   const getNotifDesc = (item) =>
     item?.body || item?.description || item?.data?.preview || item?.data?.note || '';
+
+  const handleReadAllNotifications = async () => {
+    try {
+      const response = await api.patch('/notifications/read-all');
+      setNotifications([]);
+      setUnreadCount(Number(response.data?.unreadCount || 0));
+    } catch (_error) {
+      // ignore
+    }
+  };
 
   const formatNotifTime = (value) => {
     if (!value) {
@@ -390,6 +397,11 @@ function Layout({ children, showBottomNav = true }) {
       >
         <div className="notif-list" data-rb-no-drag="true">
           {notifications.length ? (
+            <button type="button" className="secondary-btn notif-read-all-btn" onClick={handleReadAllNotifications}>
+              Tümünü okundu yap
+            </button>
+          ) : null}
+          {notifications.length ? (
             notifications.map((item) => (
               <button
                 key={item._id || item.message}
@@ -409,7 +421,7 @@ function Layout({ children, showBottomNav = true }) {
               </button>
             ))
           ) : (
-            <div className="notif-empty">Henüz bildirim yok</div>
+            <div className="notif-empty">Yeni bildiriminiz yok.</div>
           )}
         </div>
       </ReusableBottomSheet>

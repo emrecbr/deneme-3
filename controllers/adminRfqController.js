@@ -4,6 +4,8 @@ import AdminAuditLog from '../models/AdminAuditLog.js';
 import Category from '../models/Category.js';
 import City from '../models/City.js';
 import District from '../models/District.js';
+import Notification from '../models/Notification.js';
+import { emitToRoom } from '../config/socket.js';
 import { applyExpiryFilter, backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs, computeExpiresAt } from '../src/utils/rfqExpiry.js';
 
 const normalize = (value) => String(value || '').trim();
@@ -480,6 +482,7 @@ export const updateAdminRfqModeration = async (req, res, next) => {
     if (!rfq) {
       return res.status(404).json({ success: false, message: 'RFQ not found.' });
     }
+    const previousModerationStatus = rfq.moderationStatus;
 
     if (moderationStatus) {
       rfq.moderationStatus = normalize(moderationStatus);
@@ -501,6 +504,36 @@ export const updateAdminRfqModeration = async (req, res, next) => {
     rfq.moderatedAt = new Date();
 
     await rfq.save();
+
+    if (moderationStatus && rfq.buyer && normalize(moderationStatus) !== normalize(previousModerationStatus)) {
+      const title = 'Moderasyon sonucu';
+      const body =
+        rfq.moderationStatus === 'approved'
+          ? `${rfq.title || 'Talebiniz'} onaylandı.`
+          : rfq.moderationStatus === 'rejected'
+            ? `${rfq.title || 'Talebiniz'} reddedildi.`
+            : `${rfq.title || 'Talebiniz'} moderasyon durumu güncellendi.`;
+      const notification = await Notification.create({
+        user: rfq.buyer,
+        title,
+        body,
+        message: body,
+        type: 'moderation_result',
+        relatedId: rfq._id,
+        data: {
+          rfqId: rfq._id,
+          moderationStatus: rfq.moderationStatus
+        },
+        targetType: 'rfq',
+        targetId: rfq._id,
+        targetUrl: `/rfq/${rfq._id}`
+      });
+      emitToRoom(`user:${String(rfq.buyer)}`, 'notification:new', {
+        notificationId: notification._id.toString(),
+        type: 'moderation_result',
+        rfqId: rfq._id.toString()
+      });
+    }
 
     await logAdminAction(req, 'rfq_moderation_update', {
       rfqId: rfq._id,

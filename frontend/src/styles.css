@@ -3219,11 +3219,35 @@ body.dark-mode .header-icon-btn {
 }
 
 .notif-panel-item {
+  display: grid;
+  gap: 4px;
+  text-align: left;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.8);
-  padding: 6px 8px;
+  padding: 10px 12px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.notif-panel-title {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.notif-panel-desc {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.notif-panel-date {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .ui-rev-watermark {
@@ -11735,6 +11759,11 @@ body.dark-mode .sheet-location-btn:active {
   display: grid;
   gap: 10px;
   width: 100%;
+}
+
+.notif-read-all-btn {
+  justify-self: end;
+  padding: 7px 10px;
 }
 
 .notif-item {
