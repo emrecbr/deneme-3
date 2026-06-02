@@ -24,6 +24,7 @@ function Layout({ children, showBottomNav = true }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifToast, setNotifToast] = useState(null);
+  const [readingNotificationIds, setReadingNotificationIds] = useState(() => new Set());
   const isHome = location.pathname === '/' || location.pathname === APP_HOME_PATH;
   const HIDE_PREFIXES = [
     '/login',
@@ -268,6 +269,8 @@ function Layout({ children, showBottomNav = true }) {
     const target = resolveNotificationTarget(item);
     const id = getNotificationId(item);
     if (id && !item.isRead) {
+      if (readingNotificationIds.has(id)) return;
+      setReadingNotificationIds((prev) => new Set(prev).add(id));
       try {
         const response = await markNotificationRead(api, item);
         if (typeof response.data?.unreadCount === 'number') {
@@ -279,7 +282,12 @@ function Layout({ children, showBottomNav = true }) {
       } catch (error) {
         setNotifToast(error.response?.data?.message || 'Bildirim okundu yapılamadı');
         window.setTimeout(() => setNotifToast(null), 2000);
-        return;
+      } finally {
+        setReadingNotificationIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     }
 
@@ -293,6 +301,7 @@ function Layout({ children, showBottomNav = true }) {
   };
 
   const handleNotificationReadOnly = async (event, item) => {
+    event.preventDefault();
     event.stopPropagation();
     const id = getNotificationId(item);
     if (!id) {
@@ -300,6 +309,8 @@ function Layout({ children, showBottomNav = true }) {
       window.setTimeout(() => setNotifToast(null), 2000);
       return;
     }
+    if (readingNotificationIds.has(id)) return;
+    setReadingNotificationIds((prev) => new Set(prev).add(id));
     try {
       const response = await markNotificationRead(api, item);
       setNotifications((prev) => prev.filter((entry) => getNotificationId(entry) !== id));
@@ -307,6 +318,12 @@ function Layout({ children, showBottomNav = true }) {
     } catch (error) {
       setNotifToast(error.response?.data?.message || 'Bildirim okundu yapılamadı');
       window.setTimeout(() => setNotifToast(null), 2000);
+    } finally {
+      setReadingNotificationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -434,9 +451,10 @@ function Layout({ children, showBottomNav = true }) {
                   <button
                     type="button"
                     className="notif-mark-read-btn"
+                    disabled={readingNotificationIds.has(getNotificationId(item))}
                     onClick={(event) => handleNotificationReadOnly(event, item)}
                   >
-                    Okundu Yap
+                    {readingNotificationIds.has(getNotificationId(item)) ? 'İşleniyor' : 'Okundu Yap'}
                   </button>
                 </span>
               </div>

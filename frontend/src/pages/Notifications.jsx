@@ -15,6 +15,7 @@ function Notifications() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [readingIds, setReadingIds] = useState(() => new Set());
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -72,6 +73,10 @@ function Notifications() {
       setError('Bildirim kimliği bulunamadı.');
       return false;
     }
+    if (readingIds.has(id)) {
+      return false;
+    }
+    setReadingIds((prev) => new Set(prev).add(id));
     setItems((prev) => prev.filter((entry) => getNotificationId(entry) !== id));
     try {
       await markNotificationReadRequest(api, item);
@@ -81,18 +86,25 @@ function Notifications() {
       setError(requestError.response?.data?.message || 'Bildirim okundu yapılamadı.');
       fetchNotifications();
       return false;
+    } finally {
+      setReadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
   const handleNotificationClick = async (item) => {
     const target = resolveNotificationTarget(item);
-    const marked = await markNotificationRead(item);
-    if (marked && target) {
+    await markNotificationRead(item);
+    if (target) {
       navigate(target);
     }
   };
 
   const handleReadButtonClick = async (event, item) => {
+    event.preventDefault();
     event.stopPropagation();
     await markNotificationRead(item);
   };
@@ -166,9 +178,10 @@ function Notifications() {
                   <button
                     type="button"
                     className="notif-mark-read-btn notif-panel-mark-read-btn"
+                    disabled={readingIds.has(getNotificationId(item))}
                     onClick={(event) => handleReadButtonClick(event, item)}
                   >
-                    Okundu Yap
+                    {readingIds.has(getNotificationId(item)) ? 'İşleniyor' : 'Okundu Yap'}
                   </button>
                 </div>
               ))}

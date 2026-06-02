@@ -1,7 +1,13 @@
-export const getNotificationId = (item) => item?.id || item?._id || '';
+export const getNotificationId = (item) => {
+  if (typeof item === 'string') return item;
+  return item?.id || item?._id || '';
+};
 
 export const normalizeNotification = (item) => {
-  const data = item?.data || item?.metadata || {};
+  const data = {
+    ...(item?.metadata || {}),
+    ...(item?.data || {})
+  };
   const id = getNotificationId(item);
   return {
     ...item,
@@ -23,24 +29,26 @@ const getTypeFallbackTarget = (type) => {
   if (type === 'listing_expiring' || type === 'listing_expired') return '/profile/requests';
   if (type === 'payment_success' || type === 'payment_update') return '/profile';
   if (type === 'premium_activated' || type === 'featured_activated') return '/profile';
-  return '';
+  return '/notifications';
 };
 
 export const resolveNotificationTarget = (item) => {
   const normalized = normalizeNotification(item);
   const data = normalized.data || {};
   const type = String(normalized.type || data.type || '').toLowerCase();
+  const targetType = String(normalized.targetType || data.targetType || '').toLowerCase();
+  const targetId = normalized.targetId || data.targetId;
 
   if (normalized.targetUrl || data.targetUrl) {
     return normalized.targetUrl || data.targetUrl;
   }
 
-  if ((normalized.targetType || data.targetType) === 'chat' && (normalized.targetId || data.targetId)) {
-    return `/messages/${normalized.targetId || data.targetId}`;
+  if (targetType === 'chat' && targetId) {
+    return `/messages/${targetId}`;
   }
 
-  if ((normalized.targetType || data.targetType) === 'rfq' && (normalized.targetId || data.targetId)) {
-    return `/rfq/${normalized.targetId || data.targetId}`;
+  if (targetType === 'rfq' && targetId) {
+    return `/rfq/${targetId}`;
   }
 
   const chatId = normalized.chatId || data.chatId || data.conversationId;
