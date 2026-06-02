@@ -7,6 +7,13 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { APP_HOME_PATH } from '../config/surfaces';
 import { disconnectSocket, getSocket } from '../lib/socket';
+import {
+  getNotificationId,
+  markAllNotificationsRead,
+  markNotificationRead,
+  normalizeNotifications,
+  resolveNotificationTarget
+} from '../utils/notificationActions';
 import { readNativeLoginBootstrapPending } from '../utils/nativeLoginBootstrap';
 import { isNativeCapacitorRuntime } from '../utils/nativePlatform';
 
@@ -66,7 +73,7 @@ function Layout({ children, showBottomNav = true }) {
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications');
-      setNotifications(response.data?.data || []);
+      setNotifications(normalizeNotifications(response.data?.data || []));
       setUnreadCount(Number(response.data?.unreadCount || 0));
     } catch (_error) {
       setNotifications([]);
@@ -158,7 +165,7 @@ function Layout({ children, showBottomNav = true }) {
           setUnreadCount((prev) => Math.max(0, prev - 1));
         }
         if (payload?.notificationId && payload.notificationId !== 'all') {
-          setNotifications((prev) => prev.filter((item) => item._id !== payload.notificationId));
+          setNotifications((prev) => prev.filter((item) => getNotificationId(item) !== payload.notificationId));
         } else if (payload?.notificationId === 'all') {
           setNotifications([]);
         }
@@ -258,67 +265,49 @@ function Layout({ children, showBottomNav = true }) {
     if (!item) {
       return;
     }
-    if (item._id && !item.isRead) {
+    const target = resolveNotificationTarget(item);
+    const id = getNotificationId(item);
+    if (id && !item.isRead) {
       try {
-        const response = await api.patch(`/notifications/${item._id}/read`);
+        const response = await markNotificationRead(api, item);
         if (typeof response.data?.unreadCount === 'number') {
           setUnreadCount(response.data.unreadCount);
         } else {
           setUnreadCount((prev) => Math.max(0, prev - 1));
         }
-        setNotifications((prev) => prev.filter((entry) => entry._id !== item._id));
-      } catch (_error) {
-        // ignore
+        setNotifications((prev) => prev.filter((entry) => getNotificationId(entry) !== id));
+      } catch (error) {
+        setNotifToast(error.response?.data?.message || 'Bildirim okundu yapılamadı');
+        window.setTimeout(() => setNotifToast(null), 2000);
+        return;
       }
     }
 
-    const data = item?.data || {};
-    const rfqId =
-      item?.requestId ||
-      item?.rfqId ||
-      item?.demandId ||
-      item?.targetId ||
-      item?.entityId ||
-      data?.requestId ||
-      data?.rfqId ||
-      data?.demandId ||
-      data?.targetId ||
-      data?.entityId ||
-      data?.rfq;
-    const chatId = item?.chatId || data?.chatId;
-    const targetUrl = item?.targetUrl || data?.targetUrl;
-    const type = String(item?.type || data?.type || '').toLowerCase();
     handleCloseNotifications();
-    if (targetUrl) {
-      navigate(targetUrl);
-      return;
-    }
-    if (type === 'message' && chatId) {
-      navigate(`/messages/${chatId}`);
-      return;
-    }
-    if (rfqId) {
-      navigate(`/rfq/${rfqId}`);
-      return;
-    }
-    if (chatId) {
-      navigate(`/messages/${chatId}`);
-      return;
-    }
-    if (type === 'new_matching_rfq') {
-      navigate('/listing-follows');
-      return;
-    }
-    if (type === 'moderation_result' || type === 'listing_expiring' || type === 'listing_expired') {
-      navigate('/profile/requests');
-      return;
-    }
-    if (type === 'payment_success' || type === 'premium_activated' || type === 'featured_activated') {
-      navigate('/profile');
+    if (target) {
+      navigate(target);
       return;
     }
     setNotifToast('Talep bulunamadı');
     window.setTimeout(() => setNotifToast(null), 2000);
+  };
+
+  const handleNotificationReadOnly = async (event, item) => {
+    event.stopPropagation();
+    const id = getNotificationId(item);
+    if (!id) {
+      setNotifToast('Bildirim kimliği bulunamadı');
+      window.setTimeout(() => setNotifToast(null), 2000);
+      return;
+    }
+    try {
+      const response = await markNotificationRead(api, item);
+      setNotifications((prev) => prev.filter((entry) => getNotificationId(entry) !== id));
+      setUnreadCount(Number(response.data?.unreadCount ?? Math.max(0, unreadCount - 1)));
+    } catch (error) {
+      setNotifToast(error.response?.data?.message || 'Bildirim okundu yapılamadı');
+      window.setTimeout(() => setNotifToast(null), 2000);
+    }
   };
 
   const getNotifIcon = (item) => {
@@ -339,11 +328,12 @@ function Layout({ children, showBottomNav = true }) {
 
   const handleReadAllNotifications = async () => {
     try {
-      const response = await api.patch('/notifications/read-all');
+      const response = await markAllNotificationsRead(api);
       setNotifications([]);
       setUnreadCount(Number(response.data?.unreadCount || 0));
-    } catch (_error) {
-      // ignore
+    } catch (error) {
+      setNotifToast(error.response?.data?.message || 'Bildirimler okundu yapılamadı');
+      window.setTimeout(() => setNotifToast(null), 2000);
     }
   };
 
@@ -420,11 +410,18 @@ function Layout({ children, showBottomNav = true }) {
           ) : null}
           {notifications.length ? (
             notifications.map((item) => (
-              <button
-                key={item._id || item.message}
-                type="button"
+              <div
+                key={getNotificationId(item) || item.message}
+                role="button"
+                tabIndex={0}
                 className={`notif-item ${item.isRead ? '' : 'unread'}`}
                 onClick={() => handleNotificationClick(item)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleNotificationClick(item);
+                  }
+                }}
               >
                 <span className="notif-icon">{getNotifIcon(item)}</span>
                 <span className="notif-content">
@@ -434,8 +431,15 @@ function Layout({ children, showBottomNav = true }) {
                 <span className="notif-meta">
                   <span className="notif-time">{formatNotifTime(item.createdAt)}</span>
                   {!item.isRead ? <span className="notif-dot" /> : null}
+                  <button
+                    type="button"
+                    className="notif-mark-read-btn"
+                    onClick={(event) => handleNotificationReadOnly(event, item)}
+                  >
+                    Okundu Yap
+                  </button>
                 </span>
-              </button>
+              </div>
             ))
           ) : (
             <div className="notif-empty">Yeni bildiriminiz yok.</div>

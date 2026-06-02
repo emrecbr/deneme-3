@@ -2,6 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { NotificationIcon } from '../components/ui/AppIcons';
+import {
+  getNotificationId,
+  markAllNotificationsRead,
+  markNotificationRead as markNotificationReadRequest,
+  normalizeNotifications,
+  resolveNotificationTarget
+} from '../utils/notificationActions';
 
 function Notifications() {
   const navigate = useNavigate();
@@ -28,7 +35,7 @@ function Notifications() {
       if (!isActive()) {
         return;
       }
-      setItems(response.data?.data || []);
+      setItems(normalizeNotifications(response.data?.data || []));
       setError('');
     } catch (requestError) {
       if (!isActive()) {
@@ -41,46 +48,6 @@ function Notifications() {
       }
     }
   }, []);
-
-  const resolveNotificationTarget = (item) => {
-    const data = item?.data || {};
-    if (item?.targetUrl || data?.targetUrl) {
-      return item.targetUrl || data.targetUrl;
-    }
-    const type = String(item?.type || data?.type || '').toLowerCase();
-    const chatId = item?.chatId || data?.chatId;
-    if (type === 'message' && chatId) {
-      return `/messages/${chatId}`;
-    }
-    const rfqId =
-      item?.requestId ||
-      item?.rfqId ||
-      item?.demandId ||
-      item?.targetId ||
-      item?.entityId ||
-      data?.requestId ||
-      data?.rfqId ||
-      data?.demandId ||
-      data?.targetId ||
-      data?.entityId ||
-      data?.rfq;
-    if (rfqId) {
-      return `/rfq/${rfqId}`;
-    }
-    if (chatId) {
-      return `/messages/${chatId}`;
-    }
-    if (type === 'new_matching_rfq') {
-      return '/listing-follows';
-    }
-    if (type === 'moderation_result' || type === 'listing_expiring' || type === 'listing_expired') {
-      return '/profile/requests';
-    }
-    if (type === 'payment_success' || type === 'premium_activated' || type === 'featured_activated') {
-      return '/profile';
-    }
-    return '';
-  };
 
   const formatNotificationDate = (value) => {
     if (!value) {
@@ -100,14 +67,43 @@ function Notifications() {
     item?.body || item?.description || item?.data?.preview || item?.data?.note || '';
 
   const markNotificationRead = async (item) => {
-    if (!item?._id) {
-      return;
+    const id = getNotificationId(item);
+    if (!id) {
+      setError('Bildirim kimliği bulunamadı.');
+      return false;
     }
-    setItems((prev) => prev.filter((entry) => entry._id !== item._id));
+    setItems((prev) => prev.filter((entry) => getNotificationId(entry) !== id));
     try {
-      await api.patch(`/notifications/${item._id}/read`);
-    } catch (_error) {
+      await markNotificationReadRequest(api, item);
+      setError('');
+      return true;
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Bildirim okundu yapılamadı.');
       fetchNotifications();
+      return false;
+    }
+  };
+
+  const handleNotificationClick = async (item) => {
+    const target = resolveNotificationTarget(item);
+    const marked = await markNotificationRead(item);
+    if (marked && target) {
+      navigate(target);
+    }
+  };
+
+  const handleReadButtonClick = async (event, item) => {
+    event.stopPropagation();
+    await markNotificationRead(item);
+  };
+
+  const handleReadAll = async () => {
+    try {
+      await markAllNotificationsRead(api);
+      setItems([]);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Bildirimler okundu yapılamadı.');
     }
   };
 
@@ -128,14 +124,7 @@ function Notifications() {
         <button
           type="button"
           className="secondary-btn"
-          onClick={async () => {
-            try {
-              await api.patch('/notifications/read-all');
-              setItems([]);
-            } catch (_error) {
-              // ignore
-            }
-          }}
+          onClick={handleReadAll}
         >
           Tümünü okundu yap
         </button>
@@ -156,15 +145,16 @@ function Notifications() {
           items.length ? (
             <div className="notif-panel-list">
               {items.map((item) => (
-                <button
-                  key={item._id}
-                  type="button"
+                <div
+                  key={getNotificationId(item)}
+                  role="button"
+                  tabIndex={0}
                   className="notif-panel-item"
-                  onClick={async () => {
-                    const target = resolveNotificationTarget(item);
-                    await markNotificationRead(item);
-                    if (target) {
-                      navigate(target);
+                  onClick={() => handleNotificationClick(item)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleNotificationClick(item);
                     }
                   }}
                 >
@@ -173,7 +163,14 @@ function Notifications() {
                     <span className="notif-panel-desc">{getNotificationBody(item)}</span>
                   ) : null}
                   <span className="notif-panel-date">{formatNotificationDate(item.createdAt)}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="notif-mark-read-btn notif-panel-mark-read-btn"
+                    onClick={(event) => handleReadButtonClick(event, item)}
+                  >
+                    Okundu Yap
+                  </button>
+                </div>
               ))}
             </div>
           ) : (
