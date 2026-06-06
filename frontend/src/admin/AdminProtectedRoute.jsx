@@ -1,10 +1,11 @@
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { clearAdminSurfaceStorage, hasAdminAccess, resolveAccountEmail } from './adminAuthStorage';
 
 export default function AdminProtectedRoute({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { admin, loading, logout: logoutAdmin, clearSession } = useAdminAuth();
 
@@ -42,5 +43,7 @@ export default function AdminProtectedRoute({ children }) {
     );
   }
 
-  return <Navigate to="/login" replace />;
+  const returnTo = `${location.pathname}${location.search || ''}${location.hash || ''}`;
+  const loginPath = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+  return <Navigate to={loginPath} replace state={{ returnTo }} />;
 }

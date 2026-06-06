@@ -50,6 +50,10 @@ const AdminModerationAttempts = lazy(() => import('./admin/AdminModerationAttemp
 const AdminModerationAttemptDetail = lazy(() => import('./admin/AdminModerationAttemptDetail'));
 const AdminModerationSettings = lazy(() => import('./admin/AdminModerationSettings'));
 const AdminModerationRiskUsers = lazy(() => import('./admin/AdminModerationRiskUsers'));
+const AdminChats = lazy(() => import('./admin/AdminChats'));
+const AdminChatDetail = lazy(() => import('./admin/AdminChatDetail'));
+const AdminChatReports = lazy(() => import('./admin/AdminChatReports'));
+const AdminChatRestrictions = lazy(() => import('./admin/AdminChatRestrictions'));
 const AdminReportsOverview = lazy(() => import('./admin/AdminReportsOverview'));
 const AdminReportsExports = lazy(() => import('./admin/AdminReportsExports'));
 const AdminIssueReports = lazy(() => import('./admin/AdminIssueReports'));
@@ -418,6 +422,11 @@ function App() {
   const defaultAuthenticatedPath = isAdminRole
     ? ADMIN_HOME_PATH
     : APP_HOME_PATH;
+  const adminLoginReturnPath = (() => {
+    const params = new URLSearchParams(location.search || '');
+    const returnTo = params.get('returnTo') || '';
+    return returnTo.startsWith('/admin') ? returnTo : ADMIN_HOME_PATH;
+  })();
   const websiteProductHomeElement = renderWebsiteProductShell(<RFQList surfaceVariant="web" />, {
     title: 'Talepet website kesif alani',
     description:
@@ -480,6 +489,11 @@ function App() {
         <Route path="moderation/attempts/:id" element={<AdminModerationAttemptDetail />} />
         <Route path="moderation/settings" element={<AdminModerationSettings />} />
         <Route path="moderation/risk-users" element={<AdminModerationRiskUsers />} />
+        <Route path="moderation/chat-reports" element={<Navigate to="/admin/chat-reports" replace />} />
+        <Route path="chat-reports" element={<AdminChatReports />} />
+        <Route path="chat-restrictions" element={<AdminChatRestrictions />} />
+        <Route path="chats" element={<AdminChats />} />
+        <Route path="chats/:chatId" element={<AdminChatDetail />} />
         <Route path="rfq-flow/steps" element={<AdminRfqFlowSteps />} />
         <Route path="rfq-flow/validation" element={<Navigate to="/admin/rfq-flow/validation-analytics" replace />} />
         <Route path="rfq-flow/validation-analytics" element={<AdminRfqValidationAnalytics />} />
@@ -535,12 +549,13 @@ function App() {
         <Route path="reports/issues" element={<AdminIssueReports />} />
         <Route path="reports/issues/:id" element={<AdminIssueReportDetail />} />
         <Route path="audit" element={<AdminAuditLog />} />
+        <Route path="*" element={<AdminPlaceholder title="Admin sayfası bulunamadı" />} />
       </Route>
       <Route
         path="/login"
         element={
           adminHost ? (
-            admin ? <Navigate to={ADMIN_HOME_PATH} replace /> : <AdminLogin />
+            admin ? <Navigate to={adminLoginReturnPath} replace /> : <AdminLogin />
           ) : webSurfacePreferred ? (
             <SurfaceRedirect targetPath="/login" preserveCurrentPath surface="app" />
           ) : user && !websiteAuthRoute ? (

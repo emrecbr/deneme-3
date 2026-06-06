@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import AdminShell from '../components/AdminShell';
 import StatusBadge from '../components/StatusBadge';
 import { useAdminAuth } from '../context/AdminAuthContext';
@@ -62,6 +62,15 @@ const MENU_SECTIONS = [
       { label: 'Moderasyon Kurallari', to: '/admin/moderation/rules' },
       { label: 'Engellenen Denemeler', to: '/admin/moderation/attempts' },
       { label: 'Riskli Kullanicilar', to: '/admin/moderation/risk-users' }
+    ]
+  },
+  {
+    title: 'Chat Yönetimi',
+    items: [
+      { label: 'Chat Denetimi', to: '/admin/chats', activeKey: 'chat-review' },
+      { label: 'Chat Şikayetleri', to: '/admin/chat-reports', activePath: '/admin/chat-reports' },
+      { label: 'Riskli Mesajlar', to: '/admin/chats?riskLevel=high', activeKey: 'high-risk-chats' },
+      { label: 'Kısıtlı Kullanıcılar', to: '/admin/chat-restrictions', activePath: '/admin/chat-restrictions' }
     ]
   },
   {
@@ -138,9 +147,27 @@ const MENU_SECTIONS = [
 
 export default function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { admin, logout } = useAdminAuth();
   const role = admin?.role || 'user';
   const visibleSections = MENU_SECTIONS.filter((section) => !section.roles || section.roles.includes(role));
+  const currentSearch = new URLSearchParams(location.search || '');
+
+  const isMenuItemActive = (item, navLinkActive) => {
+    if (item.activeKey === 'high-risk-chats') {
+      return location.pathname === '/admin/chats' && currentSearch.get('riskLevel') === 'high';
+    }
+    if (item.activeKey === 'chat-review') {
+      return (
+        (location.pathname === '/admin/chats' || location.pathname.startsWith('/admin/chats/')) &&
+        currentSearch.get('riskLevel') !== 'high'
+      );
+    }
+    if (item.activePath) {
+      return location.pathname === item.activePath || location.pathname.startsWith(`${item.activePath}/`);
+    }
+    return navLinkActive;
+  };
 
   return (
     <AdminShell
@@ -159,7 +186,9 @@ export default function AdminLayout() {
                       <div key={item.to} className="nav-item">
                         <NavLink
                           to={item.to}
-                          className={({ isActive }) => `nav-link admin-menu-link ${isActive ? 'active' : ''}`}
+                          className={({ isActive }) =>
+                            `nav-link admin-menu-link ${isMenuItemActive(item, isActive) ? 'active' : ''}`
+                          }
                         >
                           <p className="admin-menu-link__label">{item.label}</p>
                         </NavLink>

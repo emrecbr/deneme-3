@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { clearAdminSurfaceStorage } from './adminAuthStorage';
 import { sanitizeAdminErrorMessage } from './adminErrorUtils';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, admin, clearSession } = useAdminAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,6 +14,14 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(true);
   const hasCleanedRef = useRef(false);
+
+  const resolveReturnPath = () => {
+    const stateReturn = typeof location.state?.returnTo === 'string' ? location.state.returnTo : '';
+    const params = new URLSearchParams(location.search || '');
+    const queryReturn = params.get('returnTo') || '';
+    const candidate = stateReturn || queryReturn || '/admin';
+    return candidate.startsWith('/admin') ? candidate : '/admin';
+  };
 
   useEffect(() => {
     if (hasCleanedRef.current) {
@@ -27,9 +36,9 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (admin) {
-      navigate('/admin', { replace: true });
+      navigate(resolveReturnPath(), { replace: true });
     }
-  }, [admin, navigate]);
+  }, [admin, navigate, location.search, location.state]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -38,7 +47,7 @@ export default function AdminLogin() {
 
     try {
       await login(email, password);
-      navigate('/admin', { replace: true });
+      navigate(resolveReturnPath(), { replace: true });
     } catch (err) {
       if (err?.code === 'ADMIN_ROLE_REQUIRED') {
         setError(`Admin yetkisi yok: ${err.accountEmail || email}`);

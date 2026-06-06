@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import AdminAuditLog from '../models/AdminAuditLog.js';
 import AppSetting from '../models/AppSetting.js';
+import SecurityEvent from '../models/SecurityEvent.js';
+import { clearApiRateLimitSettingsCache } from '../middleware/apiRateLimit.js';
 
 const FEATURE_FLAGS_DEFAULT = {
   mapViewEnabled: true,
@@ -30,6 +32,88 @@ const MODERATION_SETTINGS_DEFAULT = {
   repeatWindowHours: 24,
   repeatLimit: 2
 };
+const API_RATE_LIMIT_DEFAULT = {
+  login: {
+    label: 'Login deneme limiti',
+    max: 5,
+    windowMs: 15 * 60 * 1000,
+    message: 'Çok fazla giriş denemesi yapıldı. Lütfen 15 dakika sonra tekrar deneyin.'
+  },
+  register: {
+    label: 'Register limiti',
+    max: 5,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla kayıt denemesi yapıldı. Lütfen daha sonra tekrar deneyin.'
+  },
+  otp_send_short: {
+    label: 'OTP gönderim limiti',
+    max: 3,
+    windowMs: 10 * 60 * 1000,
+    message: 'Çok fazla doğrulama kodu istendi. Lütfen 10 dakika sonra tekrar deneyin.'
+  },
+  otp_send_daily: {
+    label: 'OTP günlük limiti',
+    max: 10,
+    windowMs: 24 * 60 * 60 * 1000,
+    message: 'Günlük doğrulama kodu limitine ulaşıldı. Lütfen yarın tekrar deneyin.'
+  },
+  password_reset: {
+    label: 'Şifre sıfırlama limiti',
+    max: 3,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla şifre sıfırlama isteği gönderildi. Lütfen daha sonra tekrar deneyin.'
+  },
+  rfq_create: {
+    label: 'RFQ oluşturma API limiti',
+    max: 10,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla talep oluşturma denemesi yapıldı. Lütfen daha sonra tekrar deneyin.'
+  },
+  offer_create: {
+    label: 'Teklif gönderme limiti',
+    max: 30,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla teklif gönderildi. Lütfen daha sonra tekrar deneyin.'
+  },
+  chat_message: {
+    label: 'Chat mesaj limiti',
+    max: 60,
+    windowMs: 60 * 1000,
+    message: 'Çok fazla mesaj gönderildi. Lütfen kısa süre sonra tekrar deneyin.'
+  },
+  upload: {
+    label: 'Görsel yükleme limiti',
+    max: 20,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla dosya yükleme denemesi yapıldı. Lütfen daha sonra tekrar deneyin.'
+  },
+  location_reverse: {
+    label: 'Konum / reverse geocoding limiti',
+    max: 60,
+    windowMs: 60 * 60 * 1000,
+    message: 'Çok fazla konum isteği gönderildi. Lütfen daha sonra tekrar deneyin.'
+  },
+  admin_api: {
+    label: 'Admin API limiti',
+    max: 300,
+    windowMs: 15 * 60 * 1000,
+    message: 'Admin API limiti aşıldı. Lütfen kısa süre sonra tekrar deneyin.'
+  }
+};
+
+const sanitizeApiRateLimitSettings = (value = {}) =>
+  Object.entries(API_RATE_LIMIT_DEFAULT).reduce((acc, [key, defaults]) => {
+    const incoming = value?.[key] || {};
+    const max = Number(incoming.max);
+    const windowMs = Number(incoming.windowMs);
+    acc[key] = {
+      label: defaults.label,
+      max: Number.isFinite(max) && max > 0 ? Math.floor(max) : defaults.max,
+      windowMs: Number.isFinite(windowMs) && windowMs > 0 ? Math.floor(windowMs) : defaults.windowMs,
+      message: String(incoming.message || defaults.message).trim()
+    };
+    return acc;
+  }, {});
 
 const getSetting = async (key, fallback) => {
   const doc = await AppSetting.findOne({ key }).lean();
@@ -197,6 +281,44 @@ export const updateModerationSettings = async (req, res, next) => {
     const saved = await saveSetting('moderation_settings', nextSettings, req.admin?.id || null);
     await logAdminAction(req, 'moderation_rule_toggle', { value: saved });
     return res.status(200).json({ success: true, data: saved });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getApiRateLimitSettings = async (_req, res, next) => {
+  try {
+    const data = await getSetting('api_rate_limit_settings', API_RATE_LIMIT_DEFAULT);
+    return res.status(200).json({
+      success: true,
+      data: sanitizeApiRateLimitSettings(data)
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateApiRateLimitSettings = async (req, res, next) => {
+  try {
+    const current = await getSetting('api_rate_limit_settings', API_RATE_LIMIT_DEFAULT);
+    const nextSettings = sanitizeApiRateLimitSettings({ ...current, ...(req.body || {}) });
+    const saved = await saveSetting('api_rate_limit_settings', nextSettings, req.admin?.id || null);
+    clearApiRateLimitSettingsCache();
+    await logAdminAction(req, 'api_rate_limit_settings_update', { value: saved });
+    return res.status(200).json({ success: true, data: saved });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const listRateLimitSecurityEvents = async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 50, 1), 200);
+    const events = await SecurityEvent.find({ type: 'api_rate_limit_exceeded' })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    return res.status(200).json({ success: true, data: events });
   } catch (error) {
     return next(error);
   }

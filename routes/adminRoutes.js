@@ -63,6 +63,9 @@ import {
   updateListingExpirySettings,
   getListingQuotaSettings,
   updateListingQuotaSettings,
+  getApiRateLimitSettings,
+  updateApiRateLimitSettings,
+  listRateLimitSecurityEvents,
   getModerationSettings,
   updateModerationSettings
 } from '../controllers/adminSystemController.js';
@@ -92,7 +95,21 @@ import {
   updateAdminIssueReportStatus,
   addAdminIssueReportNote
 } from '../controllers/adminIssueReportController.js';
+import {
+  listAdminChatReports,
+  updateAdminChatReport
+} from '../controllers/adminChatReportController.js';
+import {
+  createAdminUserChatRestriction,
+  getAdminChat,
+  listAdminChatRestrictions,
+  listAdminChats,
+  listAdminUserChatRestrictions,
+  removeAdminUserChatRestriction,
+  updateAdminChatMessageModeration
+} from '../controllers/adminChatController.js';
 import { importTsbRows, parseCsv, parseXlsx } from '../src/services/tsbImportService.js';
+import { apiRateLimit } from '../middleware/apiRateLimit.js';
 
 const router = express.Router();
 const upload = multer({
@@ -111,6 +128,8 @@ const homeAssetUpload = multer({
   }
 });
 
+router.use(adminRoleMiddleware, apiRateLimit('adminApi'));
+
 router.get('/dashboard/summary', adminRoleMiddleware, getDashboardSummary);
 router.post('/dashboard/summary/refresh', adminRoleMiddleware, requireAdminOnly, refreshDashboardSummary);
 
@@ -125,6 +144,9 @@ router.patch('/rfqs/:id/restore', adminRoleMiddleware, requireAdminOnly, restore
 router.patch('/rfqs/:id/delete', adminRoleMiddleware, requireAdminOnly, deleteExpiredRfq);
 
 router.get('/users', adminRoleMiddleware, listAdminUsers);
+router.get('/users/:userId/chat-restrictions', adminRoleMiddleware, listAdminUserChatRestrictions);
+router.post('/users/:userId/chat-restrictions', adminRoleMiddleware, createAdminUserChatRestriction);
+router.delete('/users/:userId/chat-restrictions/:restrictionId', adminRoleMiddleware, removeAdminUserChatRestriction);
 router.get('/users/:id', adminRoleMiddleware, getAdminUser);
 router.post('/users/:id/entitlements/grant', adminRoleMiddleware, requireAdminOnly, grantAdminUserEntitlement);
 router.patch('/users/:id/status', adminRoleMiddleware, updateAdminUserStatus);
@@ -133,6 +155,13 @@ router.post('/users/:id/notes', adminRoleMiddleware, addAdminUserNote);
 router.patch('/users/:id/delete', adminRoleMiddleware, requireAdminOnly, deleteAdminUser);
 
 router.get('/audit', adminRoleMiddleware, listAdminAuditLogs);
+
+router.get('/chats', adminRoleMiddleware, listAdminChats);
+router.get('/chats/:chatId', adminRoleMiddleware, getAdminChat);
+router.patch('/chats/:chatId/messages/:messageId/moderation', adminRoleMiddleware, updateAdminChatMessageModeration);
+router.get('/chat-restrictions', adminRoleMiddleware, listAdminChatRestrictions);
+router.get('/chat-reports', adminRoleMiddleware, listAdminChatReports);
+router.patch('/chat-reports/:id', adminRoleMiddleware, updateAdminChatReport);
 
 router.get('/categories', adminRoleMiddleware, listAdminCategories);
 router.post('/categories', adminRoleMiddleware, requireAdminOnly, createAdminCategory);
@@ -171,6 +200,9 @@ router.get('/system/listing-expiry', adminRoleMiddleware, getListingExpirySettin
 router.patch('/system/listing-expiry', adminRoleMiddleware, requireAdminOnly, updateListingExpirySettings);
 router.get('/system/listing-quota', adminRoleMiddleware, getListingQuotaSettings);
 router.patch('/system/listing-quota', adminRoleMiddleware, requireAdminOnly, updateListingQuotaSettings);
+router.get('/system/api-rate-limits', getApiRateLimitSettings);
+router.patch('/system/api-rate-limits', requireAdminOnly, updateApiRateLimitSettings);
+router.get('/security/rate-limit-events', listRateLimitSecurityEvents);
 router.get('/system/moderation-settings', adminRoleMiddleware, getModerationSettings);
 router.patch('/system/moderation-settings', adminRoleMiddleware, requireAdminOnly, updateModerationSettings);
 
@@ -203,6 +235,8 @@ router.get('/moderation/attempts', adminRoleMiddleware, listModerationAttempts);
 router.get('/moderation/attempts/:id', adminRoleMiddleware, getModerationAttempt);
 router.patch('/moderation/attempts/:id', adminRoleMiddleware, updateModerationAttempt);
 router.get('/moderation/risk-users', adminRoleMiddleware, listModerationRiskUsers);
+router.get('/moderation/chat-reports', adminRoleMiddleware, listAdminChatReports);
+router.patch('/moderation/chat-reports/:id', adminRoleMiddleware, updateAdminChatReport);
 
 router.get('/reports/overview', adminRoleMiddleware, getReportOverview);
 

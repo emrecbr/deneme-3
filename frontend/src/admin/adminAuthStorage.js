@@ -100,7 +100,11 @@ export const hasAdminAccess = (account) => {
     return true;
   }
 
-  return account.role === 'admin';
+  if (Array.isArray(account.roles) && account.roles.includes('moderator')) {
+    return true;
+  }
+
+  return account.role === 'admin' || account.role === 'moderator';
 };
 
 export const resolveAccountEmail = (account) =>
