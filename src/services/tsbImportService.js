@@ -20,16 +20,6 @@ const buildSlug = (value) =>
     .trim()
     .replace(/\s+/g, '-');
 
-const loadXlsx = () => {
-  try {
-    return require('xlsx');
-  } catch (error) {
-    const err = new Error('xlsx module is not installed. Run: npm i xlsx');
-    err.cause = error;
-    throw err;
-  }
-};
-
 const loadCsvParser = () => {
   try {
     return require('csv-parse/sync');
@@ -59,18 +49,6 @@ const getField = (row, keys) => {
     }
   }
   return '';
-};
-
-export const parseXlsx = (buffer) => {
-  const xlsx = loadXlsx();
-  const workbook = xlsx.read(buffer, { type: 'buffer' });
-  const rows = [];
-  workbook.SheetNames.forEach((sheetName) => {
-    const sheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json(sheet, { defval: '' });
-    rows.push(...data);
-  });
-  return rows;
 };
 
 export const parseCsv = (buffer) => {

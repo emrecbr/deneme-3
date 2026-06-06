@@ -108,7 +108,7 @@ import {
   removeAdminUserChatRestriction,
   updateAdminChatMessageModeration
 } from '../controllers/adminChatController.js';
-import { importTsbRows, parseCsv, parseXlsx } from '../src/services/tsbImportService.js';
+import { importTsbRows, parseCsv } from '../src/services/tsbImportService.js';
 import { apiRateLimit } from '../middleware/apiRateLimit.js';
 
 const router = express.Router();
@@ -256,13 +256,12 @@ router.post('/import/tsb-cars', adminRoleMiddleware, requireAdminOnly, upload.si
     }
 
     const filename = file.originalname || '';
-    const isXlsx = filename.toLowerCase().endsWith('.xlsx');
     const isCsv = filename.toLowerCase().endsWith('.csv');
-    if (!isXlsx && !isCsv) {
-      return res.status(400).json({ success: false, message: 'Sadece CSV veya XLSX desteklenir' });
+    if (!isCsv) {
+      return res.status(400).json({ success: false, message: 'Sadece CSV dosyası desteklenir.' });
     }
 
-    const rows = isXlsx ? parseXlsx(file.buffer) : parseCsv(file.buffer);
+    const rows = parseCsv(file.buffer);
     const stats = await importTsbRows(rows);
     return res.status(200).json({ success: true, stats });
   } catch (error) {

@@ -53,7 +53,7 @@ function AdminCarImport() {
         <form onSubmit={handleSubmit} className="account-form">
           <input
             type="file"
-            accept=".xlsx,.csv"
+            accept=".csv"
             onChange={(event) => setFile(event.target.files?.[0] || null)}
           />
           <button type="submit" className="primary-btn" disabled={loading}>

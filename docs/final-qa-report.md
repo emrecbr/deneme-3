@@ -24,7 +24,7 @@ Bu rapor yayın öncesi güvenli, read-only final QA kontrollerini kapsar. Produ
 
 Komut: `npm audit --omit=dev`
 
-Sonuç: 9 bulgu
+İlk sonuç: 9 bulgu
 
 - High: `nodemailer <=8.0.4`
 - High: `xlsx`
@@ -38,6 +38,20 @@ Notlar:
 - `xlsx` için audit çıktısında fix yok.
 - `nodemailer` için fix breaking upgrade gerektiriyor.
 - Bu bulgular yayın öncesi risk olarak ele alınmalı; otomatik `npm audit fix --force` uygulanmadı.
+
+Güvenli aksiyonlar:
+
+- `nodemailer` doğrudan dependency olarak kullanılıyor. Kullanım noktası `src/services/email.js`; mevcut kod `createTransport`, `verify` ve `sendMail` API’lerini kullanıyor. Paket kontrollü şekilde `8.0.10` sürümüne yükseltildi.
+- `xlsx` doğrudan dependency olarak yalnızca admin TSB araç import akışında kullanılıyordu. Audit çıktısında fix olmadığı için paket kaldırıldı ve TSB import güvenli varsayılan olarak CSV-only yapıldı. Admin UI artık yalnızca `.csv` dosyası seçtiriyor.
+- `express` patch seviyesinde `4.22.2` sürümüne yükseltildi; ilgili `qs` bulgusu giderildi.
+- `socket.io` lockfile çözümü `engine.io@6.6.8`, `socket.io-adapter@2.5.7` ve `ws@8.20.1` seviyesine çıktı; `ws` bulgusu giderildi.
+- `iyzipay` transitif `postman-request` çözümü `2.88.1-postman.48` sürümüne `overrides` ile sabitlendi. `npm audit fix --force` uygulanmadı.
+
+Güncel sonuç: 4 moderate bulgu
+
+- `qs` ve `uuid`, `iyzipay -> postman-request` transitif zincirinden geliyor.
+- High veya critical prod dependency bulgusu kalmadı.
+- Kalan moderate bulgular ödeme sağlayıcı SDK zincirinde olduğu için force downgrade/major değişiklik yapılmadı; ödeme testleri ve sağlayıcı SDK alternatifi ayrı kontrollü çalışma gerektirir.
 
 ### Canlı Backend Read-Only Kontrolleri
 
@@ -152,11 +166,11 @@ Bu alanlarda production verisi değiştirilmemesi için test credentials ve güv
 
 ### High
 
-- `npm audit` high bulguları: `nodemailer`, `xlsx`.
 - Authenticated kritik iş akışları henüz test kullanıcılarıyla doğrulanmadı.
 
 ### Medium
 
+- `npm audit` kalan bulguları `iyzipay -> postman-request` transitif zincirinde 4 moderate olarak açık.
 - Çok sayıda task dışı dirty dosya mevcut; release commit kapsamı dikkatle seçilmeli.
 - iOS simulator QA henüz yapılmadı.
 - Ödeme/OTP/push testleri henüz yapılmadı.
@@ -167,17 +181,18 @@ Bu alanlarda production verisi değiştirilmemesi için test credentials ve güv
 
 ## Yayın Değerlendirmesi
 
-Durum: Koşullu yayın adayı değil.
+Durum: Koşullu yayın adayı.
 
 Neden:
 
 - Build ve read-only smoke kontrolleri geçti.
 - Admin chat route canlı bundle sorunu düzeldi.
-- Ancak `npm audit` high bulguları ve authenticated/manual kritik akış testleri açık.
+- `npm audit` high bulguları giderildi.
+- Ancak authenticated/manual kritik akış testleri açık.
 
 Yayın öncesi önerilen minimum bloklar:
 
-1. `nodemailer` ve `xlsx` güvenlik bulguları için karar alınmalı.
+1. `iyzipay -> postman-request` transitif moderate bulguları için ödeme SDK güncelleme/alternatif planı çıkarılmalı.
 2. Test admin + iki test kullanıcı hesabı ile authenticated QA yapılmalı.
 3. Ödeme yalnızca test modunda doğrulanmalı.
 4. iOS simulator smoke yapılmalı.
@@ -189,6 +204,10 @@ Geçen komutlar:
 
 ```bash
 node --check src/server.js
+node --check src/services/email.js
+node --check src/services/tsbImportService.js
+node --check routes/adminRoutes.js
+EMAIL_PROVIDER=mock node -e "import('./src/services/email.js').then(async m=>{ await m.sendOtpEmail({to:'qa@example.com', code:'123456'}); console.log('EMAIL_MOCK_OK') })"
 npm run build --prefix frontend
 npm run test:smoke
 ```
@@ -199,4 +218,4 @@ Güvenlik kontrolü:
 npm audit --omit=dev
 ```
 
-Sonuç: Audit bulguları var; detaylar yukarıda sınıflandırıldı.
+Sonuç: 4 moderate bulgu kaldı; detaylar yukarıda sınıflandırıldı.
