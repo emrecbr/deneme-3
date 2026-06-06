@@ -16,6 +16,7 @@
     "seed:full": "node scripts/seedFullMarketplaceCategories.js",
     "seed:locations": "node scripts/seedTurkeyLocations.js",
     "seed:turkey-normalized": "node scripts/seedTurkeyNormalized.js",
+    "test:smoke": "node scripts/smokeTest.mjs",
     "seed:admin": "node scripts/seedAdmin.js",
     "admin:reset-password": "node scripts/resetAdminPassword.mjs",
     "seed:turkey-full": "node scripts/seedTurkeyFullLocation.js"
