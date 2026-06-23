@@ -6,6 +6,8 @@ import AppSetting from '../models/AppSetting.js';
 import Neighborhood from '../models/Neighborhood.js';
 import Street from '../models/Street.js';
 import Location from '../models/Location.js';
+import { optionalAuthMiddleware } from '../middleware/authMiddleware.js';
+import { apiRateLimit } from '../middleware/apiRateLimit.js';
 
 const locationRoutes = Router();
 
@@ -74,10 +76,7 @@ locationRoutes.get('/search', async (req, res, next) => {
 });
 
 const reverseCache = new Map();
-const reverseRateLimits = new Map();
 const REVERSE_CACHE_TTL_MS = 10 * 60 * 1000;
-const REVERSE_RATE_WINDOW_MS = 5 * 60 * 1000;
-const REVERSE_RATE_MAX = 30;
 const DEFAULT_CITY_AREA_KM2 = 5000;
 const KOCAELI_AREA_KM2 = 3581;
 const DEFAULT_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
@@ -149,17 +148,9 @@ const reverseGeocodeExternal = async (lat, lng) => {
 };
 
 const getCacheKey = (lat, lng) => `${lat.toFixed(4)}:${lng.toFixed(4)}`;
-const cleanupRateLimit = (entry, now) => {
-  if (!entry) return null;
-  if (now - entry.startedAt > REVERSE_RATE_WINDOW_MS) {
-    return null;
-  }
-  return entry;
-};
-
 // Local test:
 // curl -i "http://localhost:3001/api/location/reverse?lat=40.76273731847972&lng=29.933393168281924"
-locationRoutes.get('/reverse', async (req, res, next) => {
+locationRoutes.get('/reverse', optionalAuthMiddleware, apiRateLimit('locationReverse'), async (req, res, next) => {
   try {
     const latRaw = req.query.lat ?? req.query.latitude;
     const lngRaw = req.query.lng ?? req.query.lon ?? req.query.longitude;
@@ -193,22 +184,6 @@ locationRoutes.get('/reverse', async (req, res, next) => {
       return res.status(200).json({
         success: true,
         ...cached.data
-      });
-    }
-
-    const ip = String(req.headers['x-forwarded-for'] || req.ip || '')
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)[0] || 'unknown';
-    const prevLimit = cleanupRateLimit(reverseRateLimits.get(ip), now);
-    const nextLimit = prevLimit
-      ? { startedAt: prevLimit.startedAt, count: prevLimit.count + 1 }
-      : { startedAt: now, count: 1 };
-    reverseRateLimits.set(ip, nextLimit);
-    if (nextLimit.count > REVERSE_RATE_MAX) {
-      return res.status(429).json({
-        success: false,
-        message: 'Cok fazla deneme. Lutfen biraz sonra tekrar deneyin.'
       });
     }
 

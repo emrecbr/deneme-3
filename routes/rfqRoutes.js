@@ -2,6 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import { authMiddleware, optionalAuthMiddleware } from '../middleware/authMiddleware.js';
 import upload from '../middleware/uploadMiddleware.js';
+import { apiRateLimit } from '../middleware/apiRateLimit.js';
 import Category from '../models/Category.js';
 import City from '../models/City.js';
 import District from '../models/District.js';
@@ -331,7 +332,7 @@ const resolveCategoryQueryFilter = async (value) => {
   return normalizedValue;
 };
 
-rfqRoutes.post('/', authMiddleware, upload.array('images', 5), async (req, res, next) => {
+rfqRoutes.post('/', authMiddleware, apiRateLimit('rfqCreate'), apiRateLimit('upload'), upload.array('images', 5), async (req, res, next) => {
   let publishingConsumption = null;
   try {
     if (!req.user?.id) {
@@ -1430,12 +1431,17 @@ rfqRoutes.patch('/:id', authMiddleware, async (req, res, next) => {
       supplierIds.map((supplierId) =>
         Notification.create({
           user: supplierId,
-          message: `${rfq.title} talebi guncellendi.`,
+          title: 'Talep durumunuz güncellendi',
+          body: 'Talebinizle ilgili bir güncelleme var.',
+          message: 'Talebinizle ilgili bir güncelleme var.',
           type: 'rfq_updated',
           relatedId: rfq._id,
           data: {
             rfqId: rfq._id
-          }
+          },
+          targetType: 'rfq',
+          targetId: rfq._id,
+          targetUrl: `/rfq/${rfq._id}`
         })
       )
     );

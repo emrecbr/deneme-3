@@ -6,6 +6,7 @@ import { v2 as cloudinary } from 'cloudinary';
 const LOCAL_UPLOAD_DIR = path.resolve('uploads');
 const DEFAULT_CLOUDINARY_HOME_FOLDER = 'talepet/home';
 const DEFAULT_CLOUDINARY_MAIN_CATEGORY_FOLDER = 'talepet/categories/main';
+const DEFAULT_CLOUDINARY_CHAT_FOLDER = 'talepet/chat';
 const MIME_EXTENSIONS = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -117,6 +118,25 @@ export const uploadMainCategoryImage = async (buffer, options = {}) => {
     return uploadToCloudinary(buffer, {
       ...options,
       folder: options.folder || DEFAULT_CLOUDINARY_MAIN_CATEGORY_FOLDER
+    });
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('MEDIA_STORAGE_PROVIDER not configured, falling back to local uploads.');
+  }
+  return uploadToLocalStorage(buffer, options);
+};
+
+export const uploadChatImage = async (buffer, options = {}) => {
+  if (!buffer || !buffer.length) {
+    throw new Error('Görsel dosyası boş.');
+  }
+
+  const provider = normalizeProvider();
+  if (provider === 'cloudinary') {
+    return uploadToCloudinary(buffer, {
+      ...options,
+      folder: options.folder || DEFAULT_CLOUDINARY_CHAT_FOLDER
     });
   }
 

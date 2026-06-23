@@ -5,6 +5,7 @@ import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { LocationProvider } from "./context/LocationContext";
+import { ChatUnreadProvider } from "./context/ChatUnreadContext";
 import { SURFACE_LABELS, resolveSurfaceLabel, resolveSurfaceLabelFromHostname } from "./config/surfaces";
 import "./styles.css";
 
@@ -62,7 +63,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <AuthProvider>
       <AdminAuthProvider>
         <LocationProvider>
-          <App />
+          <ChatUnreadProvider>
+            <App />
+          </ChatUnreadProvider>
         </LocationProvider>
       </AdminAuthProvider>
     </AuthProvider>

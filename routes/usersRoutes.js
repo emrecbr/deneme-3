@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -9,6 +10,8 @@ import { getListingQuotaSettings, getListingQuotaSnapshot } from '../src/utils/l
 import { backfillMissingExpiresAt, getListingExpiryDays, markExpiredRfqs } from '../src/utils/rfqExpiry.js';
 import PaymentMethod from '../models/PaymentMethod.js';
 import AdminAuditLog from '../models/AdminAuditLog.js';
+import UserBlock from '../models/UserBlock.js';
+import { emitToRoom } from '../config/socket.js';
 
 const router = express.Router();
 
@@ -62,6 +65,31 @@ const avatarUpload = multer({
 });
 
 const normalizeName = (value) => String(value || '').trim();
+
+const logUserBlockAction = async (action, meta = {}) => {
+  try {
+    await AdminAuditLog.create({
+      adminId: meta.actorId || null,
+      action,
+      meta
+    });
+  } catch (_error) {
+    // audit failure must not block user actions
+  }
+};
+
+const emitBlockState = ({ actorId, targetId, isBlocked }) => {
+  emitToRoom(`user:${actorId}`, 'chat:blocked', {
+    userId: targetId,
+    blockedByMe: isBlocked,
+    isBlocked
+  });
+  emitToRoom(`user:${targetId}`, 'chat:blocked', {
+    userId: actorId,
+    blockedMe: isBlocked,
+    isBlocked
+  });
+};
 
 router.get('/me', authMiddleware, async (req, res) => {
   try {
@@ -303,6 +331,87 @@ router.delete('/me/avatar', authMiddleware, async (req, res) => {
     return res.status(200).json({ success: true, data: { avatarUrl: '' } });
   } catch (_error) {
     return res.status(500).json({ success: false, message: 'Avatar kaldırılamadı.' });
+  }
+});
+
+router.get('/blocked', authMiddleware, async (req, res) => {
+  try {
+    const blocks = await UserBlock.find({ blockerId: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('blockedUserId', 'name email avatarUrl lastSeenAt')
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: blocks
+    });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Engellenen kullanıcılar alınamadı.' });
+  }
+});
+
+router.post('/:userId/block', authMiddleware, async (req, res) => {
+  try {
+    const actorId = String(req.user.id);
+    const targetId = String(req.params.userId || '').trim();
+    if (!mongoose.isValidObjectId(targetId)) {
+      return res.status(400).json({ success: false, message: 'Kullanıcı bulunamadı.' });
+    }
+    if (targetId === actorId) {
+      return res.status(400).json({ success: false, message: 'Kendinizi engelleyemezsiniz.' });
+    }
+
+    const targetUser = await User.findById(targetId).select('_id');
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const reason = String(req.body?.reason || '').trim().slice(0, 500);
+    const block = await UserBlock.findOneAndUpdate(
+      { blockerId: actorId, blockedUserId: targetId },
+      { $set: { reason } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await logUserBlockAction('user_block_create', {
+      actorId,
+      blockedUserId: targetId,
+      blockId: block._id
+    });
+    emitBlockState({ actorId, targetId, isBlocked: true });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Kullanıcı engellendi.',
+      data: block
+    });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Kullanıcı engellenemedi.' });
+  }
+});
+
+router.delete('/:userId/block', authMiddleware, async (req, res) => {
+  try {
+    const actorId = String(req.user.id);
+    const targetId = String(req.params.userId || '').trim();
+    if (!mongoose.isValidObjectId(targetId)) {
+      return res.status(400).json({ success: false, message: 'Kullanıcı bulunamadı.' });
+    }
+
+    const result = await UserBlock.deleteOne({ blockerId: actorId, blockedUserId: targetId });
+    await logUserBlockAction('user_block_remove', {
+      actorId,
+      blockedUserId: targetId,
+      removed: result.deletedCount > 0
+    });
+    emitBlockState({ actorId, targetId, isBlocked: false });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Engel kaldırıldı.'
+    });
+  } catch (_error) {
+    return res.status(500).json({ success: false, message: 'Engel kaldırılamadı.' });
   }
 });
 

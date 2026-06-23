@@ -34,6 +34,7 @@ import monetizationRoutes from '../routes/monetizationRoutes.js';
 import alertRoutes from '../routes/alertRoutes.js';
 import analyticsRoutes from '../routes/analyticsRoutes.js';
 import City from '../models/City.js';
+import Chat from '../models/Chat.js';
 import RFQ from '../models/RFQ.js';
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
@@ -146,9 +147,20 @@ const ROUTE_MOUNTS = [
   ['/api/analytics', analyticsRoutes]
 ];
 const onlineUsers = new Set();
+const userSockets = new Map();
+const lastSeenByUser = new Map();
 const normalizeCity = (cityValue) => String(cityValue || '').trim().toLowerCase();
 let premiumSweepTimer = null;
 let subscriptionCancelTimer = null;
+
+const normalizeSocketUserId = (value) => String(value || '').trim();
+const getUserSocketCount = (userId) => userSockets.get(userId)?.size || 0;
+const isUserOnline = (userId) => getUserSocketCount(userId) > 0;
+const getPresencePayload = (userId) => ({
+  userId,
+  online: isUserOnline(userId),
+  lastSeenAt: lastSeenByUser.get(userId) || null
+});
 
 const logMountedRoutes = () => {
   console.log('Mounted routes:');
@@ -281,10 +293,14 @@ const startServer = async () => {
     io.emit('online_count', onlineUsers.size);
     console.log(`SOCKET CONNECTED: ${socket.id}`);
 
-    const userId = socket.handshake.query?.userId;
+    const userId = normalizeSocketUserId(socket.handshake.query?.userId);
     if (userId) {
       socket.join(String(userId));
       socket.join(`user:${String(userId)}`);
+      const sockets = userSockets.get(userId) || new Set();
+      sockets.add(socket.id);
+      userSockets.set(userId, sockets);
+      io.emit('presence:online', getPresencePayload(userId));
     }
 
     const city = normalizeCity(socket.handshake.query?.city);
@@ -324,9 +340,36 @@ const startServer = async () => {
       socket.leave(`rfq_${roomId}`);
     });
 
-    socket.on('join_chat', (chatId) => {
+    const canAccessChat = async (chatId) => {
+      if (!userId || !mongoose.Types.ObjectId.isValid(chatId) || !mongoose.Types.ObjectId.isValid(userId)) {
+        return false;
+      }
+      const chat = await Chat.findOne({ _id: chatId, participants: userId }).select('_id');
+      return Boolean(chat);
+    };
+
+    socket.on('presence:check', async (targetUserId) => {
+      const targetId = normalizeSocketUserId(targetUserId);
+      if (!targetId) return;
+      if (!mongoose.Types.ObjectId.isValid(targetId)) {
+        socket.emit('presence:update', { userId: targetId, online: false, lastSeenAt: null });
+        return;
+      }
+      if (!lastSeenByUser.has(targetId)) {
+        const targetUser = await User.findById(targetId).select('lastSeenAt').lean().catch(() => null);
+        if (targetUser?.lastSeenAt) {
+          lastSeenByUser.set(targetId, targetUser.lastSeenAt.toISOString());
+        }
+      }
+      socket.emit('presence:update', getPresencePayload(targetId));
+    });
+
+    socket.on('join_chat', async (chatId) => {
       const roomId = String(chatId || '').trim();
       if (!roomId) {
+        return;
+      }
+      if (!(await canAccessChat(roomId))) {
         return;
       }
       socket.join(`chat:${roomId}`);
@@ -340,9 +383,47 @@ const startServer = async () => {
       socket.leave(`chat:${roomId}`);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('typing:start', async (payload = {}) => {
+      const chatId = String(payload.chatId || '').trim();
+      if (!chatId || !(await canAccessChat(chatId))) {
+        return;
+      }
+      socket.to(`chat:${chatId}`).emit('typing:start', {
+        chatId,
+        userId
+      });
+    });
+
+    socket.on('typing:stop', async (payload = {}) => {
+      const chatId = String(payload.chatId || '').trim();
+      if (!chatId || !(await canAccessChat(chatId))) {
+        return;
+      }
+      socket.to(`chat:${chatId}`).emit('typing:stop', {
+        chatId,
+        userId
+      });
+    });
+
+    socket.on('disconnect', async () => {
       onlineUsers.delete(socket.id);
       io.emit('online_count', onlineUsers.size);
+      if (userId) {
+        const sockets = userSockets.get(userId);
+        if (sockets) {
+          sockets.delete(socket.id);
+          if (!sockets.size) {
+            userSockets.delete(userId);
+            const lastSeenAt = new Date();
+            lastSeenByUser.set(userId, lastSeenAt.toISOString());
+            await User.updateOne({ _id: userId }, { $set: { lastSeenAt } }).catch(() => {});
+            io.emit('presence:offline', getPresencePayload(userId));
+            io.emit('typing:stop', { userId });
+          } else {
+            userSockets.set(userId, sockets);
+          }
+        }
+      }
       console.log(`SOCKET DISCONNECTED: ${socket.id}`);
     });
   });

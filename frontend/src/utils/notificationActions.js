@@ -29,6 +29,7 @@ const getTypeFallbackTarget = (type) => {
   if (type === 'listing_expiring' || type === 'listing_expired') return '/profile/requests';
   if (type === 'payment_success' || type === 'payment_update') return '/profile';
   if (type === 'premium_activated' || type === 'featured_activated') return '/profile';
+  if (type === 'chat_message' || type === 'message' || type === 'new_message') return '/messages';
   return '/notifications';
 };
 
@@ -63,7 +64,7 @@ export const resolveNotificationTarget = (item) => {
     data.entityId ||
     data.rfq;
 
-  if ((type === 'message' || type === 'new_message') && chatId) {
+  if ((type === 'message' || type === 'new_message' || type === 'chat_message') && chatId) {
     return `/messages/${chatId}`;
   }
 

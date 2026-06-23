@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useChatUnreadCount } from '../context/ChatUnreadContext';
 import { APP_HOME_PATH } from '../config/surfaces';
 
 function IconHome() {
@@ -44,9 +45,11 @@ function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { globalUnreadCount } = useChatUnreadCount();
   const currentPath = location.pathname;
   const homePaths = ['/', APP_HOME_PATH];
   const followedListingsPaths = ['/listing-follows'];
+  const messageBadgeLabel = globalUnreadCount > 99 ? '99+' : String(globalUnreadCount || '');
 
   const isActive = (paths, { exact = false } = {}) =>
     paths.some((path) => currentPath === path || (!exact && currentPath.startsWith(`${path}/`)));
@@ -126,6 +129,7 @@ function BottomNav() {
       >
         <span className="icon">
           <IconMessages />
+          {globalUnreadCount > 0 ? <span className="nav-unread-badge">{messageBadgeLabel}</span> : null}
         </span>
       </button>
 

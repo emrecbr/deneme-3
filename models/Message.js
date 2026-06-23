@@ -13,16 +13,80 @@ const messageSchema = new mongoose.Schema(
       ref: 'User',
       required: true
     },
+    type: {
+      type: String,
+      enum: ['text', 'image'],
+      default: 'text',
+      index: true
+    },
     content: {
       type: String,
-      required: true,
+      default: '',
       trim: true,
       maxlength: 2000
+    },
+    mediaUrl: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    mediaProvider: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    mediaPublicId: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    mediaMimeType: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    mediaSize: {
+      type: Number,
+      default: 0
+    },
+    riskScore: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+      index: true
+    },
+    riskLevel: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'low',
+      index: true
+    },
+    riskReasons: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    moderationStatus: {
+      type: String,
+      enum: ['clean', 'flagged', 'reviewed', 'dismissed'],
+      default: 'clean',
+      index: true
     },
     read: {
       type: Boolean,
       default: false
-    }
+    },
+    readAt: {
+      type: Date
+    },
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ]
   },
   {
     timestamps: true

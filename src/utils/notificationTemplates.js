@@ -4,8 +4,8 @@ const templates = {
     body: title ? `${title} talebin yayına alındı.` : 'Talebin yayına alındı.'
   }),
   offer_received: ({ title } = {}) => ({
-    title: 'Yeni teklif',
-    body: title ? `${title} talebin için yeni teklif geldi.` : 'Talebin için yeni teklif geldi.'
+    title: 'Yeni teklif aldınız',
+    body: 'Talebinize yeni bir teklif geldi.'
   }),
   offer_accepted: ({ title } = {}) => ({
     title: 'Teklif kabul edildi',
@@ -16,30 +16,32 @@ const templates = {
     body: 'Bildiriminiz sonuçlandı. Detayları profilinizden görebilirsiniz.'
   }),
   listing_expiring: ({ title } = {}) => ({
-    title: 'İlan süresi bitiyor',
-    body: title ? `${title} ilanının süresi yakında dolacak.` : 'İlanının süresi yakında dolacak.'
+    title: 'Talebinizin süresi dolmak üzere',
+    body: 'Talebinizin yayından kalkmasına kısa süre kaldı.'
   }),
   listing_expired: ({ title } = {}) => ({
     title: 'İlan süresi doldu',
     body: title ? `${title} ilanının süresi doldu.` : 'İlanının süresi doldu.'
   }),
   payment_success: () => ({
-    title: 'Ödeme başarılı',
-    body: 'Ödemeniz başarıyla alındı.'
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
   }),
   premium_activated: () => ({
-    title: 'Premium aktif',
-    body: 'Premium üyeliğiniz aktif edildi.'
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
   }),
   featured_activated: () => ({
-    title: 'Öne çıkarma aktif',
-    body: 'İlanınız öne çıkarıldı.'
+    title: 'Paket işleminiz güncellendi',
+    body: 'Paket veya ödeme işleminizle ilgili bir güncelleme var.'
   }),
   new_matching_rfq: ({ title, cityName, categoryName } = {}) => ({
-    title: title || 'Yeni ilan var',
-    body: categoryName || cityName
-      ? `${categoryName || 'Takip ettiğin kategori'}${cityName ? ` - ${cityName}` : ''} için yeni ilan yayınlandı.`
-      : 'Takip ettiğin kriter için yeni ilan yayınlandı.'
+    title: 'Yeni eşleşen ilan bulundu',
+    body: 'İlan takip kuralınıza uygun yeni bir talep bulundu.'
+  }),
+  chat_message: ({ title, body } = {}) => ({
+    title: title || 'Yeni mesaj',
+    body: body || 'Yeni bir mesajınız var.'
   }),
   admin_test_push: ({ title, body } = {}) => ({
     title: title || 'Test bildirimi',
@@ -67,5 +69,6 @@ export const notificationPreferenceMap = {
   premium_activated: 'paymentNotifications',
   featured_activated: 'paymentNotifications',
   new_matching_rfq: 'listingNotifications',
+  chat_message: 'messageNotifications',
   admin_test_push: 'systemNotifications'
 };

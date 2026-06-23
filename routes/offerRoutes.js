@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { apiRateLimit } from '../middleware/apiRateLimit.js';
 import Offer from '../models/Offer.js';
 import { checkModeration } from '../src/utils/moderation.js';
 import RFQ from '../models/RFQ.js';
@@ -122,25 +123,35 @@ const acceptOffer = async (req, res, next) => {
     await Notification.create([
       {
         user: offer.supplier,
-        message: `${rfq.title} talebindeki teklifiniz kabul edildi.`,
+        title: 'Teklif durumunuz güncellendi',
+        body: 'Teklifinizin durumu güncellendi.',
+        message: 'Teklifinizin durumu güncellendi.',
         type: 'offer_accepted',
         relatedId: offer._id,
         data: {
           rfqId: rfq._id,
           chatId: chat?._id || null,
           offerId: offer._id
-        }
+        },
+        targetType: chat?._id ? 'chat' : 'rfq',
+        targetId: chat?._id || rfq._id,
+        targetUrl: chat?._id ? `/messages/${chat._id}` : `/rfq/${rfq._id}`
       },
       {
         user: rfq.buyer,
-        message: `${rfq.title} talebindeki teklif kabul edildi.`,
+        title: 'Teklif durumunuz güncellendi',
+        body: 'Teklifinizin durumu güncellendi.',
+        message: 'Teklifinizin durumu güncellendi.',
         type: 'offer_accepted',
         relatedId: offer._id,
         data: {
           rfqId: rfq._id,
           chatId: chat?._id || null,
           offerId: offer._id
-        }
+        },
+        targetType: chat?._id ? 'chat' : 'rfq',
+        targetId: chat?._id || rfq._id,
+        targetUrl: chat?._id ? `/messages/${chat._id}` : `/rfq/${rfq._id}`
       }
     ]);
 
@@ -246,23 +257,33 @@ const rejectOffer = async (req, res, next) => {
     await Notification.create([
       {
         user: offer.supplier,
-        message: `${rfq.title} talebindeki teklifiniz reddedildi.`,
+        title: 'Teklif durumunuz güncellendi',
+        body: 'Teklifinizin durumu güncellendi.',
+        message: 'Teklifinizin durumu güncellendi.',
         type: 'offer_rejected',
         relatedId: offer._id,
         data: {
           rfqId: rfq._id,
           offerId: offer._id
-        }
+        },
+        targetType: 'rfq',
+        targetId: rfq._id,
+        targetUrl: `/rfq/${rfq._id}`
       },
       {
         user: rfq.buyer,
-        message: `${rfq.title} talebindeki teklif reddedildi.`,
+        title: 'Teklif durumunuz güncellendi',
+        body: 'Teklifinizin durumu güncellendi.',
+        message: 'Teklifinizin durumu güncellendi.',
         type: 'offer_rejected',
         relatedId: offer._id,
         data: {
           rfqId: rfq._id,
           offerId: offer._id
-        }
+        },
+        targetType: 'rfq',
+        targetId: rfq._id,
+        targetUrl: `/rfq/${rfq._id}`
       }
     ]);
 
@@ -300,7 +321,7 @@ const rejectOffer = async (req, res, next) => {
   }
 };
 
-offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
+offerRoutes.post('/:rfqId', authMiddleware, apiRateLimit('offerCreate'), async (req, res, next) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({
@@ -425,14 +446,19 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
 
     await Notification.create({
       user: rfq.buyer,
-      message: `${rfq.title} talebine yeni bir teklif verildi.`,
+      title: 'Yeni teklif aldınız',
+      body: 'Talebinize yeni bir teklif geldi.',
+      message: 'Talebinize yeni bir teklif geldi.',
       type: 'offer_created',
       relatedId: offer._id,
       data: {
         rfqId: rfq._id,
         offerId: offer._id,
         supplierId: offer.supplier
-      }
+      },
+      targetType: 'rfq',
+      targetId: rfq._id,
+      targetUrl: `/rfq/${rfq._id}`
     });
 
     await sendPushToUser({
@@ -443,8 +469,8 @@ offerRoutes.post('/:rfqId', authMiddleware, async (req, res, next) => {
         offerId: offer._id.toString(),
         supplierId: offer.supplier.toString()
       },
-      title: 'Yeni teklif',
-      body: `${rfq.title} talebine yeni bir teklif verildi.`
+      title: 'Yeni teklif aldınız',
+      body: 'Talebinize yeni bir teklif geldi.'
     });
 
     emitToRoom(`user:${rfq.buyer.toString()}`, 'newOffer', {
@@ -625,14 +651,19 @@ offerRoutes.patch('/:offerId', authMiddleware, async (req, res, next) => {
 
     await Notification.create({
       user: rfq.buyer,
-      message: `${rfq.title} talebindeki teklif guncellendi.`,
+      title: 'Teklif durumunuz güncellendi',
+      body: 'Talebinizdeki teklif bilgisi güncellendi.',
+      message: 'Talebinizdeki teklif bilgisi güncellendi.',
       type: 'offer_updated',
       relatedId: offer._id,
       data: {
         chatId: chat?._id || null,
         rfqId: rfq._id,
         offerId: offer._id
-      }
+      },
+      targetType: chat?._id ? 'chat' : 'rfq',
+      targetId: chat?._id || rfq._id,
+      targetUrl: chat?._id ? `/messages/${chat._id}` : `/rfq/${rfq._id}`
     });
 
     emitToRoom(`chat:${chat._id.toString()}`, 'offer:update', {

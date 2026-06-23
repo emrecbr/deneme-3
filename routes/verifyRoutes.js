@@ -1,18 +1,8 @@
 import { Router } from 'express';
 import { sendOtp, verifyOtp } from '../controllers/otpController.js';
+import { apiRateLimit, otpSendRateLimit } from '../middleware/apiRateLimit.js';
 
 const router = Router();
-
-const rateBuckets = new Map();
-
-const hitRateLimit = (key, limit, windowMs) => {
-  const now = Date.now();
-  const bucket = rateBuckets.get(key) || [];
-  const filtered = bucket.filter((ts) => now - ts < windowMs);
-  filtered.push(now);
-  rateBuckets.set(key, filtered);
-  return filtered.length > limit;
-};
 
 const isValidEmail = (value) => /\S+@\S+\.\S+/.test(String(value || '').trim());
 
@@ -28,7 +18,7 @@ const normalizeSms = (value) => {
   return `+${digits}`;
 };
 
-router.post('/start', async (req, res) => {
+router.post('/start', ...otpSendRateLimit, async (req, res) => {
   try {
     const channel = String(req.body?.channel || '').trim();
     const toRaw = String(req.body?.to || '').trim();
@@ -42,11 +32,6 @@ router.post('/start', async (req, res) => {
     }
     if (channel === 'email' && !isValidEmail(to)) {
       return res.status(400).json({ success: false, message: 'E-posta formatı gecersiz.' });
-    }
-
-    const ip = req.ip || 'unknown';
-    if (hitRateLimit(`verify-start:${ip}`, 3, 60 * 1000)) {
-      return res.status(429).json({ success: false, message: 'Çok fazla istek. Lütfen bekleyin.' });
     }
 
     req.body = {
@@ -65,7 +50,7 @@ router.post('/start', async (req, res) => {
   }
 });
 
-router.post('/check', async (req, res) => {
+router.post('/check', apiRateLimit('login'), async (req, res) => {
   try {
     const to = String(req.body?.to || '').trim();
     const code = String(req.body?.code || '').trim();
@@ -74,11 +59,6 @@ router.post('/check', async (req, res) => {
     }
     if (!/^\d{6}$/.test(code)) {
       return res.status(400).json({ success: false, message: 'Kod 6 haneli olmalı.' });
-    }
-
-    const ip = req.ip || 'unknown';
-    if (hitRateLimit(`verify-check:${ip}`, 10, 60 * 1000)) {
-      return res.status(429).json({ success: false, message: 'Çok fazla deneme. Lütfen bekleyin.' });
     }
 
     const inferredChannel = req.body?.channel
